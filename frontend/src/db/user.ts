@@ -36,4 +36,53 @@ export const checkProfileExists = async (userId: string): Promise<boolean> => {
     // 쿼리 실행 에러 발생 시 없다고 가정
     return false;
   }
+};
+
+export interface UserProfile {
+  id: string;
+  name: string;
+  gender: string;
+  birthDate: string;
+  height: number;
+  bodyType: string;
+  job: string;
+  education: string;
+  religion: string;
+  smoking: string;
+  drinking: string;
+  mbti: string;
+  bio: string;
+  photoUri: string;
+  interests: string;
+  city: string;
+  district: string;
+  maritalStatus?: string;
+  hasChildren?: number;
+}
+
+export const saveOrUpdateProfile = (profile: UserProfile) => {
+  try {
+    db.execSync(
+      `INSERT OR REPLACE INTO user (
+        id, name, gender, birthDate, height, bodyType, job, education, religion, smoking, drinking, mbti, bio, photoUri, interests, city, district, maritalStatus, hasChildren
+      ) VALUES (
+        '${profile.id}', '${profile.name}', '${profile.gender}', '${profile.birthDate}', ${profile.height}, '${profile.bodyType}', '${profile.job}', '${profile.education}', '${profile.religion}', '${profile.smoking}', '${profile.drinking}', '${profile.mbti}', '${profile.bio}', '${profile.photoUri}', '${profile.interests}', '${profile.city}', '${profile.district}', '${profile.maritalStatus ?? ''}', ${profile.hasChildren ?? 0}
+      );`
+    );
+    return true;
+  } catch (e) {
+    return false;
+  }
+};
+
+export const getProfile = (userId: string): UserProfile | null => {
+  try {
+    const result = db.getAllSync(`SELECT * FROM user WHERE id = '${userId}' LIMIT 1;`);
+    if (result && result.length > 0) {
+      return result[0] as UserProfile;
+    }
+    return null;
+  } catch (e) {
+    return null;
+  }
 }; 

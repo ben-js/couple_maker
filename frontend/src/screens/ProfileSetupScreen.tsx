@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Modal, View as RNView, Button as RNButton, TouchableOpacity, Platform, Image } from 'react-native';
-import { View, Text, TextField, Picker as UIPicker, Slider, Chip, Button, Avatar, RadioGroup, RadioButton } from 'react-native-ui-lib';
+import { View, Text, TextField, Picker as UIPicker, Slider, Chip, Button, Avatar, RadioGroup, RadioButton, Dialog } from 'react-native-ui-lib';
 import { Picker as WheelPicker } from '@react-native-picker/picker';
 import regionData from '../data/regions.json';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system';
+import { useNavigation } from '@react-navigation/native';
+import { saveOrUpdateProfile, UserProfile } from '../db/user';
+import { useAuth } from '../store/AuthContext';
 
 // @ts-ignore: expo-image-cropper 타입 선언 없음을 무시
 declare module 'expo-image-cropper';
@@ -61,6 +64,8 @@ const ProfileSetupScreen = () => {
   const [previewUri, setPreviewUri] = useState<string|null>(null);
   const [previewTargetIdx, setPreviewTargetIdx] = useState<number|null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const navigation = useNavigation<any>();
+  const { user } = useAuth();
 
   const toggleInterest = (item: string) => {
     setInterests((prev) => {
@@ -135,88 +140,95 @@ const ProfileSetupScreen = () => {
         </TouchableOpacity>
       </View>
 
-      {/* 전체 사진 관리 팝업 */}
-      <Modal visible={showPhotoPopup} transparent animationType="fade" onRequestClose={() => setShowPhotoPopup(false)}>
-        <RNView style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0005' }}>
-          <RNView style={{ backgroundColor: '#fff', borderRadius: 20, paddingVertical: 24, width: 340, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 12, elevation: 8, alignItems: 'center' }}>
-            <Text style={{ fontSize: 18, fontWeight: 'bold', textAlign: 'center', marginBottom: 16 }}>사진 관리</Text>
-            {/* 대표 이미지 크게 중앙 */}
-            <TouchableOpacity
-              onPress={() => setPhotoActionIndex(0)}
-              activeOpacity={0.8}
-              style={{ width: 120, height: 120, backgroundColor: '#eee', borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: 16, position: 'relative' }}
-            >
-              {photos[0] ? (
-                <Image source={{ uri: photos[0] }} style={{ width: '100%', height: '100%', borderRadius: 12 }} resizeMode="cover" />
-              ) : (
-                <Avatar
-                  size={48}
-                  label="?"
-                  backgroundColor="#e5e6fa"
-                  labelColor="#bbb"
-                  containerStyle={{ alignSelf: 'center' }}
-                />
-              )}
-              {/* 대표 뱃지 */}
-              <View style={{ position: 'absolute', top: 0, right: 0, backgroundColor: '#6C6FC5', borderTopRightRadius: 12, borderBottomLeftRadius: 12, paddingHorizontal: 10, paddingVertical: 4 }}>
-                <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 14 }}>대표</Text>
-              </View>
-            </TouchableOpacity>
-            {/* 나머지 4개 이미지는 아래 한 줄 */}
-            <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 12 }}>
-              {[1,2,3,4].map(i => (
-                <TouchableOpacity
-                  key={i}
-                  onPress={() => setPhotoActionIndex(i)}
-                  activeOpacity={0.8}
-                  style={{ width: 56, height: 56, backgroundColor: '#eee', borderRadius: 8, marginHorizontal: 6, justifyContent: 'center', alignItems: 'center' }}
-                >
-                  {photos[i] ? (
-                    <Image source={{ uri: photos[i] }} style={{ width: '100%', height: '100%', borderRadius: 8 }} resizeMode="cover" />
-                  ) : (
-                    <Avatar
-                      size={28}
-                      label="?"
-                      backgroundColor="#e5e6fa"
-                      labelColor="#bbb"
-                      containerStyle={{ alignSelf: 'center' }}
-                    />
-                  )}
-                </TouchableOpacity>
-              ))}
+      {/* 전체 사진 관리 다이얼로그 */}
+      <Dialog
+        visible={showPhotoPopup}
+        onDismiss={() => setShowPhotoPopup(false)}
+        containerStyle={{ justifyContent: 'center', alignItems: 'center' }}
+        width={340}
+        panDirection={null}
+      >
+        <RNView style={{ backgroundColor: '#fff', borderRadius: 20, paddingVertical: 24, width: 340, alignItems: 'center' }}>
+          <Text style={{ fontSize: 18, fontWeight: 'bold', textAlign: 'center', marginBottom: 16 }}>사진 관리</Text>
+          {/* 대표 이미지 크게 중앙 */}
+          <TouchableOpacity
+            onPress={() => setPhotoActionIndex(0)}
+            activeOpacity={0.8}
+            style={{ width: 120, height: 120, backgroundColor: '#eee', borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: 16, position: 'relative' }}
+          >
+            {photos[0] ? (
+              <Image source={{ uri: photos[0] }} style={{ width: '100%', height: '100%', borderRadius: 12 }} resizeMode="cover" />
+            ) : (
+              <Avatar
+                size={48}
+                label="?"
+                backgroundColor="#e5e6fa"
+                labelColor="#bbb"
+                containerStyle={{ alignSelf: 'center' }}
+              />
+            )}
+            {/* 대표 뱃지 */}
+            <View style={{ position: 'absolute', top: 0, right: 0, backgroundColor: '#6C6FC5', borderTopRightRadius: 12, borderBottomLeftRadius: 12, paddingHorizontal: 10, paddingVertical: 4 }}>
+              <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 14 }}>대표</Text>
             </View>
-            <Button label="닫기" onPress={() => setShowPhotoPopup(false)} style={{ marginTop: 8 }} />
-          </RNView>
+          </TouchableOpacity>
+          {/* 나머지 4개 이미지는 아래 한 줄 */}
+          <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 12 }}>
+            {[1,2,3,4].map(i => (
+              <TouchableOpacity
+                key={i}
+                onPress={() => setPhotoActionIndex(i)}
+                activeOpacity={0.8}
+                style={{ width: 56, height: 56, backgroundColor: '#eee', borderRadius: 8, marginHorizontal: 6, justifyContent: 'center', alignItems: 'center' }}
+              >
+                {photos[i] ? (
+                  <Image source={{ uri: photos[i] }} style={{ width: '100%', height: '100%', borderRadius: 8 }} resizeMode="cover" />
+                ) : (
+                  <Avatar
+                    size={28}
+                    label="?"
+                    backgroundColor="#e5e6fa"
+                    labelColor="#bbb"
+                    containerStyle={{ alignSelf: 'center' }}
+                  />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Button label="닫기" onPress={() => setShowPhotoPopup(false)} style={{ marginTop: 8 }} />
         </RNView>
-        {/* 작은 액션 팝업 */}
-        <Modal visible={photoActionIndex !== null} transparent animationType="fade" onRequestClose={() => setPhotoActionIndex(null)}>
-          <RNView style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0005' }}>
-            <RNView style={{ backgroundColor: '#fff', borderRadius: 16, paddingVertical: 12, width: 260, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 8, elevation: 6 }}>
-              <RNView style={{ alignItems: 'flex-start', paddingHorizontal: 20 }}>
-                <TouchableOpacity style={{ paddingVertical: 14, width: '100%' }} onPress={async () => { await handleCamera(photoActionIndex); }}>
-                  <Text style={{ fontSize: 16, color: '#222' }}>카메라</Text>
+        {/* 작은 액션 다이얼로그 */}
+        <Dialog
+          visible={photoActionIndex !== null}
+          onDismiss={() => setPhotoActionIndex(null)}
+          width={260}
+          panDirection={null}
+        >
+          <RNView style={{ backgroundColor: '#fff', borderRadius: 16, paddingVertical: 12, width: 260 }}>
+            <RNView style={{ alignItems: 'flex-start', paddingHorizontal: 20 }}>
+              <TouchableOpacity style={{ paddingVertical: 14, width: '100%' }} onPress={async () => { await handleCamera(photoActionIndex); }}>
+                <Text style={{ fontSize: 16, color: '#222' }}>카메라</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={{ paddingVertical: 14, width: '100%' }} onPress={async () => { await handleGallery(photoActionIndex); }}>
+                <Text style={{ fontSize: 16, color: '#222' }}>갤러리</Text>
+              </TouchableOpacity>
+              {photoActionIndex !== 0 && photos[photoActionIndex ?? 0] && (
+                <TouchableOpacity style={{ paddingVertical: 14, width: '100%' }} onPress={() => { handleSetMain(photoActionIndex!); }}>
+                  <Text style={{ fontSize: 16, color: '#222' }}>대표 이미지 설정</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={{ paddingVertical: 14, width: '100%' }} onPress={async () => { await handleGallery(photoActionIndex); }}>
-                  <Text style={{ fontSize: 16, color: '#222' }}>갤러리</Text>
+              )}
+              {photos[photoActionIndex ?? 0] && (
+                <TouchableOpacity style={{ paddingVertical: 14, width: '100%' }} onPress={() => { handleDelete(photoActionIndex!); }}>
+                  <Text style={{ fontSize: 16, color: '#222' }}>사진 삭제</Text>
                 </TouchableOpacity>
-                {photoActionIndex !== 0 && photos[photoActionIndex ?? 0] && (
-                  <TouchableOpacity style={{ paddingVertical: 14, width: '100%' }} onPress={() => { handleSetMain(photoActionIndex!); }}>
-                    <Text style={{ fontSize: 16, color: '#222' }}>대표 이미지 설정</Text>
-                  </TouchableOpacity>
-                )}
-                {photos[photoActionIndex ?? 0] && (
-                  <TouchableOpacity style={{ paddingVertical: 14, width: '100%' }} onPress={() => { handleDelete(photoActionIndex!); }}>
-                    <Text style={{ fontSize: 16, color: '#222' }}>사진 삭제</Text>
-                  </TouchableOpacity>
-                )}
-                <TouchableOpacity style={{ paddingVertical: 14, width: '100%' }} onPress={() => setPhotoActionIndex(null)}>
-                  <Text style={{ fontSize: 16, color: '#888' }}>닫기</Text>
-                </TouchableOpacity>
-              </RNView>
+              )}
+              <TouchableOpacity style={{ paddingVertical: 14, width: '100%' }} onPress={() => setPhotoActionIndex(null)}>
+                <Text style={{ fontSize: 16, color: '#888' }}>닫기</Text>
+              </TouchableOpacity>
             </RNView>
           </RNView>
-        </Modal>
-      </Modal>
+        </Dialog>
+      </Dialog>
       <View marginB-12>
         <Text style={{marginBottom: 4}}>이름</Text>
         <TextField
@@ -589,56 +601,83 @@ const ProfileSetupScreen = () => {
         style={[styles.input, {height: 80}]}
         migrate
       />
-      <Button label="저장" marginT-16 onPress={()=>{}} />
+      <Button label="저장" marginT-16 onPress={() => {
+        if (!user) return;
+        const profile: UserProfile = {
+          id: user.id,
+          name,
+          gender,
+          birthDate: `${birth.year}-${birth.month}-${birth.day}`,
+          height,
+          bodyType,
+          job,
+          education,
+          religion,
+          smoking,
+          drinking,
+          mbti,
+          bio,
+          photoUri: photos[0] || '',
+          interests: interests.join(','),
+          city: selectedRegion,
+          district: selectedDistrict,
+        };
+        saveOrUpdateProfile(profile);
+        navigation.navigate('Main');
+      }} />
       {/* Crop Preview UI */}
       {showPreview && previewUri && (
-        <Modal visible={showPreview} transparent animationType="fade">
-          <RNView style={{ flex: 1, backgroundColor: '#000a', justifyContent: 'center', alignItems: 'center' }}>
-            <RNView style={{ backgroundColor: '#fff', borderRadius: 16, padding: 16, alignItems: 'center' }}>
-              <Text style={{ fontSize: 16, marginBottom: 12 }}>이미지를 정사각형으로 자릅니다. 미리보기 확인 후 저장하세요.</Text>
-              <Image source={{ uri: previewUri }} style={{ width: 240, height: 240, borderRadius: 8, marginBottom: 16 }} resizeMode="cover" />
-              <View style={{ flexDirection: 'row', justifyContent: 'center' }}>
-                <Button
-                  label="닫기"
-                  outline
-                  outlineColor="#888"
-                  backgroundColor="#fff"
-                  onPress={() => { setShowPreview(false); setPreviewUri(null); setPreviewTargetIdx(null); }}
-                  style={{ minWidth: 80, marginRight: 12 }}
-                  labelStyle={{ color: '#888', fontWeight: 'bold', fontSize: 16 }}
-                />
-                <Button
-                  label="저장"
-                  onPress={async () => {
-                    // 중앙 기준 정사각형 crop (Image.getSize 사용)
-                    Image.getSize(previewUri!, async (width, height) => {
-                      const size = Math.min(width, height);
-                      const cropRegion = {
-                        originX: Math.floor((width - size) / 2),
-                        originY: Math.floor((height - size) / 2),
-                        width: size,
-                        height: size,
-                      };
-                      const manipResult = await ImageManipulator.manipulateAsync(
-                        previewUri!,
-                        [{ crop: cropRegion }],
-                        { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
-                      );
-                      const newPhotos = [...photos];
-                      if (previewTargetIdx !== null) newPhotos[previewTargetIdx] = manipResult.uri;
-                      setPhotos(newPhotos);
-                      setShowPreview(false);
-                      setPreviewUri(null);
-                      setPreviewTargetIdx(null);
-                      setPhotoModalIndex(null);
-                    });
-                  }}
-                  style={{ minWidth: 80 }}
-                />
-              </View>
-            </RNView>
+        <Dialog
+          visible={showPreview}
+          onDismiss={() => { setShowPreview(false); setPreviewUri(null); setPreviewTargetIdx(null); }}
+          width={320}
+          panDirection={null}
+        >
+          <RNView style={{ backgroundColor: '#fff', borderRadius: 16, padding: 16, alignItems: 'center' }}>
+            <Text style={{ fontSize: 16, marginBottom: 12 }}>이미지를 정사각형으로 자릅니다. 미리보기 확인 후 저장하세요.</Text>
+            <Image source={{ uri: previewUri }} style={{ width: 240, height: 240, borderRadius: 8, marginBottom: 16 }} resizeMode="cover" />
+            <View style={{ flexDirection: 'row', justifyContent: 'center' }}>
+              <Button
+                label="닫기"
+                outline
+                outlineColor="#888"
+                backgroundColor="#fff"
+                onPress={() => { setShowPreview(false); setPreviewUri(null); setPreviewTargetIdx(null); }}
+                style={{ minWidth: 80, marginRight: 12 }}
+                labelStyle={{ color: '#888', fontWeight: 'bold', fontSize: 16 }}
+              />
+              <Button
+                label="저장"
+                onPress={async () => {
+                  // 중앙 기준 정사각형 crop (Image.getSize 사용)
+                  Image.getSize(previewUri!, async (width, height) => {
+                    const size = Math.min(width, height);
+                    const cropRegion = {
+                      originX: Math.floor((width - size) / 2),
+                      originY: Math.floor((height - size) / 2),
+                      width: size,
+                      height: size,
+                    };
+                    const manipResult = await ImageManipulator.manipulateAsync(
+                      previewUri!,
+                      [{ crop: cropRegion }],
+                      { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+                    );
+                    const newPhotos = [...photos];
+                    // 대표 이미지로 저장
+                    newPhotos[0] = manipResult.uri;
+                    setPhotos(newPhotos);
+                    setShowPreview(false);
+                    setPreviewUri(null);
+                    setPreviewTargetIdx(null);
+                    setPhotoModalIndex(null);
+                  });
+                }}
+                style={{ minWidth: 80 }}
+              />
+            </View>
           </RNView>
-        </Modal>
+        </Dialog>
       )}
     </ScrollView>
   );
