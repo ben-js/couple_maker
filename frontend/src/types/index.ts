@@ -111,6 +111,7 @@ export interface PaginatedResponse<T> {
 export type RootStackParamList = {
   Onboarding: undefined;
   Auth: undefined;
+  Signup: undefined;
   Main: undefined;
   ProfileSetup: undefined;
   ProfileEdit: undefined;

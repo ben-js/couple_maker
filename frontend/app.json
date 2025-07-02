@@ -1,0 +1,14 @@
+{
+  "plugins": [
+    "expo-sqlite"
+  ],
+  "extra": {
+    "eas": {
+      "projectId": "26fcb760-bd8d-43a2-8a2f-e883c4b420b7"
+    }
+  },
+  "owner": "imsihyeong",
+  "android": {
+    "package": "com.imsihyeong.couplemakerfrontend"
+  }
+}

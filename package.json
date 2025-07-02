@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "@react-native-picker/picker": "^2.11.1",
+    "expo-image-cropper": "^1.0.9"
+  }
+}
