@@ -1,0 +1,156 @@
+name: Deploy to AWS
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+
+env:
+  AWS_REGION: ap-northeast-2
+  NODE_VERSION: '18'
+
+jobs:
+  # 프론트엔드 테스트 및 빌드
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: './frontend/package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linting
+        run: npm run lint
+
+      - name: Run type checking
+        run: npm run type-check
+
+      - name: Run tests
+        run: npm test -- --coverage --watchAll=false
+
+      - name: Build Expo app
+        run: npx expo export --platform web
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: ./frontend/dist/
+
+  # 백엔드 테스트 및 배포
+  backend:
+    runs-on: ubuntu-latest
+    needs: frontend
+    defaults:
+      run:
+        working-directory: ./backend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: './backend/package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linting
+        run: npm run lint
+
+      - name: Run type checking
+        run: npm run typecheck
+
+      - name: Run tests
+        run: npm test -- --coverage --watchAll=false
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy to AWS (Dev)
+        if: github.ref == 'refs/heads/develop'
+        run: npx sst deploy --stage dev
+        env:
+          SST_STAGE: dev
+
+      - name: Deploy to AWS (Prod)
+        if: github.ref == 'refs/heads/main'
+        run: npx sst deploy --stage prod
+        env:
+          SST_STAGE: prod
+
+  # 프론트엔드 배포 (S3 + CloudFront)
+  frontend-deploy:
+    runs-on: ubuntu-latest
+    needs: [frontend, backend]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-build
+          path: ./frontend/dist/
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy to S3 (Dev)
+        if: github.ref == 'refs/heads/develop'
+        run: |
+          aws s3 sync ./frontend/dist/ s3://${{ secrets.DEV_S3_BUCKET }} --delete
+          aws cloudfront create-invalidation --distribution-id ${{ secrets.DEV_CLOUDFRONT_DISTRIBUTION_ID }} --paths "/*"
+
+      - name: Deploy to S3 (Prod)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          aws s3 sync ./frontend/dist/ s3://${{ secrets.PROD_S3_BUCKET }} --delete
+          aws cloudfront create-invalidation --distribution-id ${{ secrets.PROD_CLOUDFRONT_DISTRIBUTION_ID }} --paths "/*"
+
+  # 배포 완료 알림
+  notify:
+    runs-on: ubuntu-latest
+    needs: [backend, frontend-deploy]
+    if: always()
+
+    steps:
+      - name: Notify deployment status
+        run: |
+          if [ "${{ needs.backend.result }}" == "success" ] && [ "${{ needs.frontend-deploy.result }}" == "success" ]; then
+            echo "✅ Deployment completed successfully!"
+          else
+            echo "❌ Deployment failed!"
+            exit 1
+          fi 
