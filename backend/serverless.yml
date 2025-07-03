@@ -1,0 +1,56 @@
+service: backend
+
+frameworkVersion: '4'
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: ap-northeast-2
+  httpApi:
+    cors: true
+
+functions:
+  hello:
+    handler: handler.hello
+    events:
+      - httpApi:
+          path: /hello
+          method: get
+
+  signup:
+    handler: handler.signup
+    events:
+      - httpApi:
+          path: /signup
+          method: post
+
+  login:
+    handler: handler.login
+    events:
+      - httpApi:
+          path: /login
+          method: post
+
+  getUser:
+    handler: handler.getUser
+    events:
+      - httpApi:
+          path: /user/{id}
+          method: get
+
+  getUserPreferences:
+    handler: handler.getUserPreferences
+    events:
+      - httpApi:
+          path: /user-preferences/{userId}
+          method: get
+
+  saveUserPreferences:
+    handler: handler.saveUserPreferences
+    events:
+      - httpApi:
+          path: /user-preferences
+          method: post
+
+plugins:
+  - serverless-offline 

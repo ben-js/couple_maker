@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
 import { useNavigation, CommonActions } from '@react-navigation/native';
 import PrimaryButton from '../components/PrimaryButton';
+import { setOnboardingShown } from '../db/user';
 
 const logo = (() => {
   try {
@@ -14,7 +15,8 @@ const logo = (() => {
 const OnboardingScreen = () => {
   const navigation = useNavigation<any>();
 
-  const handleStart = () => {
+  const handleStart = async () => {
+    setOnboardingShown();
     navigation.dispatch(
       CommonActions.reset({
         index: 0,

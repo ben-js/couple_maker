@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { View, Text, Image, StyleSheet, FlatList, Dimensions, ScrollView } from 'react-native';
+import { Card, Chip } from 'react-native-ui-lib';
 
 const { width } = Dimensions.get('window');
 
@@ -13,7 +14,10 @@ const infoList = [
   { key: 'smoke', label: '흡연', valueMap: { true: '함', false: '안 함' } },
 ];
 
-const chipColors = ['#FFB6B9', '#B5EAD7', '#C7CEEA', '#FFDAC1', '#E2F0CB', '#B5EAD7', '#FF9AA2', '#A0CED9'];
+const pastelColors = [
+  '#FFD6E0', '#B5EAD7', '#C7CEEA', '#FFDAC1', '#E2F0CB', '#B5EAD7', '#FF9AA2', '#A0CED9',
+  '#FFFACD', '#D1C4E9', '#F8BBD0', '#B2EBF2', '#DCEDC8', '#FFE0B2', '#F0F4C3', '#B2DFDB',
+];
 
 const UserDetailScreen = ({ route }) => {
   const { user } = route.params;
@@ -24,35 +28,39 @@ const UserDetailScreen = ({ route }) => {
   });
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: '#fff' }} contentContainerStyle={{ alignItems: 'center', paddingTop: 40, paddingBottom: 40 }}>
+    <ScrollView style={{ flex: 1, backgroundColor: '#f8f9fa' }} contentContainerStyle={{ alignItems: 'center', paddingTop: 40, paddingBottom: 40 }}>
       {/* 이미지 캐러셀 */}
-      <FlatList
-        data={images}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        renderItem={({ item }) => (
-          <Image source={item} style={styles.profileImg} resizeMode="cover" />
-        )}
-        keyExtractor={(_, i) => i.toString()}
-        onViewableItemsChanged={onViewRef.current}
-        viewabilityConfig={{ viewAreaCoveragePercentThreshold: 50 }}
-        style={{ maxHeight: 350 }}
-      />
-      <View style={styles.indicatorRow}>
-        {images.map((_, i) => (
-          <View
-            key={i}
-            style={[styles.dot, i === index ? styles.dotActive : styles.dotInactive]}
-          />
-        ))}
-      </View>
-      {/* 이름/나이/거리 */}
-      <Text style={styles.name}>{user.name}, <Text style={styles.age}>{user.age}</Text></Text>
-      <Text style={styles.address}>{user.address}</Text>
-      <Text style={styles.subInfo}>{user.time}</Text>
+      <Card enableShadow style={styles.imgCard}>
+        <FlatList
+          data={images}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          renderItem={({ item }) => (
+            <Image source={item} style={styles.profileImg} resizeMode="cover" />
+          )}
+          keyExtractor={(_, i) => i.toString()}
+          onViewableItemsChanged={onViewRef.current}
+          viewabilityConfig={{ viewAreaCoveragePercentThreshold: 50 }}
+          style={{ maxHeight: 350 }}
+        />
+        <View style={styles.indicatorRow}>
+          {images.map((_: any, i: number) => (
+            <View
+              key={i}
+              style={[styles.dot, i === index ? styles.dotActive : styles.dotInactive]}
+            />
+          ))}
+        </View>
+      </Card>
+      {/* 이름/나이/주소/시간 */}
+      <Card enableShadow style={styles.card}>
+        <Text style={styles.name}>{user.name}, <Text style={styles.age}>{user.age}</Text></Text>
+        <Text style={styles.address}>{user.address}</Text>
+        <Text style={styles.subInfo}>{user.time}</Text>
+      </Card>
       {/* 주요 정보+소개 패널 */}
-      <View style={styles.infoCard}>
+      <Card enableShadow style={styles.card}>
         <View style={styles.infoRow}>
           {infoList.map((info, idx) => (
             <View key={info.key} style={styles.infoItemBox}>
@@ -67,69 +75,45 @@ const UserDetailScreen = ({ route }) => {
         </View>
         <Text style={styles.sectionTitle}>소개</Text>
         <Text style={styles.intro}>{user.intro}</Text>
-      </View>
+      </Card>
       {/* 관심사 */}
-      <Text style={styles.sectionTitle}>관심사</Text>
-      <View style={styles.chipRow}>
-        {user.interests.map((interest, idx) => (
-          <View key={idx} style={[styles.chip, { backgroundColor: chipColors[idx % chipColors.length] }] }>
-            <Text style={styles.chipText}>{interest}</Text>
-          </View>
-        ))}
-      </View>
+      <Card enableShadow style={styles.card}>
+        <Text style={styles.sectionTitle}>관심사</Text>
+        <View style={styles.chipRow}>
+          {(user.interests || []).map((interest: string, idx: number) => (
+            <Chip
+              key={interest}
+              label={interest}
+              containerStyle={[styles.chip, { backgroundColor: pastelColors[idx % pastelColors.length] }]}
+              labelStyle={{ color: '#333', fontWeight: 'bold' }}
+            />
+          ))}
+  </View>
+      </Card>
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  profileImg: {
-    width: width - 32,
-    height: 350,
-    borderRadius: 18,
-    marginHorizontal: 16,
-    marginBottom: 12,
-  },
-  indicatorRow: { flexDirection: 'row', justifyContent: 'center', marginTop: 8, marginBottom: 16 },
-  dot: { width: 8, height: 8, borderRadius: 4, margin: 4 },
-  dotActive: { backgroundColor: '#333' },
-  dotInactive: { backgroundColor: '#ccc' },
-  name: { fontSize: 30, fontWeight: 'bold', color: '#222', marginBottom: 2, marginTop: 8 },
-  age: { fontSize: 28, color: '#FF5A5F', fontWeight: 'bold' },
-  address: { color: '#666', fontSize: 16, fontWeight: 'bold', marginBottom: 2 },
-  subInfo: { color: '#888', fontSize: 15, marginBottom: 18 },
-  infoCard: {
-    backgroundColor: '#f4f6fa',
-    borderRadius: 16,
-    padding: 18,
-    marginBottom: 18,
-    width: width - 32,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'flex-start',
-  },
-  infoItemBox: {
-    width: '45%',
-    marginBottom: 12,
-    marginRight: '5%',
-  },
-  infoLabel: {
-    fontWeight: 'bold',
-    color: '#444',
-    fontSize: 15,
-    marginBottom: 2,
-  },
-  infoValue: {
-    color: '#222',
-    fontSize: 15,
-    marginBottom: 2,
-  },
-  sectionTitle: { fontWeight: 'bold', fontSize: 17, color: '#222', marginBottom: 6 },
-  intro: { fontSize: 15, color: '#333', marginBottom: 2 },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', marginLeft: 8, marginRight: 8, marginBottom: 24 },
-  chip: { borderRadius: 16, paddingHorizontal: 14, paddingVertical: 7, margin: 4 },
-  chipText: { color: '#333', fontSize: 14, fontWeight: 'bold' },
+  profileImg: { width: 320, height: 320, borderRadius: 18, marginBottom: 0 },
+  imgCard: { borderRadius: 18, marginBottom: 24, padding: 0, backgroundColor: '#fff', shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 8, elevation: 2 },
+  card: { borderRadius: 18, marginBottom: 24, padding: 20, backgroundColor: '#fff', shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 8, elevation: 2, width: 340, alignSelf: 'center' },
+  name: { fontWeight: 'bold', fontSize: 22, color: '#222', textAlign: 'center' },
+  age: { color: '#3B82F6', fontWeight: 'bold' },
+  address: { color: '#888', fontSize: 15, textAlign: 'center', marginBottom: 2 },
+  subInfo: { color: '#aaa', fontSize: 13, textAlign: 'center', marginBottom: 8 },
+  infoRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginBottom: 8 },
+  infoItemBox: { alignItems: 'center', marginHorizontal: 10, marginBottom: 8 },
+  infoLabel: { color: '#3B82F6', fontWeight: 'bold', fontSize: 13 },
+  infoValue: { color: '#333', fontSize: 15, fontWeight: 'bold' },
+  sectionTitle: { fontWeight: 'bold', color: '#3B82F6', marginBottom: 8, fontSize: 16 },
+  intro: { color: '#333', fontSize: 15, lineHeight: 22, marginBottom: 4 },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 4 },
+  chip: { margin: 4, borderRadius: 16, borderWidth: 0 },
+  indicatorRow: { flexDirection: 'row', justifyContent: 'center', marginTop: 8, marginBottom: 8 },
+  dot: { width: 10, height: 10, borderRadius: 5, marginHorizontal: 3 },
+  dotActive: { backgroundColor: '#3B82F6' },
+  dotInactive: { backgroundColor: '#eee' },
 });
 
 export default UserDetailScreen; 

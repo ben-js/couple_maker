@@ -28,6 +28,9 @@ export interface User {
   isProfileComplete: boolean;
   isVerified: boolean;
   lastActive: string;
+  token?: string;
+  hasProfile?: boolean;
+  hasPreferences?: boolean;
 }
 
 // 매칭 관련 타입
@@ -132,7 +135,7 @@ export type MainTabParamList = {
 // 인증 관련 타입
 export interface AuthState {
   user: User | null;
-  token: string | null;
+  token?: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
 }
@@ -156,4 +159,28 @@ export interface AppSettings {
     showMen: boolean;
     showWomen: boolean;
   };
-} 
+}
+
+export type UserPreferences = {
+  user_id: string;
+  preferred_gender: string;
+  age_range: { min: number; max: number };
+  height_range: { min: number; max: number };
+  locations: string[];
+  job_types: string[];
+  education_levels: string[];
+  body_types: string[];
+  mbti_types: string[];
+  hobbies: string[];
+  personality_tags: string[];
+  values_in_life: string[];
+  dating_style: string[];
+  marriage_plan: string;
+  children_desire: boolean;
+  smoking: boolean;
+  drinking: string;
+  religion: string;
+  preferred_meetup_types: string[];
+  priority_fields: string[];
+  priority_order: string[];
+}; 

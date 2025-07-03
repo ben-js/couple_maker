@@ -4,6 +4,9 @@ import { useAuth } from '@/store/AuthContext';
 import { RootStackParamList } from '@/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
+import { useUserPreferencesStore } from '../store/userPreferencesStore';
+import { getUserPreferences } from '../services/userPreferencesService';
+import { createOnboardingTable, getOnboardingShown } from '../db/user';
 
 // 화면 컴포넌트들
 import OnboardingScreen from '@/screens/OnboardingScreen';
@@ -20,28 +23,47 @@ import LoadingScreen from '@/screens/LoadingScreen';
 const Stack = createStackNavigator<RootStackParamList>();
 
 const RootNavigator: React.FC = () => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const navigation = useNavigation<any>();
   const [isOnboardingShown, setIsOnboardingShown] = React.useState<boolean | null>(null);
+  const { preferences, setPreferences } = useUserPreferencesStore();
+  const [prefsChecked, setPrefsChecked] = React.useState(false);
 
-  useEffect(() => {
-    const checkOnboarding = async () => {
-      const shown = await AsyncStorage.getItem('onboardingShown');
-      setIsOnboardingShown(!!shown);
-    };
-    checkOnboarding();
+  React.useEffect(() => {
+    createOnboardingTable();
+    setIsOnboardingShown(getOnboardingShown());
   }, []);
 
+  // 인증된 유저라면 이상형 프로필 유무 확인
   useEffect(() => {
-    if (isLoading || isOnboardingShown === null) return;
+    const checkPrefs = async () => {
+      if (isAuthenticated && user?.id) {
+        const prefs = await getUserPreferences(user.id);
+        if (prefs) setPreferences(prefs);
+        setPrefsChecked(true);
+      } else {
+        setPrefsChecked(true);
+      }
+    };
+    if (isAuthenticated && user?.id && !prefsChecked) {
+      checkPrefs();
+    }
+  }, [isAuthenticated, user, setPreferences, prefsChecked]);
+
+  useEffect(() => {
+    if (isLoading || isOnboardingShown === null || (isAuthenticated && !prefsChecked)) return;
     if (!isOnboardingShown) {
       navigation.navigate('Onboarding');
     } else if (!isAuthenticated) {
       navigation.navigate('Auth');
-    } else {
-      navigation.navigate('Main');
+    } else if (isAuthenticated && user?.id) {
+      if (!preferences || !preferences.user_id) {
+        navigation.navigate('ProfileSetup', { user_id: user.id, isFirst: true });
+      } else {
+        navigation.navigate('Main');
+      }
     }
-  }, [isLoading, isOnboardingShown, isAuthenticated, navigation]);
+  }, [isLoading, isOnboardingShown, isAuthenticated, navigation, preferences, user, prefsChecked]);
 
   if (isLoading || isOnboardingShown === null) {
     return <LoadingScreen />;

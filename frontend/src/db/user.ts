@@ -85,4 +85,34 @@ export const getProfile = (userId: string): UserProfile | null => {
   } catch (e) {
     return null;
   }
+};
+
+export const createOnboardingTable = () => {
+  db.execSync(
+    `CREATE TABLE IF NOT EXISTS onboarding (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      shown INTEGER
+    );`
+  );
+};
+
+export const getOnboardingShown = (): boolean => {
+  try {
+    const result = db.getAllSync('SELECT shown FROM onboarding WHERE id = 1 LIMIT 1;');
+    if (result && result.length > 0) {
+      return !!result[0].shown;
+    }
+    return false;
+  } catch (e: any) {
+    return false;
+  }
+};
+
+export const setOnboardingShown = () => {
+  try {
+    db.execSync('INSERT OR REPLACE INTO onboarding (id, shown) VALUES (1, 1);');
+    return true;
+  } catch (e: any) {
+    return false;
+  }
 }; 

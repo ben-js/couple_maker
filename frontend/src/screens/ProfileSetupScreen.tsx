@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Modal, View as RNView, Button as RNButton, TouchableOpacity, Platform, Image } from 'react-native';
+import { ScrollView, StyleSheet, Modal, View as RNView, Button as RNButton, TouchableOpacity, Platform, Image, SafeAreaView } from 'react-native';
 import { View, Text, TextField, Picker as UIPicker, Slider, Chip, Button, Avatar, RadioGroup, RadioButton, Dialog } from 'react-native-ui-lib';
 import { Picker as WheelPicker } from '@react-native-picker/picker';
 import regionData from '../data/regions.json';
@@ -9,29 +9,62 @@ import * as FileSystem from 'expo-file-system';
 import { useNavigation } from '@react-navigation/native';
 import { saveOrUpdateProfile, UserProfile } from '../db/user';
 import { useAuth } from '../store/AuthContext';
+import { saveUserProfile } from '../services/userService';
+import optionsRaw from '../data/options.json';
+import { Options } from '../types/options';
+import { useForm, Controller } from 'react-hook-form';
+import * as yup from 'yup';
+import { yupResolver } from '@hookform/resolvers/yup';
+import formTemplate from '../data/profileFormTemplate.json';
+import FormInput from '../components/FormInput';
+import FormRadio from '../components/FormRadio';
+import FormCheckboxGroup from '../components/FormCheckboxGroup';
+import FormPicker from '../components/FormPicker';
+import FormSlider from '../components/FormSlider';
+import FormDate from '../components/FormDate';
+import FormRegionModal from '../components/FormRegionModal';
+import FormChips from '../components/FormChips';
+import { Feather } from '@expo/vector-icons';
+const options = optionsRaw as Options;
 
 // @ts-ignore: expo-image-cropper 타입 선언 없음을 무시
 declare module 'expo-image-cropper';
 
-const bodyTypes = ['마름', '슬림탄탄', '보통', '근육질', '통통', '기타'];
-const jobs = ['회사원', '학생', '자영업', '전문직', '기타'];
-const educations = ['고졸', '전문학사', '학사', '석사', '박사'];
-const religions = ['없음', '기독교', '불교', '천주교', '기타'];
-const mbtis = ['ISTJ','ISFJ','INFJ','INTJ','ISTP','ISFP','INFP','INTP','ESTP','ESFP','ENFP','ENTP','ESTJ','ESFJ','ENFJ','ENTJ'];
-const interestsList = [
-  '여행', '음악', '운동', '독서', '영화', '요리', '게임', '사진',
-  '드라마 보기', '넷플릭스 보기', '유튜브', '카페 탐방', '맛집 탐방',
-  '산책', '캠핑', '반려동물', '봉사활동', '미술', '춤', '악기',
-  '코딩', '쇼핑', '패션', '주식', '투자', '자기계발', '기타'
-];
 // '기타'가 항상 마지막에 오도록 보장
-const sortedInterestsList = interestsList.filter(i => i !== '기타').concat('기타');
+const sortedInterestsList = options.interests.filter(i => i !== '기타').concat('기타');
 
 const years = Array.from({ length: 100 }, (_, i) => new Date().getFullYear() - i);
 const months = Array.from({ length: 12 }, (_, i) => i + 1);
 const days = Array.from({ length: 31 }, (_, i) => i + 1);
 
 const regionNames = Object.keys(regionData);
+
+const bodyTypes = options.bodyTypes;
+const jobs = options.jobs;
+const educations = options.educations;
+const religions = options.religions;
+const mbtis = options.mbtis;
+const interestsList = options.interests;
+
+// yup 스키마 동적 생성
+const schemaFields: any = {};
+formTemplate.forEach(field => {
+  if (field.type === 'input') {
+    schemaFields[field.name] = field.required ? yup.string().required(field.placeholder || `${field.label}을(를) 입력해 주세요`) : yup.string();
+  } else if (field.type === 'radio') {
+    schemaFields[field.name] = field.required ? yup.string().oneOf(field.options, `${field.label}을(를) 선택해 주세요`).required(`${field.label}을(를) 선택해 주세요`) : yup.string();
+  } else if (field.type === 'checkbox') {
+    let s = yup.array().of(yup.string());
+    if (field.required) s = s.min(field.min || 1, `${field.label}을(를) ${field.min || 1}개 이상 선택해 주세요`);
+    if (field.max) s = s.max(field.max, `${field.label}은(는) 최대 ${field.max}개까지 선택 가능합니다`);
+    schemaFields[field.name] = s;
+  } else if (field.type === 'date') {
+    schemaFields[field.name] = field.required ? yup.string().required(`${field.label}을(를) 선택해 주세요`) : yup.string();
+  } else if (field.type === 'select') {
+    schemaFields[field.name] = field.required ? yup.string().required(`${field.label}을(를) 선택해 주세요`) : yup.string();
+  }
+});
+const schema = yup.object().shape(schemaFields);
 
 const ProfileSetupScreen = () => {
   // 최대 5장 사진, 대표는 항상 0번 인덱스
@@ -66,6 +99,15 @@ const ProfileSetupScreen = () => {
   const [showPreview, setShowPreview] = useState(false);
   const navigation = useNavigation<any>();
   const { user } = useAuth();
+  const { control, handleSubmit, formState: { errors }, register, watch, setValue } = useForm({
+    resolver: yupResolver(schema),
+    defaultValues: formTemplate.reduce((acc, cur) => {
+      acc[cur.name] = cur.type === 'checkbox' ? [] : '';
+      return acc;
+    }, {} as any),
+  });
+  const [genderModal, setGenderModal] = useState(false);
+  const [activeChipsModalField, setActiveChipsModalField] = useState<string | null>(null);
 
   const toggleInterest = (item: string) => {
     setInterests((prev) => {
@@ -108,6 +150,7 @@ const ProfileSetupScreen = () => {
     while (newPhotos.length < 5) newPhotos.push(null);
     setPhotos(newPhotos.slice(0, 5));
     setPhotoModalIndex(null);
+    setPhotoActionIndex(null);
   }
   function handleDelete(idx: number) {
     const newPhotos = [...photos];
@@ -115,6 +158,35 @@ const ProfileSetupScreen = () => {
     setPhotos(newPhotos);
     setPhotoModalIndex(null);
   }
+
+  const onSubmit = async (data: any) => {
+    if (!user) return;
+    // 사진 등 특수 필드는 별도 추가 필요
+    const profile = {
+      id: user.id,
+      ...data,
+    };
+    try {
+      const updatedUser = await saveUserProfile(user.id, profile);
+      if (!updatedUser.hasPreferences) {
+        navigation.navigate('PreferenceSetupScreen');
+      } else {
+        navigation.navigate('HomeScreen');
+      }
+    } catch (e) {
+      alert('프로필 저장 실패: ' + (e as Error).message);
+    }
+  };
+
+  // 동적 옵션 주입
+  const dynamicOptions = {
+    bodyType: options.bodyTypes,
+    job: options.jobs,
+    education: options.educations,
+    religion: options.religions,
+    mbti: options.mbtis,
+    interests: options.interests,
+  };
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -157,7 +229,7 @@ const ProfileSetupScreen = () => {
             style={{ width: 120, height: 120, backgroundColor: '#eee', borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: 16, position: 'relative' }}
           >
             {photos[0] ? (
-              <Image source={{ uri: photos[0] }} style={{ width: '100%', height: '100%', borderRadius: 12 }} resizeMode="cover" />
+              <Image source={{ uri: photos[0] }} style={{ width: '101%', height: '100%', borderRadius: 12 }} resizeMode="cover" />
             ) : (
               <Avatar
                 size={48}
@@ -229,402 +301,185 @@ const ProfileSetupScreen = () => {
           </RNView>
         </Dialog>
       </Dialog>
-      <View marginB-12>
-        <Text style={{marginBottom: 4}}>이름</Text>
-        <TextField
-          placeholder=""
-          value={name}
-          onChangeText={setName}
-          style={styles.input}
-          migrate
-        />
-        {name && nameBlur ? (
-          <Text style={styles.namePill}>{`이름 ${name}`}</Text>
-        ) : null}
-      </View>
-      <View marginB-12>
-        <Text style={{marginBottom: 4}}>성별</Text>
-        {/* @ts-ignore */}
-        <UIPicker
-          placeholder="성별 선택"
-          value={gender}
-          onChange={setGender}
-          topBarProps={{ title: '성별' }}
-          style={styles.input}
-          migrateTextField
-        >
-          <UIPicker.Item label="남" value="남" />
-          <UIPicker.Item label="여" value="여" />
-        </UIPicker>
-      </View>
-      <View marginB-12>
-        <Text style={{marginBottom: 4}}>생년월일</Text>
-        <View row spread>
-          {/* 연도 Picker */}
-          {/* @ts-expect-error */}
-          <UIPicker
-            placeholder="년"
-            value={birth.year}
-            onChange={(year: any) => setBirth(b => ({
-              year: typeof year === 'object' && year !== null ? year.value : year,
-              month: b.month,
-              day: b.day,
-            }))}
-            topBarProps={{ title: '연도' }}
-            style={[styles.input, {width: 100}]}
-            migrateTextField
-          >
-            {years.map(y => (
-              <UIPicker.Item key={y} value={y} label={`${y}년`} />
-            ))}
-          </UIPicker>
-          {/* 월 Picker */}
-          {/* @ts-expect-error */}
-          <UIPicker
-            placeholder="월"
-            value={birth.month}
-            onChange={(month: any) => setBirth(b => ({
-              year: b.year,
-              month: typeof month === 'object' && month !== null ? month.value : month,
-              day: b.day,
-            }))}
-            topBarProps={{ title: '월' }}
-            style={[styles.input, {width: 80}]}
-            migrateTextField
-          >
-            {months.map(m => (
-              <UIPicker.Item key={m} value={m} label={`${m}월`} />
-            ))}
-          </UIPicker>
-          {/* 일 Picker */}
-          {/* @ts-expect-error */}
-          <UIPicker
-            placeholder="일"
-            value={birth.day}
-            onChange={(day: any) => setBirth(b => ({
-              year: b.year,
-              month: b.month,
-              day: typeof day === 'object' && day !== null ? day.value : day,
-            }))}
-            topBarProps={{ title: '일' }}
-            style={[styles.input, {width: 80}]}
-            migrateTextField
-          >
-            {days.map(d => (
-              <UIPicker.Item key={d} value={d} label={`${d}일`} />
-            ))}
-          </UIPicker>
-        </View>
-      </View>
-      <View marginB-12>
-        <Text style={{marginBottom: 4}}>사는 곳</Text>
-        <TouchableOpacity
-          onPress={()=>{ setRegionModal(true); setShowDistricts(false); }}
-          activeOpacity={0.8}
-          style={[styles.input, { borderWidth: 0, borderRadius: 0, backgroundColor: 'transparent', paddingHorizontal: 0, minHeight: 40, justifyContent: 'center' }]}
-        >
-          <Text style={{ color: selectedRegion ? '#222' : '#aaa', fontSize: 16 }}>
-            {selectedRegion ? (selectedDistrict ? `${selectedRegion} ${selectedDistrict}` : selectedRegion) : '사는 곳 선택'}
-          </Text>
-        </TouchableOpacity>
-        <Modal visible={regionModal} transparent animationType="fade">
-          <RNView style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0008' }}>
-            <RNView style={{ backgroundColor: '#fff', borderRadius: 16, padding: 24, width: 340, minHeight: 320, paddingBottom: 12 }}>
-              <Text style={{ fontSize: 20, fontWeight: 'bold', textAlign: 'center', marginBottom: 16 }}>사는 곳 선택</Text>
-              {!showDistricts ? (
-                <>
-                  <RNView style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
-                    {regionNames.map((r, i) => (
-                      <TouchableOpacity
-                        key={r}
-                        style={[styles.regionBtn, selectedRegion === r && styles.regionBtnSelected]}
-                        onPress={() => {
-                          setSelectedRegion(r);
-                          setShowDistricts(true);
-                        }}
-                      >
-                        <Text style={styles.regionBtnText}>{r}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </RNView>
-                  <RNView style={{ flexDirection: 'row', marginTop: 24, justifyContent: 'flex-end' }}>
-                    <Button
-                      label="닫기"
-                      onPress={()=>setRegionModal(false)}
-                      backgroundColor="#3B82F6"
-                      borderRadius={16}
-                      style={{ paddingHorizontal: 24, paddingVertical: 8, minWidth: 80 }}
-                      labelStyle={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}
-                    />
-                  </RNView>
-                </>
-              ) : (
-                <RNView>
-                  <RNView style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', backgroundColor: '#f6f6f6', borderRadius: 8, padding: 4 }}>
-                    {regionData[selectedRegion as keyof typeof regionData]?.map((d: string) => (
-                      <TouchableOpacity
-                        key={d}
-                        style={[styles.regionBtn, selectedDistrict === d && styles.regionBtnSelected]}
-                        onPress={() => { setSelectedDistrict(d); setRegionModal(false); }}
-                      >
-                        <Text style={styles.regionBtnText}>{d}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </RNView>
-                  <RNView style={{ flexDirection: 'row', marginTop: 24, justifyContent: 'flex-end' }}>
-                    <Button
-                      label="이전"
-                      onPress={()=>setShowDistricts(false)}
-                      backgroundColor="#fff"
-                      outline
-                      outlineColor="#888"
-                      borderRadius={16}
-                      style={{ paddingHorizontal: 24, paddingVertical: 8, marginRight: 12, minWidth: 80 }}
-                      labelStyle={{ color: '#888', fontWeight: 'bold', fontSize: 16 }}
-                    />
-                    <Button
-                      label="닫기"
-                      onPress={()=>setRegionModal(false)}
-                      backgroundColor="#3B82F6"
-                      borderRadius={16}
-                      style={{ paddingHorizontal: 24, paddingVertical: 8, minWidth: 80 }}
-                      labelStyle={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}
-                    />
-                  </RNView>
-                </RNView>
+      {/* 동적 폼 렌더링 */}
+      {formTemplate.map(field => {
+        if (field.type === 'input') {
+          return (
+            <Controller
+              key={field.name}
+              control={control}
+              name={field.name}
+              render={({ field: { onChange, onBlur, value }, fieldState: { error } }) => (
+                <FormInput
+                  label={field.label}
+                  placeholder={field.placeholder}
+                  value={value}
+                  onChangeText={onChange}
+                  error={error?.message}
+                  multiline={field.multiline}
+                  maxLength={field.maxLength}
+                />
               )}
-            </RNView>
-          </RNView>
-        </Modal>
-      </View>
-      <View marginB-12>
-        <Text style={{marginBottom: 4}}>키</Text>
-        <View row centerV>
-          <Slider
-            value={height}
-            minimumValue={140}
-            maximumValue={200}
-            step={1}
-            onValueChange={setHeight}
-            containerStyle={{ flex: 1, marginRight: 12 }}
-            minimumTrackTintColor={'#3B82F6'}
-            thumbTintColor={'#3B82F6'}
-          />
-          <Text style={{ color: '#222', fontWeight: '300', minWidth: 56, textAlign: 'right' }}>{height}cm</Text>
-        </View>
-      </View>
-      <View marginB-12>
-        <Text style={{marginBottom: 4}}>체형</Text>
-        {/* @ts-ignore */}
-        <UIPicker
-          placeholder="체형 선택"
-          value={bodyType}
-          onChange={setBodyType}
-          topBarProps={{ title: '체형' }}
-          style={styles.input}
-          migrateTextField
-        >
-          {bodyTypes.map(b => (
-            <UIPicker.Item key={b} value={b} label={b} />
-          ))}
-        </UIPicker>
-      </View>
-      <View marginB-12>
-        <Text style={{marginBottom: 4}}>직업</Text>
-        {/* @ts-ignore */}
-        <UIPicker
-          placeholder="직업 선택"
-          value={job}
-          onChange={setJob}
-          topBarProps={{ title: '직업' }}
-          style={styles.input}
-          migrateTextField
-        >
-          {jobs.map(j => (
-            <UIPicker.Item key={j} value={j} label={j} />
-          ))}
-        </UIPicker>
-      </View>
-      <View marginB-12>
-        <Text style={{marginBottom: 4}}>학력</Text>
-        {/* @ts-ignore */}
-        <UIPicker
-          placeholder="학력 선택"
-          value={education}
-          onChange={setEducation}
-          topBarProps={{ title: '학력' }}
-          style={styles.input}
-          migrateTextField
-        >
-          {educations.map(e => (
-            <UIPicker.Item key={e} value={e} label={e} />
-          ))}
-        </UIPicker>
-      </View>
-      <View marginB-12>
-        <Text style={{marginBottom: 4}}>흡연 여부</Text>
-        {/* @ts-ignore */}
-        <UIPicker
-          placeholder="흡연 여부"
-          value={smoking}
-          onChange={setSmoking}
-          topBarProps={{ title: '흡연' }}
-          style={styles.input}
-          migrateTextField
-        >
-          <UIPicker.Item label="비흡연" value="비흡연" />
-          <UIPicker.Item label="흡연" value="흡연" />
-          <UIPicker.Item label="가끔" value="가끔" />
-        </UIPicker>
-      </View>
-      <View marginB-12>
-        <Text style={{marginBottom: 4}}>음주 여부</Text>
-        {/* @ts-ignore */}
-        <UIPicker
-          placeholder="음주 여부"
-          value={drinking}
-          onChange={setDrinking}
-          topBarProps={{ title: '음주' }}
-          style={styles.input}
-          migrateTextField
-        >
-          <UIPicker.Item label="비음주" value="비음주" />
-          <UIPicker.Item label="음주" value="음주" />
-          <UIPicker.Item label="가끔" value="가끔" />
-        </UIPicker>
-      </View>
-      <View marginB-12>
-        <Text style={{marginBottom: 4}}>종교</Text>
-        {/* @ts-ignore */}
-        <UIPicker
-          placeholder="종교 선택"
-          value={religion}
-          onChange={setReligion}
-          topBarProps={{ title: '종교' }}
-          style={styles.input}
-          migrateTextField
-        >
-          {religions.map(r => (
-            <UIPicker.Item key={r} value={r} label={r} />
-          ))}
-        </UIPicker>
-      </View>
-      <View marginB-12>
-        <Text style={{marginBottom: 4}}>MBTI</Text>
-        {/* @ts-ignore */}
-        <UIPicker
-          placeholder="MBTI 선택"
-          value={mbti}
-          onChange={setMbti}
-          topBarProps={{ title: 'MBTI' }}
-          style={styles.input}
-          migrateTextField
-        >
-          {mbtis.map(m => (
-            <UIPicker.Item key={m} value={m} label={m} />
-          ))}
-        </UIPicker>
-      </View>
-      <View marginB-12>
-        <Text style={{marginBottom: 4}}>취미</Text>
-        <TouchableOpacity
-          onPress={() => {
-            setPrevInterests(interests);
-            setInterestsModal(true);
-          }}
-          activeOpacity={0.8}
-          style={[styles.input, { borderWidth: 0, borderRadius: 0, backgroundColor: 'transparent', paddingHorizontal: 0, minHeight: 40, justifyContent: 'center' }]}
-        >
-          <Text style={{ color: interests.length ? '#222' : '#aaa', fontSize: 16 }}>
-            {interests.length ? interests.join(', ') : '취미를 3개 이상 선택하세요'}
-          </Text>
-        </TouchableOpacity>
-        <Modal visible={interestsModal} transparent animationType="fade">
-          <RNView style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0008' }}>
-            <RNView style={{ backgroundColor: '#fff', borderRadius: 16, padding: 24, width: 368, minHeight: 220, paddingBottom: 12 }}>
-              <Text style={{ fontSize: 20, fontWeight: 'bold', textAlign: 'center', marginBottom: 16 }}>취미를 3개 선택하세요</Text>
-              <RNView style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' }}>
-                {sortedInterestsList.map(item => (
-                  <Chip
-                    key={item}
-                    label={item}
-                    onPress={() => toggleInterest(item)}
-                    selected={interests.includes(item)}
-                    containerStyle={{
-                      marginHorizontal: 4,
-                      marginVertical: 4,
-                      minWidth: 64,
-                      minHeight: 40,
-                      paddingHorizontal: 8,
-                      paddingVertical: 8,
-                      backgroundColor: interests.includes(item) ? '#3B82F6' : '#f0f0f0',
-                      borderColor: interests.includes(item) ? '#3B82F6' : '#ccc',
-                    }}
-                    labelStyle={{
-                      color: interests.includes(item) ? '#fff' : '#222',
-                      fontWeight: interests.includes(item) ? 'bold' : 'normal',
-                      fontSize: 16,
-                    }}
-                  />
-                ))}
-              </RNView>
-              <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 16 }}>
-                <Button
-                  label="확인"
-                  disabled={interests.length !== 3}
-                  onPress={() => setInterestsModal(false)}
-                  style={{ marginRight: 12, minWidth: 80 }}
+            />
+          );
+        }
+        if (field.type === 'picker') {
+          return (
+            <Controller
+              key={field.name}
+              control={control}
+              name={field.name}
+              render={({ field: { onChange, value }, fieldState: { error } }) => (
+                <FormPicker
+                  label={field.label}
+                  options={field.optionsKey ? options[field.optionsKey] : []}
+                  value={value}
+                  onChange={onChange}
+                  error={error?.message}
+                  placeholder={field.placeholder}
                 />
-                <Button
-                  label="닫기"
-                  outline
-                  outlineColor="#888"
-                  backgroundColor="#fff"
-                  onPress={() => {
-                    if (interests.length !== 3) setInterests(prevInterests);
-                    setInterestsModal(false);
-                  }}
-                  style={{ minWidth: 80 }}
-                  labelStyle={{ color: '#888', fontWeight: 'bold', fontSize: 16 }}
+              )}
+            />
+          );
+        }
+        if (field.type === 'slider') {
+          return (
+            <Controller
+              key={field.name}
+              control={control}
+              name={field.name}
+              render={({ field: { onChange, value }, fieldState: { error } }) => (
+                <FormSlider
+                  label={field.label}
+                  value={typeof value === 'number' ? value : (field.min ?? 140)}
+                  onChange={onChange}
+                  min={field.min ?? 140}
+                  max={field.max ?? 200}
+                  error={error?.message}
                 />
-              </View>
-            </RNView>
-          </RNView>
-        </Modal>
-      </View>
-      <TextField
-        placeholder="자기소개"
-        value={bio}
-        onChangeText={setBio}
-        floatingPlaceholder
-        multiline
-        style={[styles.input, {height: 80}]}
-        migrate
+              )}
+            />
+          );
+        }
+        if (field.type === 'date') {
+          return (
+            <Controller
+              key={field.name}
+              control={control}
+              name={field.name}
+              render={({ field: { onChange, value }, fieldState: { error } }) => (
+                <FormDate
+                  label={field.label}
+                  value={value || { year: 2000, month: 1, day: 1 }}
+                  onChange={onChange}
+                  error={error?.message}
+                />
+              )}
+            />
+          );
+        }
+        if (field.type === 'region') {
+          return (
+            <Controller
+              key={field.name}
+              control={control}
+              name={field.name}
+              render={({ field: { onChange, value }, fieldState: { error } }) => (
+                <FormRegionModal
+                  label={field.label}
+                  value={value || { region: '', district: '' }}
+                  onChange={onChange}
+                  regionData={regionData}
+                  error={error?.message}
+                />
+              )}
+            />
+          );
+        }
+        if (field.type === 'chips' && field.modal) {
+          return (
+            <Controller
+              key={field.name}
+              control={control}
+              name={field.name}
+              render={({ field: { onChange, value }, fieldState: { error } }) => (
+                <>
+                  <Text style={{ fontWeight: '700', color: '#222', fontSize: 16, marginBottom: 4 }}>{field.label}</Text>
+                  <TouchableOpacity
+                    onPress={() => setActiveChipsModalField(field.name)}
+                    activeOpacity={0.8}
+                    style={{ borderWidth: 0, borderRadius: 0, backgroundColor: 'transparent', paddingHorizontal: 0, minHeight: 40, justifyContent: 'center', marginBottom: 12 }}
+                  >
+                    <Text style={{ color: value && value.length ? '#222' : '#aaa', fontSize: 16 }}>
+                      {value && value.length ? value.join(', ') : field.placeholder}
+                    </Text>
+                  </TouchableOpacity>
+                  <Modal visible={activeChipsModalField === field.name} transparent={false} animationType="slide">
+                    <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', height: 56, borderBottomWidth: 0, paddingHorizontal: 8, justifyContent: 'space-between' }}>
+                        <TouchableOpacity onPress={() => setActiveChipsModalField(null)} style={{ width: 40, height: 40, justifyContent: 'center', alignItems: 'center' }} hitSlop={{top:10, bottom:10, left:10, right:10}}>
+                          <Feather name="x" size={26} color="#bbb" />
+                        </TouchableOpacity>
+                        <Text style={{ flex: 1, textAlign: 'center', fontSize: 18, fontWeight: 'bold', color: '#222' }}>{field.label}</Text>
+                        <View style={{ width: 40 }} />
+                      </View>
+                      <View style={{ flex: 1, justifyContent: 'flex-start', alignItems: 'stretch', padding: 24 }}>
+                        <Text style={{ fontSize: 16, color: '#222', textAlign: 'center', marginBottom: 16 }}>{field.label}를 {field.minSelect}개 선택하세요</Text>
+                        <FormChips
+                          options={(options[field.optionsKey] ?? []) as string[]}
+                          value={value || []}
+                          onChange={onChange}
+                          min={field.minSelect}
+                          max={field.maxSelect}
+                          error={error?.message}
+                        />
+                      </View>
+                      <View style={{ padding: 24, paddingTop: 0 }}>
+                        <TouchableOpacity
+                          style={{ backgroundColor: value.length < (field.minSelect || 1) ? '#eee' : '#3B82F6', borderRadius: 12, paddingVertical: 14, alignItems: 'center' }}
+                          disabled={value.length < (field.minSelect || 1)}
+                          onPress={() => setActiveChipsModalField(null)}
+                        >
+                          <Text style={{ color: value.length < (field.minSelect || 1) ? '#bbb' : '#fff', fontWeight: 'bold', fontSize: 16 }}>확인</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </SafeAreaView>
+                  </Modal>
+                </>
+              )}
+            />
+          );
+        }
+        if (field.type === 'chips' && !field.modal) {
+          return (
+            <Controller
+              key={field.name}
+              control={control}
+              name={field.name}
+              render={({ field: { onChange, value }, fieldState: { error } }) => (
+                <FormChips
+                  options={(options[field.optionsKey] ?? []) as string[]}
+                  value={value || []}
+                  onChange={onChange}
+                  min={field.minSelect}
+                  max={field.maxSelect}
+                  error={error?.message}
+                />
+              )}
+            />
+          );
+        }
+        return null;
+      })}
+      <Button
+        label="저장"
+        marginT-16
+        backgroundColor="#3B82F6"
+        borderRadius={16}
+        style={{ minWidth: 120, paddingVertical: 12 }}
+        labelStyle={{ color: '#fff', fontWeight: 'bold', fontSize: 18 }}
+        onPress={handleSubmit(onSubmit)}
       />
-      <Button label="저장" marginT-16 onPress={() => {
-        if (!user) return;
-        const profile: UserProfile = {
-          id: user.id,
-          name,
-          gender,
-          birthDate: `${birth.year}-${birth.month}-${birth.day}`,
-          height,
-          bodyType,
-          job,
-          education,
-          religion,
-          smoking,
-          drinking,
-          mbti,
-          bio,
-          photoUri: photos[0] || '',
-          interests: interests.join(','),
-          city: selectedRegion,
-          district: selectedDistrict,
-        };
-        saveOrUpdateProfile(profile);
-        navigation.navigate('Main');
-      }} />
       {/* Crop Preview UI */}
       {showPreview && previewUri && (
         <Dialog
@@ -664,8 +519,10 @@ const ProfileSetupScreen = () => {
                       { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
                     );
                     const newPhotos = [...photos];
-                    // 대표 이미지로 저장
-                    newPhotos[0] = manipResult.uri;
+                    // 선택한 인덱스(previewTargetIdx)에 저장
+                    if (previewTargetIdx !== null && previewTargetIdx >= 0 && previewTargetIdx < newPhotos.length) {
+                      newPhotos[previewTargetIdx] = manipResult.uri;
+                    }
                     setPhotos(newPhotos);
                     setShowPreview(false);
                     setPreviewUri(null);

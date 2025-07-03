@@ -4,54 +4,31 @@ import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../store/AuthContext';
 import PrimaryButton from '../components/PrimaryButton';
 import { createUserTable, checkProfileExists } from '../db/user';
+import { getUserPreferences } from '../services/userPreferencesService';
+import { loginUser } from '../services/userService';
 
 const AuthScreen = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const navigation = useNavigation<any>();
-  const { login } = useAuth();
 
   useEffect(() => {
     createUserTable();
   }, []);
 
   const handleLogin = async () => {
-    // 더미 유저 생성
-    const now = new Date().toISOString();
-    const user = {
-      id: '1',
-      email,
-      name: '홍길동',
-      gender: 'male' as 'male',
-      birthDate: '1990-01-01',
-      age: 33,
-      location: { city: '서울', district: '강남구' },
-      height: 175,
-      bodyType: 'normal' as 'normal',
-      job: '개발자',
-      education: 'bachelor' as 'bachelor',
-      religion: 'none' as 'none',
-      smoking: 'no' as 'no',
-      drinking: 'no' as 'no',
-      mbti: 'INTJ',
-      bio: '안녕하세요!',
-      photos: [],
-      interests: ['운동', '영화'],
-      maritalStatus: 'single' as 'single',
-      hasChildren: false,
-      createdAt: now,
-      updatedAt: now,
-      isProfileComplete: true,
-      isVerified: true,
-      lastActive: now,
-    };
-    const token = 'dummy-token';
-    await login(user, token);
-    const exists = await checkProfileExists(user.id);
-    if (exists) {
-      navigation.navigate('Main');
-    } else {
-      navigation.navigate('ProfileSetup');
+    try {
+      // REST API로 로그인
+      const user = await loginUser(email, password);
+      if (!user.hasProfile) {
+        navigation.navigate('ProfileSetup');
+      } else if (!user.hasPreferences) {
+        navigation.navigate('PreferenceSetupScreen');
+      } else {
+        navigation.navigate('HomeScreen');
+      }
+    } catch (e) {
+      alert('로그인 실패: ' + (e as Error).message);
     }
   };
 

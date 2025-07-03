@@ -1,64 +1,14 @@
 {
-  "name": "couple-maker-backend",
+  "name": "backend",
   "version": "1.0.0",
-  "description": "Couple Maker Backend - AWS Lambda + API Gateway",
-  "main": "index.js",
+  "description": "",
+  "main": "handler.ts",
   "scripts": {
-    "dev": "sst dev",
-    "build": "sst build",
-    "deploy": "sst deploy",
-    "remove": "sst remove",
-    "console": "sst console",
-    "typecheck": "tsc --noEmit",
-    "lint": "eslint . --ext .ts",
-    "test": "jest"
-  },
-  "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.400.0",
-    "@aws-sdk/client-s3": "^3.400.0",
-    "@aws-sdk/client-cognito-identity": "^3.400.0",
-    "@aws-sdk/client-cognito-identity-provider": "^3.400.0",
-    "@aws-sdk/lib-dynamodb": "^3.400.0",
-    "@aws-sdk/s3-request-presigner": "^3.400.0",
-    "aws-lambda": "^1.0.7",
-    "bcryptjs": "^2.4.3",
-    "cors": "^2.8.5",
-    "express": "^4.18.2",
-    "helmet": "^7.0.0",
-    "joi": "^17.9.2",
-    "jsonwebtoken": "^9.0.2",
-    "multer": "^1.4.5-lts.1",
-    "sharp": "^0.32.6",
-    "uuid": "^9.0.0",
-    "zod": "^3.22.2"
+    "start": "serverless offline"
   },
   "devDependencies": {
-    "@types/aws-lambda": "^8.10.119",
-    "@types/bcryptjs": "^2.4.2",
-    "@types/cors": "^2.8.13",
-    "@types/express": "^4.17.17",
-    "@types/jest": "^29.5.4",
-    "@types/jsonwebtoken": "^9.0.2",
-    "@types/multer": "^1.4.7",
-    "@types/node": "^20.5.0",
-    "@types/uuid": "^9.0.2",
-    "@typescript-eslint/eslint-plugin": "^6.4.0",
-    "@typescript-eslint/parser": "^6.4.0",
-    "eslint": "^8.47.0",
-    "jest": "^29.6.2",
-    "sst": "^2.30.0",
-    "ts-jest": "^29.1.1",
-    "typescript": "^5.1.6"
-  },
-  "keywords": [
-    "aws",
-    "lambda",
-    "api-gateway",
-    "dynamodb",
-    "s3",
-    "serverless",
-    "typescript"
-  ],
-  "author": "Couple Maker Team",
-  "license": "MIT"
+    "serverless": "^4.17.1",
+    "serverless-offline": "^12.0.4",
+    "typescript": "^5.0.0"
+  }
 } 
