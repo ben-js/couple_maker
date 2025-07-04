@@ -22,16 +22,31 @@ const FormRegionModal: React.FC<FormRegionModalProps> = ({ label, value, onChang
     setModalVisible(false);
   };
 
+  const handleDistrictSelect = (district: string) => {
+    setSelectedDistrict(district);
+    onChange({ region: selectedRegion, district });
+    setModalVisible(false);
+  };
+
   return (
-    <View style={{ marginBottom: 0 }}>
-      <Text style={{ fontWeight: 'bold', marginBottom: 4 }}>{label}</Text>
+    <View style={{ marginBottom: 12 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+        <Text style={{ fontWeight: '700', color: '#222', fontSize: 16 }}>{label}</Text>
+        {error && <Text style={{ color: 'red', marginLeft: 8, fontSize: 13 }}>{error}</Text>}
+      </View>
       <TouchableOpacity
         onPress={() => { setModalVisible(true); setShowDistricts(false); }}
         activeOpacity={0.8}
-        style={{ minHeight: 40, justifyContent: 'center', paddingHorizontal: 0, marginBottom: 16 }}
+        style={{
+          backgroundColor: '#fff',
+          minHeight: 48,
+          justifyContent: 'center',
+          paddingHorizontal: 0,
+          paddingVertical: 12,
+        }}
       >
-        <Text style={{ color: value.region ? '#222' : '#bbb', fontSize: 16, fontWeight: value.region ? 'normal' : '400' }}>
-          {value.region ? (value.district ? `${value.region} ${value.district}` : value.region) : '사는 곳 선택'}
+        <Text style={{ color: value.region ? '#222' : '#bbb', fontSize: 16 }}>
+          {value.region ? (value.district && value.district !== value.region ? `${value.region} ${value.district}` : value.region) : '사는 곳 선택'}
         </Text>
       </TouchableOpacity>
       <Modal visible={modalVisible} transparent={false} animationType="slide">
@@ -56,7 +71,16 @@ const FormRegionModal: React.FC<FormRegionModalProps> = ({ label, value, onChang
                   <TouchableOpacity
                     key={r}
                     style={{ padding: 8, margin: 4, borderRadius: 8, backgroundColor: selectedRegion === r ? '#3B82F6' : '#eee', minWidth: 80, alignItems: 'center' }}
-                    onPress={() => { setSelectedRegion(r); setShowDistricts(true); }}
+                    onPress={() => { 
+                      setSelectedRegion(r); 
+                      // 하위 지역이 1개이고 상위 지역과 같은 경우 바로 선택
+                      if (regionData[r].length === 1 && regionData[r][0] === r) {
+                        onChange({ region: r, district: r });
+                        setModalVisible(false);
+                      } else {
+                        setShowDistricts(true);
+                      }
+                    }}
                   >
                     <Text style={{ color: selectedRegion === r ? '#fff' : '#222', fontWeight: 'bold', fontSize: 16 }}>{r}</Text>
                   </TouchableOpacity>
@@ -78,7 +102,7 @@ const FormRegionModal: React.FC<FormRegionModalProps> = ({ label, value, onChang
                   <TouchableOpacity
                     key={d}
                     style={{ padding: 8, margin: 4, borderRadius: 8, backgroundColor: selectedDistrict === d ? '#3B82F6' : '#eee', minWidth: 80, alignItems: 'center' }}
-                    onPress={() => { setSelectedDistrict(d); setModalVisible(false); handleSelect(); }}
+                    onPress={() => handleDistrictSelect(d)}
                   >
                     <Text style={{ color: selectedDistrict === d ? '#fff' : '#222', fontWeight: 'bold', fontSize: 16 }}>{d}</Text>
                   </TouchableOpacity>
@@ -96,7 +120,6 @@ const FormRegionModal: React.FC<FormRegionModalProps> = ({ label, value, onChang
           )}
         </SafeAreaView>
       </Modal>
-      {error && <Text style={{ color: 'red', marginTop: 4, fontSize: 13 }}>{error}</Text>}
     </View>
   );
 };

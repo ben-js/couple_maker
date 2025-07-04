@@ -17,14 +17,17 @@ const FormPicker: React.FC<FormPickerProps> = ({ label, options, value, onChange
   const [visible, setVisible] = useState(false);
   return (
     <View style={{ marginBottom: 0 }}>
-      <Text style={{ fontWeight: 'bold', marginBottom: 4, color: '#222', fontSize: 16 }}>{label}</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+        <Text style={{ fontWeight: 'bold', color: '#222', fontSize: 16 }}>{label}</Text>
+        {error && <Text style={{ color: 'red', marginLeft: 8, fontSize: 13 }}>{error}</Text>}
+      </View>
       <TouchableOpacity
         onPress={() => setVisible(true)}
         activeOpacity={0.8}
         style={{ minHeight: 44, justifyContent: 'center', borderWidth: 0, borderRadius: 0, paddingHorizontal: 0, marginBottom: 16 }}
       >
         <Text style={{ fontSize: 16, color: value ? '#222' : '#bbb' }}>
-          {value || placeholder || `${label} 선택`}
+          {value ? value : placeholder}
         </Text>
       </TouchableOpacity>
       <Modal visible={visible} transparent={false} animationType="slide">
@@ -58,7 +61,6 @@ const FormPicker: React.FC<FormPickerProps> = ({ label, options, value, onChange
           />
         </SafeAreaView>
       </Modal>
-      {error && <Text style={{ color: 'red', marginTop: 4, fontSize: 13 }}>{error}</Text>}
     </View>
   );
 };

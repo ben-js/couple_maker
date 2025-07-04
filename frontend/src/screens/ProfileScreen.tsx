@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Button, Avatar, Card, Chip } from 'react-native-ui-lib';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../store/AuthContext';
-import { getProfile } from '../db/user';
 
 const ProfileScreen = () => {
   const navigation = useNavigation<any>();
@@ -12,8 +11,8 @@ const ProfileScreen = () => {
 
   useEffect(() => {
     if (user?.id) {
-      const p = getProfile(user.id);
-      setProfile(p);
+      // const p = getProfile(user.id); // 더 이상 사용하지 않으므로 삭제
+      setProfile(null);
     }
   }, [user]);
 

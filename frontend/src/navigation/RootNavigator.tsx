@@ -4,16 +4,14 @@ import { useAuth } from '@/store/AuthContext';
 import { RootStackParamList } from '@/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
-import { useUserPreferencesStore } from '../store/userPreferencesStore';
-import { getUserPreferences } from '../services/userPreferencesService';
-import { createOnboardingTable, getOnboardingShown } from '../db/user';
 
 // 화면 컴포넌트들
 import OnboardingScreen from '@/screens/OnboardingScreen';
-import AuthScreen from '@/screens/AuthScreen';
+import LoginScreen from '@/screens/AuthScreen';
 import MainTabNavigator from './MainTabNavigator';
 import ProfileSetupScreen from '@/screens/ProfileSetupScreen';
 import ProfileEditScreen from '@/screens/ProfileEditScreen';
+import PreferenceSetupScreen from '@/screens/PreferenceSetupScreen';
 import UserDetailScreen from '@/screens/UserDetailScreen';
 import ChatScreen from '@/screens/ChatScreen';
 import FilterScreen from '@/screens/FilterScreen';
@@ -26,57 +24,51 @@ const RootNavigator: React.FC = () => {
   const { isAuthenticated, isLoading, user } = useAuth();
   const navigation = useNavigation<any>();
   const [isOnboardingShown, setIsOnboardingShown] = React.useState<boolean | null>(null);
-  const { preferences, setPreferences } = useUserPreferencesStore();
-  const [prefsChecked, setPrefsChecked] = React.useState(false);
+  const [showLoading, setShowLoading] = React.useState(true);
 
-  React.useEffect(() => {
-    createOnboardingTable();
-    setIsOnboardingShown(getOnboardingShown());
+  // 0.5초만 로딩 화면 노출
+  useEffect(() => {
+    const timer = setTimeout(() => setShowLoading(false), 500);
+    return () => clearTimeout(timer);
   }, []);
 
-  // 인증된 유저라면 이상형 프로필 유무 확인
+  // 온보딩 노출 여부 체크 (최초 1회만)
   useEffect(() => {
-    const checkPrefs = async () => {
-      if (isAuthenticated && user?.id) {
-        const prefs = await getUserPreferences(user.id);
-        if (prefs) setPreferences(prefs);
-        setPrefsChecked(true);
-      } else {
-        setPrefsChecked(true);
-      }
-    };
-    if (isAuthenticated && user?.id && !prefsChecked) {
-      checkPrefs();
-    }
-  }, [isAuthenticated, user, setPreferences, prefsChecked]);
+    (async () => {
+      const shown = await AsyncStorage.getItem('onboarding_shown');
+      setIsOnboardingShown(shown === 'true');
+    })();
+  }, []);
 
+  // 온보딩 완료 콜백
+  const handleOnboardingDone = React.useCallback(() => {
+    AsyncStorage.setItem('onboarding_shown', 'true');
+    setIsOnboardingShown(true);
+  }, []);
+
+  // 온보딩을 이미 본 사용자는 바로 로그인으로
   useEffect(() => {
-    if (isLoading || isOnboardingShown === null || (isAuthenticated && !prefsChecked)) return;
-    if (!isOnboardingShown) {
-      navigation.navigate('Onboarding');
-    } else if (!isAuthenticated) {
-      navigation.navigate('Auth');
-    } else if (isAuthenticated && user?.id) {
-      if (!preferences || !preferences.user_id) {
-        navigation.navigate('ProfileSetup', { user_id: user.id, isFirst: true });
-      } else {
-        navigation.navigate('Main');
-      }
+    if (showLoading || isOnboardingShown === null) return;
+    if (isOnboardingShown) {
+      navigation.navigate('Login');
     }
-  }, [isLoading, isOnboardingShown, isAuthenticated, navigation, preferences, user, prefsChecked]);
+  }, [showLoading, isOnboardingShown, navigation]);
 
-  if (isLoading || isOnboardingShown === null) {
+  if (showLoading || isOnboardingShown === null) {
     return <LoadingScreen />;
   }
 
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName="Onboarding">
-      <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-      <Stack.Screen name="Auth" component={AuthScreen} />
+    <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName={isOnboardingShown ? ('Login' as keyof RootStackParamList) : ('Onboarding' as keyof RootStackParamList)}>
+      <Stack.Screen name="Onboarding">
+        {props => <OnboardingScreen {...props} onStart={handleOnboardingDone} />}
+      </Stack.Screen>
+      <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Signup" component={require('@/screens/SignupScreen').default} />
       <Stack.Screen name="Main" component={MainTabNavigator} />
       <Stack.Screen name="ProfileSetup" component={ProfileSetupScreen} options={{ headerShown: true, title: '프로필 작성' }} />
       <Stack.Screen name="ProfileEdit" component={ProfileEditScreen} options={{ headerShown: true, title: '프로필 수정' }} />
+      <Stack.Screen name="PreferenceSetupScreen" component={PreferenceSetupScreen} options={{ headerShown: true, title: '이상형 설정' }} />
       <Stack.Screen name="UserDetail" component={UserDetailScreen} options={{ headerShown: true, title: '프로필' }} />
       <Stack.Screen name="Chat" component={ChatScreen} options={{ headerShown: true, title: '채팅' }} />
       <Stack.Screen name="Filter" component={FilterScreen} options={{ headerShown: true, title: '필터' }} />

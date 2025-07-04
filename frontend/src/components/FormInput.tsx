@@ -12,7 +12,10 @@ interface FormInputProps {
 
 const FormInput: React.FC<FormInputProps> = ({ label, error, placeholder, value, onChangeText, ...props }) => (
   <View style={styles.container}>
-    <Text style={styles.label}>{label}</Text>
+    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+      <Text style={styles.label}>{label}</Text>
+      {error && <Text style={styles.error}>{error}</Text>}
+    </View>
     <TextInput
       value={value}
       onChangeText={onChangeText}
@@ -24,8 +27,6 @@ const FormInput: React.FC<FormInputProps> = ({ label, error, placeholder, value,
       ]}
       {...props}
     />
-    <View style={styles.underline} />
-    {error && <Text style={styles.error}>{error}</Text>}
   </View>
 );
 
@@ -34,9 +35,8 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   label: {
-    fontWeight: '700',
+    fontWeight: 'bold',
     fontSize: 16,
-    marginBottom: 8,
     color: '#222',
   },
   input: {
@@ -47,14 +47,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
     backgroundColor: 'transparent',
   },
-  underline: {
-    borderBottomWidth: 1.5,
-    borderBottomColor: '#e0e0e0',
-    marginBottom: 32,
-  },
   error: {
     color: 'red',
-    marginTop: 4,
+    marginLeft: 8,
     fontSize: 13,
   },
 });

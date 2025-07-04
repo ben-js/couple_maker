@@ -1,1 +1,39 @@
-[] 
+[
+  {
+    "userId": "user-1",
+    "hasChildren": "없음",
+    "maritalStatus": "미혼",
+    "favoriteFoods": [
+      "한식",
+      "샐러드"
+    ],
+    "interests": [
+      "캠핑",
+      "악기",
+      "패션"
+    ],
+    "drinking": "음주",
+    "smoking": "흡연",
+    "mbti": "ISFP",
+    "religion": "천주교",
+    "education": "석사",
+    "job": "학생",
+    "bodyType": "근육질",
+    "height": "179",
+    "region": {
+      "region": "서울",
+      "district": ""
+    },
+    "birthDate": {
+      "year": 2018,
+      "month": 8,
+      "day": 8
+    },
+    "gender": "남",
+    "name": "aaa",
+    "introduction": "",
+    "photos": [
+      "file:///data/user/0/host.exp.exponent/cache/ImageManipulator/8925cbc6-151e-4d39-b8f7-3530da5d7d0e.jpg"
+    ]
+  }
+]

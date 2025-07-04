@@ -2,7 +2,6 @@ import React from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
 import { useNavigation, CommonActions } from '@react-navigation/native';
 import PrimaryButton from '../components/PrimaryButton';
-import { setOnboardingShown } from '../db/user';
 
 const logo = (() => {
   try {
@@ -12,15 +11,19 @@ const logo = (() => {
   }
 })();
 
-const OnboardingScreen = () => {
+interface OnboardingScreenProps {
+  onStart: () => void;
+}
+
+const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onStart }) => {
   const navigation = useNavigation<any>();
 
   const handleStart = async () => {
-    setOnboardingShown();
+    if (onStart) onStart();
     navigation.dispatch(
       CommonActions.reset({
         index: 0,
-        routes: [{ name: 'Auth' }],
+        routes: [{ name: 'Login' }],
       })
     );
   };

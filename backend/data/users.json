@@ -1,3 +1,9 @@
 [
-  { "id": "user-1", "email": "test@test.com", "password": "1234", "hasProfile": true, "hasPreferences": true }
-] 
+  {
+    "id": "user-1",
+    "email": "test@test.com",
+    "password": "1234",
+    "hasProfile": false,
+    "hasPreferences": false 
+  }
+]

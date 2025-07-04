@@ -1,118 +1,64 @@
-import * as SQLite from 'expo-sqlite';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { User } from '../types';
 
-const db = SQLite.openDatabaseSync('mydb.db');
+const USER_STORAGE_KEY = 'user_data';
 
-export const createUserTable = () => {
- db.execSync(
-    `CREATE TABLE IF NOT EXISTS user (
-      id TEXT PRIMARY KEY,
-      name TEXT,
-      gender TEXT,
-      birthDate TEXT,
-      height INTEGER,
-      bodyType TEXT,
-      job TEXT,
-      education TEXT,
-      religion TEXT,
-      smoking TEXT,
-      drinking TEXT,
-      mbti TEXT,
-      bio TEXT,
-      photoUri TEXT,
-      interests TEXT,
-      city TEXT,
-      district TEXT,
-      maritalStatus TEXT,
-      hasChildren INTEGER
-    );`
-  ); 
-};
-
-export const checkProfileExists = async (userId: string): Promise<boolean> => {
+// User 정보 저장
+export const saveUser = async (user: User): Promise<void> => {
   try {
-    db.execSync(`SELECT id FROM user WHERE id = '${userId}' LIMIT 1;`);
-    return false;
-  } catch (e) {
-    // 쿼리 실행 에러 발생 시 없다고 가정
-    return false;
+    await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+    console.log('User saved to storage:', user.id);
+  } catch (error) {
+    console.error('Failed to save user:', error);
+    throw error;
   }
 };
 
-export interface UserProfile {
-  id: string;
-  name: string;
-  gender: string;
-  birthDate: string;
-  height: number;
-  bodyType: string;
-  job: string;
-  education: string;
-  religion: string;
-  smoking: string;
-  drinking: string;
-  mbti: string;
-  bio: string;
-  photoUri: string;
-  interests: string;
-  city: string;
-  district: string;
-  maritalStatus?: string;
-  hasChildren?: number;
-}
-
-export const saveOrUpdateProfile = (profile: UserProfile) => {
+// User 정보 조회
+export const getUser = async (): Promise<User | null> => {
   try {
-    db.execSync(
-      `INSERT OR REPLACE INTO user (
-        id, name, gender, birthDate, height, bodyType, job, education, religion, smoking, drinking, mbti, bio, photoUri, interests, city, district, maritalStatus, hasChildren
-      ) VALUES (
-        '${profile.id}', '${profile.name}', '${profile.gender}', '${profile.birthDate}', ${profile.height}, '${profile.bodyType}', '${profile.job}', '${profile.education}', '${profile.religion}', '${profile.smoking}', '${profile.drinking}', '${profile.mbti}', '${profile.bio}', '${profile.photoUri}', '${profile.interests}', '${profile.city}', '${profile.district}', '${profile.maritalStatus ?? ''}', ${profile.hasChildren ?? 0}
-      );`
-    );
-    return true;
-  } catch (e) {
-    return false;
-  }
-};
-
-export const getProfile = (userId: string): UserProfile | null => {
-  try {
-    const result = db.getAllSync(`SELECT * FROM user WHERE id = '${userId}' LIMIT 1;`);
-    if (result && result.length > 0) {
-      return result[0] as UserProfile;
+    const userData = await AsyncStorage.getItem(USER_STORAGE_KEY);
+    if (userData) {
+      const user: User = JSON.parse(userData);
+      console.log('User loaded from storage:', user.id);
+      return user;
     }
     return null;
-  } catch (e) {
+  } catch (error) {
+    console.error('Failed to get user:', error);
     return null;
   }
 };
 
-export const createOnboardingTable = () => {
-  db.execSync(
-    `CREATE TABLE IF NOT EXISTS onboarding (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      shown INTEGER
-    );`
-  );
-};
-
-export const getOnboardingShown = (): boolean => {
+// User 정보 업데이트
+export const updateUser = async (userData: Partial<User>): Promise<void> => {
   try {
-    const result = db.getAllSync('SELECT shown FROM onboarding WHERE id = 1 LIMIT 1;');
-    if (result && result.length > 0) {
-      return !!result[0].shown;
+    const currentUser = await getUser();
+    if (!currentUser) {
+      throw new Error('No user found');
     }
-    return false;
-  } catch (e: any) {
-    return false;
+    
+    const updatedUser = { ...currentUser, ...userData };
+    await saveUser(updatedUser);
+    console.log('User updated in storage:', updatedUser.id);
+  } catch (error) {
+    console.error('Failed to update user:', error);
+    throw error;
   }
 };
 
-export const setOnboardingShown = () => {
+// User 정보 삭제 (로그아웃)
+export const deleteUser = async (): Promise<void> => {
   try {
-    db.execSync('INSERT OR REPLACE INTO onboarding (id, shown) VALUES (1, 1);');
-    return true;
-  } catch (e: any) {
-    return false;
+    await AsyncStorage.removeItem(USER_STORAGE_KEY);
+    console.log('User deleted from storage');
+  } catch (error) {
+    console.error('Failed to delete user:', error);
+    throw error;
   }
+};
+
+// 앱 시작 시 초기화 (AsyncStorage는 별도 초기화 불필요)
+export const initDatabase = async (): Promise<void> => {
+  console.log('AsyncStorage is ready');
 }; 

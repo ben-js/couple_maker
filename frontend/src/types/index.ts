@@ -113,11 +113,12 @@ export interface PaginatedResponse<T> {
 // 네비게이션 타입
 export type RootStackParamList = {
   Onboarding: undefined;
-  Auth: undefined;
+  Login: undefined;
   Signup: undefined;
   Main: undefined;
   ProfileSetup: undefined;
   ProfileEdit: undefined;
+  PreferenceSetupScreen: undefined;
   UserDetail: { userId: string };
   Chat: { chatId: string; otherUser: User };
   Filter: undefined;
@@ -166,6 +167,7 @@ export type UserPreferences = {
   preferred_gender: string;
   age_range: { min: number; max: number };
   height_range: { min: number; max: number };
+  regions: { region: string; district: string }[];
   locations: string[];
   job_types: string[];
   education_levels: string[];
@@ -176,7 +178,7 @@ export type UserPreferences = {
   values_in_life: string[];
   dating_style: string[];
   marriage_plan: string;
-  children_desire: boolean;
+  children_desire: string; // "딩크족 희망", "자녀 희망", "상관없음"
   smoking: boolean;
   drinking: string;
   religion: string;

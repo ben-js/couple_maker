@@ -6,9 +6,11 @@ interface FormDateProps {
   label: string;
   value?: { year: number; month: number; day: number };
   onChange: (val: { year: number; month: number; day: number }) => void;
+  onBlur?: () => void;
   error?: string;
   minYear?: number;
   maxYear?: number;
+  placeholder?: string;
 }
 
 const getDefaultBirth = () => {
@@ -16,7 +18,7 @@ const getDefaultBirth = () => {
   return { year: now.getFullYear() - 20, month: 1, day: 1 };
 };
 
-const FormDate: React.FC<FormDateProps> = ({ label, value, onChange, error, minYear = 1950, maxYear = new Date().getFullYear() }) => {
+const FormDate: React.FC<FormDateProps> = ({ label, value, onChange, onBlur, error, minYear = 1950, maxYear = new Date().getFullYear(), placeholder }) => {
   const [visible, setVisible] = useState(false);
   const [mode, setMode] = useState<'year' | 'month' | 'day'>('year');
   const safeValue = value && value.year && value.month && value.day ? value : getDefaultBirth();
@@ -27,12 +29,15 @@ const FormDate: React.FC<FormDateProps> = ({ label, value, onChange, error, minY
   const handleSelect = (type: 'year' | 'month' | 'day', val: number) => {
     if (type === 'year') {
       onChange({ ...safeValue, year: val });
+      onBlur && onBlur();
       setMode('month');
     } else if (type === 'month') {
       onChange({ ...safeValue, month: val });
+      onBlur && onBlur();
       setMode('day');
     } else {
       onChange({ ...safeValue, day: val });
+      onBlur && onBlur();
       setVisible(false);
       setMode('year');
     }
@@ -52,14 +57,17 @@ const FormDate: React.FC<FormDateProps> = ({ label, value, onChange, error, minY
 
   return (
     <View style={{ marginBottom: 12 }}>
-      <Text style={styles.label}>{label}</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+        <Text style={styles.label}>{label}</Text>
+        {error && <Text style={{ color: 'red', marginLeft: 8, fontSize: 13 }}>{error}</Text>}
+      </View>
       <TouchableOpacity
         onPress={() => setVisible(true)}
         activeOpacity={0.8}
         style={{ minHeight: 44, justifyContent: 'center', borderWidth: 0, borderRadius: 0, paddingHorizontal: 0, marginBottom: 0 }}
       >
         <Text style={{ fontSize: 16, color: safeValue.year ? '#222' : '#bbb' }}>
-          {safeValue.year && safeValue.month && safeValue.day ? `${safeValue.year}년 ${safeValue.month}월 ${safeValue.day}일` : `${label} 선택`}
+          {safeValue.year && safeValue.month && safeValue.day ? `${safeValue.year}년 ${safeValue.month}월 ${safeValue.day}일` : placeholder}
         </Text>
       </TouchableOpacity>
       <Modal visible={visible} transparent={false} animationType="slide">
@@ -90,7 +98,6 @@ const FormDate: React.FC<FormDateProps> = ({ label, value, onChange, error, minY
           />
         </SafeAreaView>
       </Modal>
-      {error && <Text style={styles.error}>{error}</Text>}
     </View>
   );
 };
@@ -100,7 +107,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#222',
     fontSize: 16,
-    marginBottom: 4,
+    marginBottom: 0,
     textAlign: 'left',
   },
   fullScreenModal: {

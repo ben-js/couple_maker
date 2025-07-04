@@ -189,3 +189,61 @@ npm run type-check     # TS 타입 체크
 - 함수/컴포넌트 상단 JSDoc 주석 권장
 - 복잡한 로직은 인라인 주석 필수
 
+## 테스트 및 개발 완료 규칙
+- 모든 화면(컴포넌트) 및 비즈니스 로직은 반드시 `frontend/test` 폴더에 테스트 코드를 작성한다.
+- 저장 등 API 호출이 포함된 경우, API 문제와 프론트엔드 문제를 구분할 수 있도록 테스트 코드를 작성한다.
+- 테스트 코드는 실제로 실행하여 통과 여부를 확인한다.
+- 테스트가 통과된 경우에만 해당 화면/기능 개발이 완료된 것으로 간주한다.
+- 테스트 코드 없이 개발 완료로 처리하지 않는다.
+
+## Frontend Development Rules
+
+## 상태관리 규칙
+- **AuthContext**: 사용자 인증 상태 관리 (로그인/로그아웃, user 정보)
+- **AsyncStorage**: 사용자 정보 영구 저장 (앱 재시작 시 로그인 상태 유지)
+- **로컬 상태**: 컴포넌트 내부 상태는 useState/useReducer 사용
+- **불필요한 상태관리 라이브러리 사용 금지**: zustand, redux 등 외부 라이브러리 사용 금지
+
+## 코드 구조 규칙
+- **MVVM 패턴**: View(화면) / ViewModel(로직) / Model(데이터) 분리
+- **컴포넌트 분리**: 재사용 가능한 컴포넌트는 components 폴더에 분리
+- **타입 정의**: 모든 인터페이스는 types 폴더에 정의
+- **서비스 분리**: API 호출은 services 폴더에 분리
+
+## 네비게이션 규칙
+- **Stack Navigator**: 인증/온보딩 플로우
+- **Tab Navigator**: 메인 앱 플로우
+- **타입 안전성**: RootStackParamList, MainTabParamList 사용
+
+## 폼 관리 규칙
+- **React Hook Form**: 모든 폼은 react-hook-form 사용
+- **Yup 검증**: 스키마 기반 폼 검증
+- **동적 폼**: profileForm.json 기반 동적 폼 렌더링
+
+## 스타일링 규칙
+- **React Native UI Lib**: 기본 UI 컴포넌트 사용
+- **일관된 색상**: Colors 테마 시스템 사용
+- **반응형 디자인**: 다양한 화면 크기 대응
+
+## 에러 처리 규칙
+- **토스트 메시지**: Android는 ToastAndroid, iOS는 Alert 사용
+- **에러 바운더리**: 주요 화면에 에러 처리 추가
+- **로딩 상태**: 비동기 작업 시 로딩 인디케이터 표시
+
+## 성능 최적화 규칙
+- **메모이제이션**: React.memo, useMemo, useCallback 적절히 사용
+- **이미지 최적화**: expo-image-manipulator로 이미지 압축
+- **지연 로딩**: 필요시에만 컴포넌트 로드
+
+## 개발 워크플로우
+- **핫 리로드**: Expo Go 환경에서 빠른 개발 반복
+- **타입 체크**: TypeScript 엄격 모드 사용
+- **린트**: ESLint 규칙 준수
+- **코드 리뷰**: 주요 변경사항은 코드 리뷰 필수
+
+## 상태관리 정리 완료 (2024-07-04)
+- ✅ zustand 기반 userPreferencesStore 제거
+- ✅ AuthContext + AsyncStorage 기반 단일 상태관리로 통합
+- ✅ 불필요한 dependencies 제거 (zustand)
+- ✅ RootNavigator 리팩토링 완료
+

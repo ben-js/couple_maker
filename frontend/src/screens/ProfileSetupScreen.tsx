@@ -1,13 +1,10 @@
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Modal, View as RNView, Button as RNButton, TouchableOpacity, Platform, Image, SafeAreaView } from 'react-native';
-import { View, Text, TextField, Picker as UIPicker, Slider, Chip, Button, Avatar, RadioGroup, RadioButton, Dialog } from 'react-native-ui-lib';
-import { Picker as WheelPicker } from '@react-native-picker/picker';
+import { ScrollView, StyleSheet, Modal, View as RNView, TouchableOpacity, Platform, Image, SafeAreaView, ToastAndroid, Alert } from 'react-native';
+import { View, Text, Button, Avatar, Dialog } from 'react-native-ui-lib';
 import regionData from '../data/regions.json';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
-import * as FileSystem from 'expo-file-system';
 import { useNavigation } from '@react-navigation/native';
-import { saveOrUpdateProfile, UserProfile } from '../db/user';
 import { useAuth } from '../store/AuthContext';
 import { saveUserProfile } from '../services/userService';
 import optionsRaw from '../data/options.json';
@@ -15,124 +12,112 @@ import { Options } from '../types/options';
 import { useForm, Controller } from 'react-hook-form';
 import * as yup from 'yup';
 import { yupResolver } from '@hookform/resolvers/yup';
-import formTemplate from '../data/profileFormTemplate.json';
+import formTemplate from '../data/profileForm.json';
 import FormInput from '../components/FormInput';
-import FormRadio from '../components/FormRadio';
-import FormCheckboxGroup from '../components/FormCheckboxGroup';
 import FormPicker from '../components/FormPicker';
+import FormRegionModal from '../components/FormRegionModal';
 import FormSlider from '../components/FormSlider';
 import FormDate from '../components/FormDate';
-import FormRegionModal from '../components/FormRegionModal';
 import FormChips from '../components/FormChips';
 import { Feather } from '@expo/vector-icons';
+
 const options = optionsRaw as Options;
 
 // @ts-ignore: expo-image-cropper 타입 선언 없음을 무시
 declare module 'expo-image-cropper';
 
-// '기타'가 항상 마지막에 오도록 보장
-const sortedInterestsList = options.interests.filter(i => i !== '기타').concat('기타');
-
-const years = Array.from({ length: 100 }, (_, i) => new Date().getFullYear() - i);
-const months = Array.from({ length: 12 }, (_, i) => i + 1);
-const days = Array.from({ length: 31 }, (_, i) => i + 1);
-
-const regionNames = Object.keys(regionData);
-
-const bodyTypes = options.bodyTypes;
-const jobs = options.jobs;
-const educations = options.educations;
-const religions = options.religions;
-const mbtis = options.mbtis;
-const interestsList = options.interests;
-
 // yup 스키마 동적 생성
 const schemaFields: any = {};
 formTemplate.forEach(field => {
+  const errorMsg = field.errorMessage || `${field.label}을(를) 입력해 주세요`;
   if (field.type === 'input') {
-    schemaFields[field.name] = field.required ? yup.string().required(field.placeholder || `${field.label}을(를) 입력해 주세요`) : yup.string();
-  } else if (field.type === 'radio') {
-    schemaFields[field.name] = field.required ? yup.string().oneOf(field.options, `${field.label}을(를) 선택해 주세요`).required(`${field.label}을(를) 선택해 주세요`) : yup.string();
-  } else if (field.type === 'checkbox') {
+    schemaFields[field.name] = field.required
+      ? yup.string().trim().min(1, errorMsg).required(errorMsg)
+      : yup.string();
+  }
+  if (field.type === 'radio' || field.type === 'picker' || field.type === 'slider' || field.type === 'select') {
+    schemaFields[field.name] = field.required
+      ? yup.string().trim().min(1, errorMsg).required(errorMsg)
+      : yup.string();
+  }
+  if (field.type === 'date') {
+    schemaFields[field.name] = field.required
+      ? yup.object({
+          year: yup.number().min(1900),
+          month: yup.number().min(1),
+          day: yup.number().min(1)
+        })
+        .test('valid-date', errorMsg, v => !!v && typeof v.year === 'number' && v.year > 0 && typeof v.month === 'number' && v.month > 0 && typeof v.day === 'number' && v.day > 0)
+        .required(errorMsg)
+      : yup.object();
+  }
+  if (field.type === 'region') {
+    schemaFields[field.name] = field.required
+      ? yup.object({
+          region: yup.string().trim(),
+          district: yup.string()
+        })
+        .test('valid-region', errorMsg, v => !!v && !!v.region && v.region.trim().length > 0)
+        .required(errorMsg)
+      : yup.object();
+  }
+  if (field.type === 'chips') {
+    let s = yup.array().of(yup.string());
+    if (field.required) {
+      const minCount = field.minSelect || 1;
+      s = s.min(minCount, errorMsg);
+    }
+    if (field.maxSelect) s = s.max(field.maxSelect, `${field.label}은(는) 최대 ${field.maxSelect}개까지 선택 가능합니다`);
+    schemaFields[field.name] = s;
+  }
+  if (field.type === 'checkbox') {
     let s = yup.array().of(yup.string());
     if (field.required) s = s.min(field.min || 1, `${field.label}을(를) ${field.min || 1}개 이상 선택해 주세요`);
     if (field.max) s = s.max(field.max, `${field.label}은(는) 최대 ${field.max}개까지 선택 가능합니다`);
     schemaFields[field.name] = s;
-  } else if (field.type === 'date') {
-    schemaFields[field.name] = field.required ? yup.string().required(`${field.label}을(를) 선택해 주세요`) : yup.string();
-  } else if (field.type === 'select') {
-    schemaFields[field.name] = field.required ? yup.string().required(`${field.label}을(를) 선택해 주세요`) : yup.string();
   }
 });
 const schema = yup.object().shape(schemaFields);
 
 const ProfileSetupScreen = () => {
-  // 최대 5장 사진, 대표는 항상 0번 인덱스
+  // 사진 관련 상태만 유지 (UI 전용)
   const [photos, setPhotos] = useState<(string | null)[]>([null, null, null, null, null]);
-  const [mainPhotoIndex, setMainPhotoIndex] = useState(0); // 대표 이미지 인덱스(항상 0)
-  const [photoModalIndex, setPhotoModalIndex] = useState<number | null>(null);
-  const [name, setName] = useState('');
-  const [gender, setGender] = useState<'남' | '여' | ''>('');
-  const [birth, setBirth] = useState<{ year: number; month: number; day: number }>({ year: years[0], month: 1, day: 1 });
-  const [birthModal, setBirthModal] = useState(false);
-  const [regionModal, setRegionModal] = useState(false);
-  const [selectedRegion, setSelectedRegion] = useState('');
-  const [selectedDistrict, setSelectedDistrict] = useState('');
-  const [showDistricts, setShowDistricts] = useState(false);
-  const [height, setHeight] = useState(170);
-  const [bodyType, setBodyType] = useState('');
-  const [job, setJob] = useState('');
-  const [education, setEducation] = useState('');
-  const [smoking, setSmoking] = useState('');
-  const [drinking, setDrinking] = useState('');
-  const [religion, setReligion] = useState('');
-  const [mbti, setMbti] = useState('');
-  const [bio, setBio] = useState('');
-  const [interests, setInterests] = useState<string[]>([]);
-  const [nameBlur, setNameBlur] = useState(false);
-  const [interestsModal, setInterestsModal] = useState(false);
-  const [showPhotoPopup, setShowPhotoPopup] = useState(false);
   const [photoActionIndex, setPhotoActionIndex] = useState<number|null>(null);
-  const [prevInterests, setPrevInterests] = useState<string[]>([]);
   const [previewUri, setPreviewUri] = useState<string|null>(null);
   const [previewTargetIdx, setPreviewTargetIdx] = useState<number|null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [showPhotoPopup, setShowPhotoPopup] = useState(false);
+  const [activeChipsModalField, setActiveChipsModalField] = useState<string | null>(null);
+
   const navigation = useNavigation<any>();
   const { user } = useAuth();
-  const { control, handleSubmit, formState: { errors }, register, watch, setValue } = useForm({
+  
+  const { control, handleSubmit, formState: { errors }, setValue, trigger } = useForm({
+    mode: 'onChange',
+    reValidateMode: 'onChange',
     resolver: yupResolver(schema),
     defaultValues: formTemplate.reduce((acc, cur) => {
-      acc[cur.name] = cur.type === 'checkbox' ? [] : '';
+      if (cur.type === 'chips' || cur.type === 'checkbox') acc[cur.name] = [];
+      else if (cur.type === 'region') acc[cur.name] = { region: '', district: '' };
+      else if (cur.type === 'date') acc[cur.name] = { year: 0, month: 0, day: 0 };
+      else acc[cur.name] = '';
       return acc;
     }, {} as any),
   });
-  const [genderModal, setGenderModal] = useState(false);
-  const [activeChipsModalField, setActiveChipsModalField] = useState<string | null>(null);
 
-  const toggleInterest = (item: string) => {
-    setInterests((prev) => {
-      if (prev.includes(item)) {
-        return prev.filter(i => i !== item);
-      } else {
-        if (prev.length >= 3) return prev; // 3개 초과 선택 불가
-        return [...prev, item];
-      }
-    });
-  };
-
-  // 사진 관련 함수들
-  async function handleCamera(idx: number|null) {
+  // 사진 관련 핸들러들
+  const handleCamera = async (idx: number|null) => {
     if (idx === null) return;
     const result = await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8 });
     if (!result.canceled && result.assets && result.assets.length > 0) {
       const newPhotos = [...photos];
       newPhotos[idx] = result.assets[0].uri;
       setPhotos(newPhotos);
-      setPhotoModalIndex(null);
-      setTimeout(() => setPhotoActionIndex(null), 30);
+      setPhotoActionIndex(null);
     }
-  }
-  async function handleGallery(idx: number|null) {
+  };
+
+  const handleGallery = async (idx: number|null) => {
     if (idx === null) return;
     setPhotoActionIndex(null);
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8 });
@@ -141,33 +126,79 @@ const ProfileSetupScreen = () => {
       setPreviewTargetIdx(idx);
       setShowPreview(true);
     }
-  }
-  function handleSetMain(idx: number) {
+  };
+
+  const handleSetMain = (idx: number) => {
     if (idx === 0) return;
     const newPhotos = [...photos];
     const [main] = newPhotos.splice(idx, 1);
     newPhotos.unshift(main);
     while (newPhotos.length < 5) newPhotos.push(null);
     setPhotos(newPhotos.slice(0, 5));
-    setPhotoModalIndex(null);
     setPhotoActionIndex(null);
-  }
-  function handleDelete(idx: number) {
+  };
+
+  const handleDelete = (idx: number) => {
     const newPhotos = [...photos];
     newPhotos[idx] = null;
     setPhotos(newPhotos);
-    setPhotoModalIndex(null);
-  }
+    setPhotoActionIndex(null);
+  };
+
+  const handleSaveCrop = async () => {
+    if (!previewUri || previewTargetIdx === null) return;
+    
+    Image.getSize(previewUri, async (width, height) => {
+      const size = Math.min(width, height);
+      const cropRegion = {
+        originX: Math.floor((width - size) / 2),
+        originY: Math.floor((height - size) / 2),
+        width: size,
+        height: size,
+      };
+      const manipResult = await ImageManipulator.manipulateAsync(
+        previewUri,
+        [{ crop: cropRegion }],
+        { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+      );
+      const newPhotos = [...photos];
+      if (previewTargetIdx >= 0 && previewTargetIdx < newPhotos.length) {
+        newPhotos[previewTargetIdx] = manipResult.uri;
+      }
+      setPhotos(newPhotos);
+      setShowPreview(false);
+      setPreviewUri(null);
+      setPreviewTargetIdx(null);
+      setPhotoActionIndex(null);
+    });
+  };
 
   const onSubmit = async (data: any) => {
     if (!user) return;
-    // 사진 등 특수 필드는 별도 추가 필요
+    
+    const filteredPhotos = photos.filter(p => !!p);
+    if (filteredPhotos.length < 1) {
+      if (Platform.OS === 'android') {
+        ToastAndroid.show('사진을 최소 1장 등록해 주세요.', ToastAndroid.SHORT);
+      } else {
+        Alert.alert('사진을 최소 1장 등록해 주세요.');
+      }
+      return;
+    }
+    
     const profile = {
       id: user.id,
       ...data,
+      photos: filteredPhotos,
     };
+    
     try {
       const updatedUser = await saveUserProfile(user.id, profile);
+      if (Platform.OS === 'android') {
+        ToastAndroid.show('프로필을 저장합니다.', ToastAndroid.SHORT);
+      } else {
+        Alert.alert('프로필을 저장합니다.');
+      }
       if (!updatedUser.hasPreferences) {
         navigation.navigate('PreferenceSetupScreen');
       } else {
@@ -178,20 +209,9 @@ const ProfileSetupScreen = () => {
     }
   };
 
-  // 동적 옵션 주입
-  const dynamicOptions = {
-    bodyType: options.bodyTypes,
-    job: options.jobs,
-    education: options.educations,
-    religion: options.religions,
-    mbti: options.mbtis,
-    interests: options.interests,
-  };
-
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text text30 marginB-16>프로필 작성</Text>
-      {/* 대표 이미지만 메인에 */}
+      {/* 대표 이미지 */}
       <View style={{ alignItems: 'center', marginBottom: 24 }}>
         <TouchableOpacity
           onPress={() => setShowPhotoPopup(true)}
@@ -212,7 +232,7 @@ const ProfileSetupScreen = () => {
         </TouchableOpacity>
       </View>
 
-      {/* 전체 사진 관리 다이얼로그 */}
+      {/* 사진 관리 다이얼로그 */}
       <Dialog
         visible={showPhotoPopup}
         onDismiss={() => setShowPhotoPopup(false)}
@@ -222,7 +242,8 @@ const ProfileSetupScreen = () => {
       >
         <RNView style={{ backgroundColor: '#fff', borderRadius: 20, paddingVertical: 24, width: 340, alignItems: 'center' }}>
           <Text style={{ fontSize: 18, fontWeight: 'bold', textAlign: 'center', marginBottom: 16 }}>사진 관리</Text>
-          {/* 대표 이미지 크게 중앙 */}
+          
+          {/* 대표 이미지 */}
           <TouchableOpacity
             onPress={() => setPhotoActionIndex(0)}
             activeOpacity={0.8}
@@ -239,12 +260,12 @@ const ProfileSetupScreen = () => {
                 containerStyle={{ alignSelf: 'center' }}
               />
             )}
-            {/* 대표 뱃지 */}
             <View style={{ position: 'absolute', top: 0, right: 0, backgroundColor: '#6C6FC5', borderTopRightRadius: 12, borderBottomLeftRadius: 12, paddingHorizontal: 10, paddingVertical: 4 }}>
               <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 14 }}>대표</Text>
             </View>
           </TouchableOpacity>
-          {/* 나머지 4개 이미지는 아래 한 줄 */}
+          
+          {/* 나머지 이미지들 */}
           <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 12 }}>
             {[1,2,3,4].map(i => (
               <TouchableOpacity
@@ -269,7 +290,8 @@ const ProfileSetupScreen = () => {
           </View>
           <Button label="닫기" onPress={() => setShowPhotoPopup(false)} style={{ marginTop: 8 }} />
         </RNView>
-        {/* 작은 액션 다이얼로그 */}
+        
+        {/* 사진 액션 다이얼로그 */}
         <Dialog
           visible={photoActionIndex !== null}
           onDismiss={() => setPhotoActionIndex(null)}
@@ -278,19 +300,19 @@ const ProfileSetupScreen = () => {
         >
           <RNView style={{ backgroundColor: '#fff', borderRadius: 16, paddingVertical: 12, width: 260 }}>
             <RNView style={{ alignItems: 'flex-start', paddingHorizontal: 20 }}>
-              <TouchableOpacity style={{ paddingVertical: 14, width: '100%' }} onPress={async () => { await handleCamera(photoActionIndex); }}>
+              <TouchableOpacity style={{ paddingVertical: 14, width: '100%' }} onPress={() => handleCamera(photoActionIndex)}>
                 <Text style={{ fontSize: 16, color: '#222' }}>카메라</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={{ paddingVertical: 14, width: '100%' }} onPress={async () => { await handleGallery(photoActionIndex); }}>
+              <TouchableOpacity style={{ paddingVertical: 14, width: '100%' }} onPress={() => handleGallery(photoActionIndex)}>
                 <Text style={{ fontSize: 16, color: '#222' }}>갤러리</Text>
               </TouchableOpacity>
               {photoActionIndex !== 0 && photos[photoActionIndex ?? 0] && (
-                <TouchableOpacity style={{ paddingVertical: 14, width: '100%' }} onPress={() => { handleSetMain(photoActionIndex!); }}>
+                <TouchableOpacity style={{ paddingVertical: 14, width: '100%' }} onPress={() => handleSetMain(photoActionIndex!)}>
                   <Text style={{ fontSize: 16, color: '#222' }}>대표 이미지 설정</Text>
                 </TouchableOpacity>
               )}
               {photos[photoActionIndex ?? 0] && (
-                <TouchableOpacity style={{ paddingVertical: 14, width: '100%' }} onPress={() => { handleDelete(photoActionIndex!); }}>
+                <TouchableOpacity style={{ paddingVertical: 14, width: '100%' }} onPress={() => handleDelete(photoActionIndex!)}>
                   <Text style={{ fontSize: 16, color: '#222' }}>사진 삭제</Text>
                 </TouchableOpacity>
               )}
@@ -301,6 +323,7 @@ const ProfileSetupScreen = () => {
           </RNView>
         </Dialog>
       </Dialog>
+
       {/* 동적 폼 렌더링 */}
       {formTemplate.map(field => {
         if (field.type === 'input') {
@@ -332,7 +355,7 @@ const ProfileSetupScreen = () => {
               render={({ field: { onChange, value }, fieldState: { error } }) => (
                 <FormPicker
                   label={field.label}
-                  options={field.optionsKey ? options[field.optionsKey] : []}
+                  options={field.optionsKey ? (options[field.optionsKey] as string[] ?? []) : []}
                   value={value}
                   onChange={onChange}
                   error={error?.message}
@@ -356,6 +379,7 @@ const ProfileSetupScreen = () => {
                   min={field.min ?? 140}
                   max={field.max ?? 200}
                   error={error?.message}
+                  placeholder={field.placeholder}
                 />
               )}
             />
@@ -367,12 +391,13 @@ const ProfileSetupScreen = () => {
               key={field.name}
               control={control}
               name={field.name}
-              render={({ field: { onChange, value }, fieldState: { error } }) => (
+              render={({ field: { onChange, onBlur, value }, fieldState: { error } }) => (
                 <FormDate
                   label={field.label}
                   value={value || { year: 2000, month: 1, day: 1 }}
-                  onChange={onChange}
+                  onChange={val => { onChange(val); onBlur(); }}
                   error={error?.message}
+                  placeholder={field.placeholder}
                 />
               )}
             />
@@ -396,7 +421,7 @@ const ProfileSetupScreen = () => {
             />
           );
         }
-        if (field.type === 'chips' && field.modal) {
+        if (field.type === 'chips') {
           return (
             <Controller
               key={field.name}
@@ -404,7 +429,10 @@ const ProfileSetupScreen = () => {
               name={field.name}
               render={({ field: { onChange, value }, fieldState: { error } }) => (
                 <>
-                  <Text style={{ fontWeight: '700', color: '#222', fontSize: 16, marginBottom: 4 }}>{field.label}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                    <Text style={{ fontWeight: '700', color: '#222', fontSize: 16 }}>{field.label}</Text>
+                    {error?.message && <Text style={{ color: 'red', marginLeft: 8, fontSize: 13 }}>{error.message}</Text>}
+                  </View>
                   <TouchableOpacity
                     onPress={() => setActiveChipsModalField(field.name)}
                     activeOpacity={0.8}
@@ -417,28 +445,33 @@ const ProfileSetupScreen = () => {
                   <Modal visible={activeChipsModalField === field.name} transparent={false} animationType="slide">
                     <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', height: 56, borderBottomWidth: 0, paddingHorizontal: 8, justifyContent: 'space-between' }}>
-                        <TouchableOpacity onPress={() => setActiveChipsModalField(null)} style={{ width: 40, height: 40, justifyContent: 'center', alignItems: 'center' }} hitSlop={{top:10, bottom:10, left:10, right:10}}>
+                        <TouchableOpacity onPress={async () => { setActiveChipsModalField(null); await trigger(field.name); }} style={{ width: 40, height: 40, justifyContent: 'center', alignItems: 'center' }} hitSlop={{top:10, bottom:10, left:10, right:10}}>
                           <Feather name="x" size={26} color="#bbb" />
                         </TouchableOpacity>
                         <Text style={{ flex: 1, textAlign: 'center', fontSize: 18, fontWeight: 'bold', color: '#222' }}>{field.label}</Text>
                         <View style={{ width: 40 }} />
                       </View>
                       <View style={{ flex: 1, justifyContent: 'flex-start', alignItems: 'stretch', padding: 24 }}>
-                        <Text style={{ fontSize: 16, color: '#222', textAlign: 'center', marginBottom: 16 }}>{field.label}를 {field.minSelect}개 선택하세요</Text>
+                        <Text style={{ fontSize: 16, color: '#222', textAlign: 'center', marginBottom: 16 }}>{field.label}을 {field.minSelect}개 선택하세요</Text>
                         <FormChips
-                          options={(options[field.optionsKey] ?? []) as string[]}
+                          label={field.label}
+                          options={field.optionsKey ? (options[field.optionsKey] as string[] ?? []) : []}
                           value={value || []}
                           onChange={onChange}
                           min={field.minSelect}
                           max={field.maxSelect}
-                          error={error?.message}
+                          error={undefined}
                         />
                       </View>
                       <View style={{ padding: 24, paddingTop: 0 }}>
                         <TouchableOpacity
                           style={{ backgroundColor: value.length < (field.minSelect || 1) ? '#eee' : '#3B82F6', borderRadius: 12, paddingVertical: 14, alignItems: 'center' }}
                           disabled={value.length < (field.minSelect || 1)}
-                          onPress={() => setActiveChipsModalField(null)}
+                          onPress={async () => {
+                            setValue(field.name, value);
+                            setActiveChipsModalField(null);
+                            await trigger(field.name);
+                          }}
                         >
                           <Text style={{ color: value.length < (field.minSelect || 1) ? '#bbb' : '#fff', fontWeight: 'bold', fontSize: 16 }}>확인</Text>
                         </TouchableOpacity>
@@ -450,27 +483,9 @@ const ProfileSetupScreen = () => {
             />
           );
         }
-        if (field.type === 'chips' && !field.modal) {
-          return (
-            <Controller
-              key={field.name}
-              control={control}
-              name={field.name}
-              render={({ field: { onChange, value }, fieldState: { error } }) => (
-                <FormChips
-                  options={(options[field.optionsKey] ?? []) as string[]}
-                  value={value || []}
-                  onChange={onChange}
-                  min={field.minSelect}
-                  max={field.maxSelect}
-                  error={error?.message}
-                />
-              )}
-            />
-          );
-        }
         return null;
       })}
+      
       <Button
         label="저장"
         marginT-16
@@ -478,9 +493,21 @@ const ProfileSetupScreen = () => {
         borderRadius={16}
         style={{ minWidth: 120, paddingVertical: 12 }}
         labelStyle={{ color: '#fff', fontWeight: 'bold', fontSize: 18 }}
-        onPress={handleSubmit(onSubmit)}
+        onPress={handleSubmit(
+          (data) => onSubmit(data),
+          (formErrors) => {
+            if (Object.keys(formErrors).length > 0) {
+              if (Platform.OS === 'android') {
+                ToastAndroid.show('프로필 작성을 해주세요', ToastAndroid.SHORT);
+              } else {
+                Alert.alert('알림', '프로필 작성을 해주세요');
+              }
+            }
+          }
+        )}
       />
-      {/* Crop Preview UI */}
+      
+      {/* 이미지 크롭 미리보기 */}
       {showPreview && previewUri && (
         <Dialog
           visible={showPreview}
@@ -503,33 +530,7 @@ const ProfileSetupScreen = () => {
               />
               <Button
                 label="저장"
-                onPress={async () => {
-                  // 중앙 기준 정사각형 crop (Image.getSize 사용)
-                  Image.getSize(previewUri!, async (width, height) => {
-                    const size = Math.min(width, height);
-                    const cropRegion = {
-                      originX: Math.floor((width - size) / 2),
-                      originY: Math.floor((height - size) / 2),
-                      width: size,
-                      height: size,
-                    };
-                    const manipResult = await ImageManipulator.manipulateAsync(
-                      previewUri!,
-                      [{ crop: cropRegion }],
-                      { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
-                    );
-                    const newPhotos = [...photos];
-                    // 선택한 인덱스(previewTargetIdx)에 저장
-                    if (previewTargetIdx !== null && previewTargetIdx >= 0 && previewTargetIdx < newPhotos.length) {
-                      newPhotos[previewTargetIdx] = manipResult.uri;
-                    }
-                    setPhotos(newPhotos);
-                    setShowPreview(false);
-                    setPreviewUri(null);
-                    setPreviewTargetIdx(null);
-                    setPhotoModalIndex(null);
-                  });
-                }}
+                onPress={handleSaveCrop}
                 style={{ minWidth: 80 }}
               />
             </View>
@@ -542,28 +543,6 @@ const ProfileSetupScreen = () => {
 
 const styles = StyleSheet.create({
   container: { padding: 24, backgroundColor: '#fff' },
-  input: { marginBottom: 12 },
-  regionBtn: {
-    width: '23%', margin: '1%', borderWidth: 1, borderColor: '#ccc', marginBottom: 12, alignItems: 'center', padding: 8, borderRadius: 8, backgroundColor: '#fff'
-  },
-  regionBtnSelected: {
-    backgroundColor: '#3B82F6'
-  },
-  regionBtnText: {
-    color: '#222', fontWeight: 'bold'
-  },
-  namePill: {
-    marginTop: 12,
-    alignSelf: 'flex-start',
-    backgroundColor: '#3B82F6',
-    color: '#fff',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    fontWeight: 'bold',
-    fontSize: 16,
-    overflow: 'hidden',
-  },
 });
 
 export default ProfileSetupScreen; 

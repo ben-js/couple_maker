@@ -4,13 +4,27 @@ import { User } from '../types';
 const API_BASE = 'http://192.168.219.100:3000'; // ← 본인 PC의 사설 IP로 변경
 
 export async function loginUser(email: string, password: string): Promise<User> {
-  const res = await fetch(`${API_BASE}/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  });
-  if (!res.ok) throw new Error('로그인 실패');
-  return res.json();
+  try {
+    console.log('Login attempt with:', { email, password });
+    const res = await fetch(`${API_BASE}/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || `로그인 실패 (${res.status})`);
+    }
+    
+    return res.json();
+  } catch (error) {
+    console.error('Login error:', error);
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error('네트워크 연결을 확인해 주세요. 서버가 실행 중인지 확인하세요.');
+    }
+    throw error;
+  }
 }
 
 export async function getUserProfile(userId: string): Promise<User> {

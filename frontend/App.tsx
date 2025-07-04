@@ -1,15 +1,19 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { NavigationContainer } from '@react-navigation/native';
 import { Colors, ThemeManager } from 'react-native-ui-lib';
+import { View, Text } from 'react-native';
 
 // 네비게이션 설정
 import RootNavigator from '@/navigation/RootNavigator';
 
 // 상태 관리
 import { AuthProvider } from '@/store/AuthContext';
+
+// 데이터베이스 초기화
+import { initDatabase } from '@/db/user';
 
 // 테마 설정
 Colors.loadColors({
@@ -59,6 +63,30 @@ ThemeManager.setComponentTheme('Card', {
 });
 
 export default function App() {
+  const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    const initializeApp = async () => {
+      try {
+        await initDatabase();
+        setIsReady(true);
+      } catch (error) {
+        console.error('App initialization failed:', error);
+        setIsReady(true); // 에러가 있어도 앱은 시작
+      }
+    };
+
+    initializeApp();
+  }, []);
+
+  if (!isReady) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <Text>앱을 시작하는 중...</Text>
+      </View>
+    );
+  }
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>

@@ -9,12 +9,16 @@ interface FormSliderProps {
   min?: number;
   max?: number;
   error?: string;
+  placeholder?: string;
 }
 
 const FormSlider: React.FC<FormSliderProps> = ({ label, value, onChange, min = 140, max = 200, error }) => {
   return (
     <View style={{ marginBottom: 28 }}>
-      <Text style={styles.label}>{label}</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+        <Text style={styles.label}>{label}</Text>
+        {error && <Text style={{ color: 'red', marginLeft: 8, fontSize: 13 }}>{error}</Text>}
+      </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 0 }}>
         <Slider
           value={value}
@@ -28,7 +32,6 @@ const FormSlider: React.FC<FormSliderProps> = ({ label, value, onChange, min = 1
         />
         <Text style={styles.value}>{value}cm</Text>
       </View>
-      {error && <Text style={styles.error}>{error}</Text>}
     </View>
   );
 };
@@ -38,7 +41,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#222',
     fontSize: 16,
-    marginBottom: 8,
+    marginBottom: 0,
     textAlign: 'left',
   },
   value: {

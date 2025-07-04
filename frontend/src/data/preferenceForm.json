@@ -1,0 +1,140 @@
+[
+  {
+    "name": "age_range",
+    "type": "range_slider",
+    "label": "나이",
+    "min": 18,
+    "max": 60,
+    "step": 1,
+    "required": true,
+    "placeholder": "나이 범위 선택",
+    "errorMessage": "나이 범위를 선택해 주세요"
+  },
+  {
+    "name": "height_range",
+    "type": "range_slider",
+    "label": "키",
+    "min": 140,
+    "max": 200,
+    "step": 1,
+    "required": true,
+    "placeholder": "키 범위 선택",
+    "errorMessage": "키 범위를 선택해 주세요"
+  },
+  {
+    "name": "regions",
+    "type": "region_choice",
+    "label": "지역",
+    "placeholder": "지역 선택 (최대 5개)",
+    "optionsKey": "regions",
+    "maxSelect": 5,
+    "required": true,
+    "modal": true,
+    "errorMessage": "지역을 선택해 주세요"
+  },
+  {
+    "name": "job_types",
+    "type": "chips",
+    "label": "직업",
+    "placeholder": "직업 선택",
+    "optionsKey": "jobs",
+    "minSelect": 1,
+    "maxSelect": 3,
+    "required": true,
+    "modal": true,
+    "errorMessage": "직업을 선택해 주세요"
+  },
+  {
+    "name": "education_levels",
+    "type": "chips",
+    "label": "학력",
+    "placeholder": "학력 선택",
+    "optionsKey": "educations",
+    "minSelect": 1,
+    "maxSelect": 3,
+    "required": true,
+    "modal": true,
+    "errorMessage": "학력을 선택해 주세요"
+  },
+  {
+    "name": "body_types",
+    "type": "chips",
+    "label": "체형",
+    "placeholder": "체형 선택",
+    "optionsKey": "bodyTypes",
+    "minSelect": 1,
+    "maxSelect": 3,
+    "required": true,
+    "modal": true,
+    "errorMessage": "체형을 선택해 주세요"
+  },
+  {
+    "name": "mbti_types",
+    "type": "chips",
+    "label": "MBTI",
+    "placeholder": "MBTI 선택",
+    "optionsKey": "mbtis",
+    "minSelect": 1,
+    "maxSelect": 3,
+    "required": true,
+    "modal": true,
+    "errorMessage": "MBTI를 선택해 주세요"
+  },
+  {
+    "name": "hobbies",
+    "type": "chips",
+    "label": "취미",
+    "placeholder": "취미 선택",
+    "optionsKey": "interests",
+    "minSelect": 2,
+    "maxSelect": 5,
+    "required": true,
+    "modal": true,
+    "errorMessage": "취미를 선택해 주세요"
+  },
+  {
+    "name": "smoking",
+    "type": "picker",
+    "label": "흡연",
+    "placeholder": "흡연 여부 선택",
+    "optionsKey": "smoking",
+    "required": true,
+    "errorMessage": "흡연 여부를 선택해 주세요"
+  },
+  {
+    "name": "drinking",
+    "type": "picker",
+    "label": "음주",
+    "placeholder": "음주 여부 선택",
+    "optionsKey": "drinking",
+    "required": true,
+    "errorMessage": "음주 여부를 선택해 주세요"
+  },
+  {
+    "name": "religion",
+    "type": "picker",
+    "label": "종교",
+    "placeholder": "종교 선택",
+    "optionsKey": "religions",
+    "required": true,
+    "errorMessage": "종교를 선택해 주세요"
+  },
+  {
+    "name": "children_desire",
+    "type": "picker",
+    "label": "딩크족 희망",
+    "placeholder": "딩크족 희망 여부 선택",
+    "optionsKey": "dinkDesire",
+    "required": true,
+    "errorMessage": "딩크족 희망 여부를 선택해 주세요"
+  },
+  {
+    "name": "marriage_plan",
+    "type": "picker",
+    "label": "결혼 계획",
+    "placeholder": "결혼 계획 선택",
+    "optionsKey": "marriagePlans",
+    "required": true,
+    "errorMessage": "결혼 계획을 선택해 주세요"
+  }
+] 

@@ -52,5 +52,12 @@ functions:
           path: /user-preferences
           method: post
 
+  saveProfile:
+    handler: handler.saveProfile
+    events:
+      - httpApi:
+          path: /user/{userId}
+          method: post
+
 plugins:
   - serverless-offline 

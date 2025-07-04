@@ -1,25 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, Platform, ToastAndroid, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../store/AuthContext';
 import PrimaryButton from '../components/PrimaryButton';
-import { createUserTable, checkProfileExists } from '../db/user';
-import { getUserPreferences } from '../services/userPreferencesService';
 import { loginUser } from '../services/userService';
 
 const AuthScreen = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('test@test.com');
+  const [password, setPassword] = useState('1234');
   const navigation = useNavigation<any>();
-
-  useEffect(() => {
-    createUserTable();
-  }, []);
+  const { setUser } = useAuth();
 
   const handleLogin = async () => {
     try {
       // REST API로 로그인
       const user = await loginUser(email, password);
+      // 로그인 성공 시 user 정보를 Context에 저장
+      await setUser(user);
+      console.log('로그인 후 user.hasProfile:', user.hasProfile, 'user.hasPreferences:', user.hasPreferences);
+      // 로그인 성공 시 토스트 메시지
+      if (Platform.OS === 'android') {
+        ToastAndroid.show('로그인이 완료되었습니다.', ToastAndroid.SHORT);
+      } else {
+        Alert.alert('로그인이 완료되었습니다.');
+      }
       if (!user.hasProfile) {
         navigation.navigate('ProfileSetup');
       } else if (!user.hasPreferences) {
@@ -28,7 +32,14 @@ const AuthScreen = () => {
         navigation.navigate('HomeScreen');
       }
     } catch (e) {
-      alert('로그인 실패: ' + (e as Error).message);
+      const errorMessage = (e as Error).message;
+      console.error('Login error:', errorMessage);
+      
+      if (Platform.OS === 'android') {
+        ToastAndroid.show(`로그인 실패: ${errorMessage}`, ToastAndroid.LONG);
+      } else {
+        Alert.alert('로그인 실패', errorMessage);
+      }
     }
   };
 
