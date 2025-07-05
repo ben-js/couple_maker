@@ -3,160 +3,163 @@
     "name": "name",
     "label": "이름",
     "type": "input",
+    "placeholder": "이름을 입력하세요",
     "required": true,
-    "placeholder": "이름 입력",
     "errorMessage": "이름을 입력해 주세요"
   },
   {
+    "name": "birthDate",
+    "label": "생년월일",
+    "type": "date",
+    "required": true,
+    "errorMessage": "생년월일을 선택해 주세요"
+  },
+  {
     "name": "gender",
-    "type": "picker",
     "label": "성별",
-    "placeholder": "성별 선택",
+    "type": "picker",
     "optionsKey": "genders",
+    "placeholder": "성별을 선택하세요",
     "required": true,
     "errorMessage": "성별을 선택해 주세요"
   },
   {
-    "name": "birthDate",
-    "type": "date",
-    "label": "생년월일",
-    "placeholder": "생년월일 선택",
-    "required": true,
-    "minYear": 1950,
-    "maxYear": 2005,
-    "errorMessage": "생년월일을 선택해 주세요"
-  },
-  {
-    "name": "region",
-    "type": "region",
-    "label": "사는 곳",
-    "placeholder": "사는 곳 선택",
-    "required": true,
-    "errorMessage": "사는 곳을 선택해 주세요"
-  },
-  {
     "name": "height",
-    "type": "slider",
     "label": "키",
+    "type": "slider",
     "min": 140,
     "max": 200,
-    "step": 1,
+    "placeholder": "키를 선택하세요",
     "required": true,
-    "placeholder": "키 선택",
     "errorMessage": "키를 선택해 주세요"
   },
   {
     "name": "bodyType",
-    "type": "picker",
     "label": "체형",
-    "placeholder": "체형 선택",
+    "type": "picker",
     "optionsKey": "bodyTypes",
+    "placeholder": "체형을 선택하세요",
     "required": true,
     "errorMessage": "체형을 선택해 주세요"
   },
   {
     "name": "job",
-    "type": "picker",
     "label": "직업",
-    "placeholder": "직업 선택",
+    "type": "picker",
     "optionsKey": "jobs",
+    "placeholder": "직업을 선택하세요",
     "required": true,
     "errorMessage": "직업을 선택해 주세요"
   },
   {
     "name": "education",
-    "type": "picker",
     "label": "학력",
-    "placeholder": "학력 선택",
+    "type": "picker",
     "optionsKey": "educations",
+    "placeholder": "학력을 선택하세요",
     "required": true,
     "errorMessage": "학력을 선택해 주세요"
   },
   {
-    "name": "religion",
-    "type": "picker",
-    "label": "종교",
-    "placeholder": "종교 선택",
-    "optionsKey": "religions",
+    "name": "region",
+    "label": "거주지",
+    "type": "region",
+    "placeholder": "거주지를 선택하세요",
     "required": true,
-    "errorMessage": "종교를 선택해 주세요"
+    "errorMessage": "거주지를 선택해 주세요"
   },
   {
     "name": "mbti",
-    "type": "picker",
     "label": "MBTI",
-    "placeholder": "MBTI 선택",
+    "type": "picker",
     "optionsKey": "mbtis",
+    "placeholder": "MBTI를 선택하세요",
     "required": true,
     "errorMessage": "MBTI를 선택해 주세요"
   },
   {
+    "name": "interests",
+    "label": "취미",
+    "type": "chips",
+    "optionsKey": "interests",
+    "placeholder": "취미를 선택하세요",
+    "required": true,
+    "minSelect": 3,
+    "maxSelect": 5,
+    "errorMessage": "취미를 3개 이상 선택해 주세요"
+  },
+  {
+    "name": "favoriteFoods",
+    "label": "좋아하는 음식",
+    "type": "chips",
+    "optionsKey": "foods",
+    "placeholder": "좋아하는 음식을 선택하세요",
+    "required": true,
+    "minSelect": 1,
+    "maxSelect": 3,
+    "errorMessage": "좋아하는 음식을 1개 이상 선택해 주세요"
+  },
+  {
     "name": "smoking",
-    "type": "picker",
     "label": "흡연",
-    "placeholder": "흡연 여부",
+    "type": "picker",
     "optionsKey": "smoking",
+    "placeholder": "흡연 여부를 선택하세요",
     "required": true,
     "errorMessage": "흡연 여부를 선택해 주세요"
   },
   {
     "name": "drinking",
-    "type": "picker",
     "label": "음주",
-    "placeholder": "음주 여부",
+    "type": "picker",
     "optionsKey": "drinking",
+    "placeholder": "음주 여부를 선택하세요",
     "required": true,
     "errorMessage": "음주 여부를 선택해 주세요"
   },
   {
-    "name": "interests",
-    "type": "chips",
-    "label": "취미",
-    "placeholder": "취미 선택",
-    "optionsKey": "interests",
-    "minSelect": 3,
-    "maxSelect": 3,
+    "name": "religion",
+    "label": "종교",
+    "type": "picker",
+    "optionsKey": "religions",
+    "placeholder": "종교를 선택하세요",
     "required": true,
-    "modal": true,
-    "errorMessage": "취미를 선택해 주세요"
-  },
-  {
-    "name": "favoriteFoods",
-    "type": "chips",
-    "label": "좋아하는 음식",
-    "placeholder": "좋아하는 음식 선택",
-    "optionsKey": "foods",
-    "minSelect": 2,
-    "maxSelect": 5,
-    "required": true,
-    "modal": true,
-    "errorMessage": "좋아하는 음식을 선택해 주세요"
+    "errorMessage": "종교를 선택해 주세요"
   },
   {
     "name": "maritalStatus",
+    "label": "혼인상태",
     "type": "picker",
-    "label": "결혼 여부",
-    "placeholder": "결혼 여부 선택",
     "optionsKey": "maritalStatuses",
+    "placeholder": "혼인상태를 선택하세요",
     "required": true,
-    "errorMessage": "결혼 여부를 선택해 주세요"
+    "errorMessage": "혼인상태를 선택해 주세요"
   },
   {
     "name": "hasChildren",
+    "label": "자녀",
     "type": "picker",
-    "label": "자녀 유무",
-    "placeholder": "자녀 유무 선택",
     "optionsKey": "hasChildren",
+    "placeholder": "자녀 여부를 선택하세요",
     "required": true,
-    "errorMessage": "자녀 유무를 선택해 주세요"
+    "errorMessage": "자녀 여부를 선택해 주세요"
+  },
+  {
+    "name": "marriagePlans",
+    "label": "결혼 계획",
+    "type": "picker",
+    "optionsKey": "marriagePlans",
+    "placeholder": "결혼 계획을 선택하세요",
+    "required": true,
+    "errorMessage": "결혼 계획을 선택해 주세요"
   },
   {
     "name": "introduction",
-    "type": "textarea",
     "label": "자기소개",
-    "placeholder": "자기소개 입력",
+    "type": "input",
+    "placeholder": "자기소개를 입력하세요",
     "multiline": true,
-    "maxLength": 200,
+    "maxLength": 500,
     "required": true,
     "errorMessage": "자기소개를 입력해 주세요"
   }
