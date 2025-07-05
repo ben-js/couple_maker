@@ -5,7 +5,10 @@
   "main": "handler.ts",
   "scripts": {
     "start": "serverless offline --host 0.0.0.0",
-    "test": "jest"
+    "dev": "serverless offline --host 0.0.0.0",
+    "test": "jest",
+    "sync-data": "powershell -ExecutionPolicy Bypass -File scripts/sync-data.ps1",
+    "sync-data-unix": "bash scripts/sync-data.sh"
   },
   "devDependencies": {
     "@types/jest": "^29.0.0",

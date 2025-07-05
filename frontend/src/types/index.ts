@@ -2,35 +2,197 @@
 export interface User {
   id: string;
   email: string;
-  name: string;
-  gender: 'male' | 'female' | 'other';
-  birthDate: string;
-  age: number;
-  location: {
+  name?: string;
+  gender?: '남' | '여';
+  birthDate?: string;
+  age?: number;
+  location?: {
     city: string;
     district: string;
   };
-  height: number;
-  bodyType: 'slim' | 'normal' | 'athletic' | 'chubby' | 'curvy';
-  job: string;
-  education: 'high_school' | 'college' | 'bachelor' | 'master' | 'phd';
-  religion: 'none' | 'christian' | 'buddhist' | 'catholic' | 'other';
-  smoking: 'yes' | 'no' | 'sometimes';
-  drinking: 'yes' | 'no' | 'sometimes';
-  mbti: string;
-  bio: string;
-  photos: string[];
-  interests: string[];
-  maritalStatus: 'single' | 'divorced' | 'widowed';
-  hasChildren: boolean;
-  createdAt: string;
-  updatedAt: string;
-  isProfileComplete: boolean;
-  isVerified: boolean;
-  lastActive: string;
+  height?: number;
+  bodyType?: '슬림' | '평균' | '근육질' | '통통';
+  job?: string;
+  education?: '고등학교' | '전문대' | '대학교' | '대학원' | '박사';
+  religion?: '무교' | '불교' | '천주교' | '기독교' | '기타';
+  smoking?: '흡연' | '비흡연';
+  drinking?: '음주' | '비음주';
+  mbti?: string;
+  bio?: string;
+  photos?: string[];
+  interests?: string[];
+  maritalStatus?: '미혼' | '이혼' | '사별';
+  hasChildren?: '없음' | '있음';
+  createdAt?: string;
+  updatedAt?: string;
+  isProfileComplete?: boolean;
+  isVerified?: boolean;
+  lastActive?: string;
   token?: string;
   hasProfile?: boolean;
   hasPreferences?: boolean;
+  grade?: 'general' | 'excellent' | 'gold' | 'vip' | 'vvip';
+  status?: 'green' | 'yellow' | 'red' | 'black';
+  points?: number;
+}
+
+// 사용자 프로필 타입
+export interface UserProfile {
+  userId: string;
+  name: string;
+  birthDate: {
+    year: number;
+    month: number;
+    day: number;
+  };
+  gender: '남' | '여';
+  height: number;
+  bodyType: '슬림' | '평균' | '근육질' | '통통';
+  job: string;
+  education: '고등학교' | '전문대' | '대학교' | '대학원' | '박사';
+  region: {
+    region: string;
+    district: string;
+  };
+  mbti: string;
+  interests: string[];
+  favoriteFoods: string[];
+  smoking: '흡연' | '비흡연';
+  drinking: '음주' | '비음주';
+  religion: '무교' | '불교' | '천주교' | '기독교' | '기타';
+  maritalStatus: '미혼' | '이혼' | '사별';
+  hasChildren: '없음' | '있음';
+  marriagePlans: string;
+  introduction: string;
+  photos: string[];
+}
+
+// 사용자 이상형 타입
+export interface UserPreferences {
+  userId: string;
+  preferredGender: string;
+  ageRange: {
+    min: number;
+    max: number;
+  };
+  heightRange: {
+    min: number;
+    max: number;
+  };
+  regions: Array<{
+    region: string;
+    district: string;
+  }>;
+  locations: string[];
+  jobTypes: string[];
+  educationLevels: string[];
+  bodyTypes: string[];
+  mbtiTypes: string[];
+  hobbies: string[];
+  personalityTags: string[];
+  valuesInLife: string[];
+  datingStyle: string[];
+  marriagePlan: string;
+  childrenDesire: string;
+  smoking: string;
+  drinking: string;
+  religion: string;
+  preferredMeetupTypes: string[];
+  priorityFields: string[];
+  priorityOrder: string[];
+}
+
+// 매칭 요청 타입
+export interface MatchingRequest {
+  id: string;
+  userId: string;
+  status: 'waiting' | 'matching' | 'confirmed' | 'completed' | 'failed';
+  createdAt: string;
+  updatedAt: string;
+}
+
+// 매칭 페어 타입
+export interface MatchPair {
+  id: string;
+  user1Id: string;
+  user2Id: string;
+  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
+  finalDate?: string;
+  location?: string;
+  photoVisibleAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// 후기 타입
+export interface Review {
+  id: string;
+  reviewerId: string;
+  reviewedId: string;
+  matchId: string;
+  appearance: number;
+  conversation: number;
+  manner: number;
+  sincerity: number;
+  wantToMeetAgain: boolean;
+  positiveTags: string[];
+  negativeTags: string[];
+  comment: string;
+  createdAt: string;
+}
+
+// 후기 통계 타입
+export interface ReviewStats {
+  userId: string;
+  averageRating: number;
+  totalReviews: number;
+  mannerLevel: '상' | '중' | '하';
+  aiFeedback: string;
+  conversationSkill: string;
+  updatedAt: string;
+}
+
+// 포인트 히스토리 타입
+export interface PointsHistory {
+  id: string;
+  userId: string;
+  type: 'earn' | 'spend';
+  amount: number;
+  reason: string;
+  description: string;
+  createdAt: string;
+}
+
+// 사용자 상태 히스토리 타입
+export interface UserStatusHistory {
+  id: string;
+  userId: string;
+  status: 'green' | 'yellow' | 'red' | 'black';
+  reason: string;
+  adminNote?: string;
+  createdAt: string;
+  expiresAt?: string;
+}
+
+// 인증 상태 타입
+export interface AuthState {
+  user: User | null;
+  isLoading: boolean;
+  isAuthenticated: boolean;
+}
+
+// 네비게이션 타입
+export interface RootStackParamList {
+  Onboarding: undefined;
+  Login: undefined;
+  Signup: undefined;
+  Main: { screen?: string } | undefined;
+  ProfileEdit: { isEditMode?: boolean } | undefined;
+  PreferenceEdit: { isEditMode?: boolean } | undefined;
+  UserDetail: { userId: string } | undefined;
+  Chat: { matchId: string } | undefined;
+  Filter: undefined;
+  Settings: undefined;
 }
 
 // 매칭 관련 타입
@@ -110,36 +272,13 @@ export interface PaginatedResponse<T> {
   hasMore: boolean;
 }
 
-// 네비게이션 타입
-export type RootStackParamList = {
-  Onboarding: undefined;
-  Login: undefined;
-  Signup: undefined;
-  Main: undefined;
-  ProfileSetup: undefined;
-  ProfileEdit: undefined;
-  PreferenceSetupScreen: undefined;
-  UserDetail: { userId: string };
-  Chat: { chatId: string; otherUser: User };
-  Filter: undefined;
-  Settings: undefined;
-};
-
 export type MainTabParamList = {
   Home: undefined;
-  Search: undefined;
-  Matches: undefined;
-  Chat: undefined;
-  Profile: undefined;
+  Tips: undefined;
+  Cards: undefined;
+  Reviews: undefined;
+  Menu: undefined;
 };
-
-// 인증 관련 타입
-export interface AuthState {
-  user: User | null;
-  token?: string | null;
-  isLoading: boolean;
-  isAuthenticated: boolean;
-}
 
 // 앱 설정 타입
 export interface AppSettings {
@@ -160,29 +299,4 @@ export interface AppSettings {
     showMen: boolean;
     showWomen: boolean;
   };
-}
-
-export type UserPreferences = {
-  user_id: string;
-  preferred_gender: string;
-  age_range: { min: number; max: number };
-  height_range: { min: number; max: number };
-  regions: { region: string; district: string }[];
-  locations: string[];
-  job_types: string[];
-  education_levels: string[];
-  body_types: string[];
-  mbti_types: string[];
-  hobbies: string[];
-  personality_tags: string[];
-  values_in_life: string[];
-  dating_style: string[];
-  marriage_plan: string;
-  children_desire: string; // "딩크족 희망", "자녀 희망", "상관없음"
-  smoking: boolean;
-  drinking: string;
-  religion: string;
-  preferred_meetup_types: string[];
-  priority_fields: string[];
-  priority_order: string[];
-}; 
+} 

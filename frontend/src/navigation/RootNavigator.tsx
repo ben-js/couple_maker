@@ -1,28 +1,29 @@
 import React, { useEffect } from 'react';
-import { createStackNavigator } from '@react-navigation/stack';
+import { createStackNavigator, StackNavigationProp } from '@react-navigation/stack';
 import { useAuth } from '@/store/AuthContext';
 import { RootStackParamList } from '@/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
+import { NAVIGATION_ROUTES, NAVIGATION_OPTIONS } from '@/constants';
 
 // 화면 컴포넌트들
 import OnboardingScreen from '@/screens/OnboardingScreen';
-import LoginScreen from '@/screens/AuthScreen';
+import LoginScreen from '../screens/LoginScreen';
 import MainTabNavigator from './MainTabNavigator';
-import ProfileSetupScreen from '@/screens/ProfileSetupScreen';
 import ProfileEditScreen from '@/screens/ProfileEditScreen';
-import PreferenceSetupScreen from '@/screens/PreferenceSetupScreen';
+import PreferenceEditScreen from '@/screens/PreferenceEditScreen';
 import UserDetailScreen from '@/screens/UserDetailScreen';
 import ChatScreen from '@/screens/ChatScreen';
 import FilterScreen from '@/screens/FilterScreen';
 import SettingsScreen from '@/screens/SettingsScreen';
 import LoadingScreen from '@/screens/LoadingScreen';
+import SignupScreen from '@/screens/SignupScreen';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
 const RootNavigator: React.FC = () => {
   const { isAuthenticated, isLoading, user } = useAuth();
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const [isOnboardingShown, setIsOnboardingShown] = React.useState<boolean | null>(null);
   const [showLoading, setShowLoading] = React.useState(true);
 
@@ -50,7 +51,7 @@ const RootNavigator: React.FC = () => {
   useEffect(() => {
     if (showLoading || isOnboardingShown === null) return;
     if (isOnboardingShown) {
-      navigation.navigate('Login');
+      navigation.navigate(NAVIGATION_ROUTES.LOGIN);
     }
   }, [showLoading, isOnboardingShown, navigation]);
 
@@ -59,20 +60,19 @@ const RootNavigator: React.FC = () => {
   }
 
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName={isOnboardingShown ? ('Login' as keyof RootStackParamList) : ('Onboarding' as keyof RootStackParamList)}>
-      <Stack.Screen name="Onboarding">
+    <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName={isOnboardingShown ? (NAVIGATION_ROUTES.LOGIN as keyof RootStackParamList) : (NAVIGATION_ROUTES.ONBOARDING as keyof RootStackParamList)}>
+      <Stack.Screen name={NAVIGATION_ROUTES.ONBOARDING}>
         {props => <OnboardingScreen {...props} onStart={handleOnboardingDone} />}
       </Stack.Screen>
-      <Stack.Screen name="Login" component={LoginScreen} />
-      <Stack.Screen name="Signup" component={require('@/screens/SignupScreen').default} />
-      <Stack.Screen name="Main" component={MainTabNavigator} />
-      <Stack.Screen name="ProfileSetup" component={ProfileSetupScreen} options={{ headerShown: true, title: '프로필 작성' }} />
-      <Stack.Screen name="ProfileEdit" component={ProfileEditScreen} options={{ headerShown: true, title: '프로필 수정' }} />
-      <Stack.Screen name="PreferenceSetupScreen" component={PreferenceSetupScreen} options={{ headerShown: true, title: '이상형 설정' }} />
-      <Stack.Screen name="UserDetail" component={UserDetailScreen} options={{ headerShown: true, title: '프로필' }} />
-      <Stack.Screen name="Chat" component={ChatScreen} options={{ headerShown: true, title: '채팅' }} />
-      <Stack.Screen name="Filter" component={FilterScreen} options={{ headerShown: true, title: '필터' }} />
-      <Stack.Screen name="Settings" component={SettingsScreen} options={{ headerShown: true, title: '설정' }} />
+      <Stack.Screen name={NAVIGATION_ROUTES.LOGIN} component={LoginScreen} />
+      <Stack.Screen name={NAVIGATION_ROUTES.SIGNUP} component={SignupScreen} />
+      <Stack.Screen name={NAVIGATION_ROUTES.MAIN} component={MainTabNavigator} />
+      <Stack.Screen name={NAVIGATION_ROUTES.PROFILE_EDIT} component={ProfileEditScreen} options={NAVIGATION_OPTIONS.PROFILE_EDIT} />
+      <Stack.Screen name={NAVIGATION_ROUTES.PREFERENCE_EDIT} component={PreferenceEditScreen} options={NAVIGATION_OPTIONS.PREFERENCE_EDIT} />
+      <Stack.Screen name={NAVIGATION_ROUTES.USER_DETAIL} component={UserDetailScreen} options={NAVIGATION_OPTIONS.USER_DETAIL} />
+      <Stack.Screen name={NAVIGATION_ROUTES.CHAT} component={ChatScreen} options={NAVIGATION_OPTIONS.CHAT} />
+      <Stack.Screen name={NAVIGATION_ROUTES.FILTER} component={FilterScreen} options={NAVIGATION_OPTIONS.FILTER} />
+      <Stack.Screen name={NAVIGATION_ROUTES.SETTINGS} component={SettingsScreen} options={NAVIGATION_OPTIONS.SETTINGS} />
     </Stack.Navigator>
   );
 };

@@ -1,44 +1,56 @@
-import { User } from '../types';
+// '@/utils/apiUtils' 관련 import 구문을 모두 삭제
+import { User } from '@/types';
+import { apiGet, apiPost } from '@/utils/apiUtils';
 
-// 실제 REST API URL에 맞게 수정
-const API_BASE = 'http://192.168.219.100:3000'; // ← 본인 PC의 사설 IP로 변경
-
-export async function loginUser(email: string, password: string): Promise<User> {
+export async function signup(userData: { email: string; password: string; name: string }): Promise<User | null> {
   try {
-    console.log('Login attempt with:', { email, password });
-    const res = await fetch(`${API_BASE}/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
-    
-    if (!res.ok) {
-      const errorData = await res.json().catch(() => ({}));
-      throw new Error(errorData.error || `로그인 실패 (${res.status})`);
+    const data = await apiPost<any>('/signup', userData);
+    if (data && !data.id && (data.userId || data.user_id)) {
+      data.id = data.userId || data.user_id;
     }
-    
-    return res.json();
+    return data as User;
   } catch (error) {
-    console.error('Login error:', error);
-    if (error instanceof TypeError && error.message.includes('fetch')) {
-      throw new Error('네트워크 연결을 확인해 주세요. 서버가 실행 중인지 확인하세요.');
-    }
-    throw error;
+    console.error('회원가입 실패:', error);
+    return null;
   }
 }
 
-export async function getUserProfile(userId: string): Promise<User> {
-  const res = await fetch(`${API_BASE}/user/${userId}`);
-  if (!res.ok) throw new Error('회원정보 조회 실패');
-  return res.json();
+export async function login(credentials: { email: string; password: string }): Promise<User | null> {
+  try {
+    console.log('🔐 로그인 시도:', { email: credentials.email, password: credentials.password ? '***' : 'empty' });
+    const data = await apiPost<any>('/login', credentials);
+    console.log('📥 로그인 응답:', data);
+    if (data && !data.id && (data.userId || data.user_id)) {
+      data.id = data.userId || data.user_id;
+      console.log('🔄 ID 매핑 완료:', { originalId: data.userId || data.user_id, mappedId: data.id });
+    }
+    console.log('✅ 최종 사용자 데이터:', data);
+    return data as User;
+  } catch (error) {
+    console.error('❌ 로그인 실패:', error);
+    return null;
+  }
 }
 
-export async function saveUserProfile(userId: string, profile: any): Promise<User> {
-  const res = await fetch(`${API_BASE}/user/${userId}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(profile),
-  });
-  if (!res.ok) throw new Error('프로필 저장 실패');
-  return res.json();
+export async function getUserProfile(userId: string): Promise<User | null> {
+  try {
+    const data = await apiGet<any>(`/profile/${userId}`);
+    if (data && !data.id && (data.userId || data.user_id)) {
+      data.id = data.userId || data.user_id;
+    }
+    return data as User;
+  } catch (error) {
+    console.error('프로필 조회 실패:', error);
+    return null;
+  }
+}
+
+export async function saveProfile(profile: User): Promise<boolean> {
+  try {
+    await apiPost('/profile', profile);
+    return true;
+  } catch (error) {
+    console.error('프로필 저장 실패:', error);
+    return false;
+  }
 } 

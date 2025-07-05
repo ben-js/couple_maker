@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
-import { View, Text, Image, StyleSheet, FlatList, Dimensions, ScrollView } from 'react-native';
-import { Card, Chip } from 'react-native-ui-lib';
+import { Image, StyleSheet, FlatList, Dimensions, ScrollView } from 'react-native';
+import { View, Text, Card, Chip } from 'react-native-ui-lib';
+import { colors, typography } from '@/constants';
 
 const { width } = Dimensions.get('window');
 
@@ -28,7 +29,7 @@ const UserDetailScreen = ({ route }) => {
   });
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: '#f8f9fa' }} contentContainerStyle={{ alignItems: 'center', paddingTop: 40, paddingBottom: 40 }}>
+    <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ alignItems: 'center', paddingTop: 40, paddingBottom: 40 }}>
       {/* 이미지 캐러셀 */}
       <Card enableShadow style={styles.imgCard}>
         <FlatList
@@ -88,7 +89,7 @@ const UserDetailScreen = ({ route }) => {
               labelStyle={{ color: '#333', fontWeight: 'bold' }}
             />
           ))}
-  </View>
+        </View>
       </Card>
     </ScrollView>
   );
@@ -96,24 +97,24 @@ const UserDetailScreen = ({ route }) => {
 
 const styles = StyleSheet.create({
   profileImg: { width: 320, height: 320, borderRadius: 18, marginBottom: 0 },
-  imgCard: { borderRadius: 18, marginBottom: 24, padding: 0, backgroundColor: '#fff', shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 8, elevation: 2 },
-  card: { borderRadius: 18, marginBottom: 24, padding: 20, backgroundColor: '#fff', shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 8, elevation: 2, width: 340, alignSelf: 'center' },
-  name: { fontWeight: 'bold', fontSize: 22, color: '#222', textAlign: 'center' },
-  age: { color: '#3B82F6', fontWeight: 'bold' },
-  address: { color: '#888', fontSize: 15, textAlign: 'center', marginBottom: 2 },
-  subInfo: { color: '#aaa', fontSize: 13, textAlign: 'center', marginBottom: 8 },
+  imgCard: { borderRadius: 18, marginBottom: 24, padding: 0, backgroundColor: colors.surface, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 8, elevation: 2 },
+  card: { borderRadius: 18, marginBottom: 24, padding: 20, backgroundColor: colors.surface, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 8, elevation: 2, width: 340, alignSelf: 'center' },
+  name: { ...typography.h1, textAlign: 'center' },
+  age: { color: colors.primary, fontWeight: 'bold' },
+  address: { ...typography.body, textAlign: 'center', marginBottom: 2 },
+  subInfo: { ...typography.small, textAlign: 'center', marginBottom: 8 },
   infoRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginBottom: 8 },
   infoItemBox: { alignItems: 'center', marginHorizontal: 10, marginBottom: 8 },
-  infoLabel: { color: '#3B82F6', fontWeight: 'bold', fontSize: 13 },
-  infoValue: { color: '#333', fontSize: 15, fontWeight: 'bold' },
-  sectionTitle: { fontWeight: 'bold', color: '#3B82F6', marginBottom: 8, fontSize: 16 },
-  intro: { color: '#333', fontSize: 15, lineHeight: 22, marginBottom: 4 },
+  infoLabel: { ...typography.small, color: colors.primary, fontWeight: 'bold' },
+  infoValue: { ...typography.body, fontWeight: 'bold' },
+  sectionTitle: { ...typography.h3, color: colors.primary, marginBottom: 8 },
+  intro: { ...typography.body, lineHeight: 22, marginBottom: 4 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 4 },
   chip: { margin: 4, borderRadius: 16, borderWidth: 0 },
   indicatorRow: { flexDirection: 'row', justifyContent: 'center', marginTop: 8, marginBottom: 8 },
   dot: { width: 10, height: 10, borderRadius: 5, marginHorizontal: 3 },
-  dotActive: { backgroundColor: '#3B82F6' },
-  dotInactive: { backgroundColor: '#eee' },
+  dotActive: { backgroundColor: colors.primary },
+  dotInactive: { backgroundColor: colors.border },
 });
 
 export default UserDetailScreen; 

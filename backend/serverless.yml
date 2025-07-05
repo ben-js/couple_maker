@@ -35,7 +35,7 @@ functions:
     handler: handler.getUser
     events:
       - httpApi:
-          path: /user/{id}
+          path: /users/{id}
           method: get
 
   getUserPreferences:
@@ -56,8 +56,64 @@ functions:
     handler: handler.saveProfile
     events:
       - httpApi:
-          path: /user/{userId}
+          path: /profile
           method: post
+
+  getProfile:
+    handler: handler.getProfile
+    events:
+      - httpApi:
+          path: /profile/{userId}
+          method: get
+
+  requestMatching:
+    handler: handler.requestMatching
+    events:
+      - httpApi:
+          path: /matching-requests
+          method: post
+
+  getMatchingRequests:
+    handler: handler.getMatchingRequests
+    events:
+      - httpApi:
+          path: /matching-requests
+          method: get
+
+  confirmMatching:
+    handler: handler.confirmMatching
+    events:
+      - httpApi:
+          path: /matching-confirm
+          method: post
+
+  submitChoices:
+    handler: handler.submitChoices
+    events:
+      - httpApi:
+          path: /matching-choices
+          method: post
+
+  saveReview:
+    handler: handler.saveReview
+    events:
+      - httpApi:
+          path: /reviews
+          method: post
+
+  chargePoints:
+    handler: handler.chargePoints
+    events:
+      - httpApi:
+          path: /points-charge
+          method: post
+
+  updateUserStatus:
+    handler: handler.updateUserStatus
+    events:
+      - httpApi:
+          path: /user-status/{userId}
+          method: put
 
 plugins:
   - serverless-offline 

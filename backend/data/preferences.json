@@ -1,1 +1,18 @@
-[]
+[
+  {
+    "user_id": "user-1",
+    "age_range": [25, 35],
+    "height_range": [160, 180],
+    "regions": ["서울", "경기"],
+    "job_types": ["회사원", "전문직"],
+    "education_levels": ["대학교", "대학원"],
+    "body_types": ["슬림", "평균"],
+    "mbti_types": ["ENFP", "INFJ"],
+    "hobbies": ["여행", "독서", "영화"],
+    "smoking": "비흡연",
+    "drinking": "음주",
+    "religion": "무교",
+    "children_desire": "딩크족 희망",
+    "marriage_plan": "1-2년 내"
+  }
+]

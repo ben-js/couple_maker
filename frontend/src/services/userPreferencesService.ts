@@ -1,17 +1,22 @@
-import { UserPreferences } from '../types';
-
-const API_BASE = 'http://192.168.219.100:3000';
+import { apiGet, apiPost } from '@/utils/apiUtils';
+import { UserPreferences } from '@/types';
 
 export async function getUserPreferences(userId: string): Promise<UserPreferences | null> {
-  const res = await fetch(`${API_BASE}/preferences/${userId}`);
-  if (!res.ok) return null;
-  return res.json();
+  try {
+    const data = await apiGet(`/user-preferences/${userId}`);
+    return data; // 백엔드에서 이미 camelCase로 변환 후 반환
+  } catch (error) {
+    console.error('이상형 프로필 조회 실패:', error);
+    return null;
+  }
 }
 
-export async function saveUserPreferences(data: UserPreferences): Promise<void> {
-  await fetch(`${API_BASE}/preferences`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
+export async function saveUserPreferences(data: UserPreferences): Promise<boolean> {
+  try {
+    await apiPost('/user-preferences', data); // camelCase 그대로 전송
+    return true;
+  } catch (error) {
+    console.error('이상형 프로필 저장 실패:', error);
+    return false;
+  }
 } 

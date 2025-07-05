@@ -20,14 +20,14 @@ describe('REST API + 로그 기록 통합 테스트', () => {
     // 1. 회원가입
     const signupEvent = { body: JSON.stringify({ email: 'test@test.com', password: '1234' }), requestContext: { identity: { sourceIp: '1.2.3.4' } } };
     const signupRes = await handler.signup(signupEvent);
-    const { id } = JSON.parse(signupRes.body);
-    expect(id).toBeDefined();
+    const { user_id } = JSON.parse(signupRes.body);
+    expect(user_id).toBeDefined();
 
     // 2. 로그인 성공
     const loginEvent = { body: JSON.stringify({ email: 'test@test.com', password: '1234' }), requestContext: { identity: { sourceIp: '1.2.3.4' } } };
     const loginRes = await handler.login(loginEvent);
     const loginBody = JSON.parse(loginRes.body);
-    expect(loginBody.id).toBe(id);
+    expect(loginBody.user_id).toBe(user_id);
     expect(loginBody.hasProfile).toBe(false);
     expect(loginBody.hasPreferences).toBe(false);
 
@@ -37,13 +37,13 @@ describe('REST API + 로그 기록 통합 테스트', () => {
     expect(loginFailRes.statusCode).toBe(401);
 
     // 4. 프로필 저장
-    const saveProfileEvent = { body: JSON.stringify({ userId: id, name: '홍길동', age: 25 }), requestContext: { identity: { sourceIp: '1.2.3.4' } } };
+    const saveProfileEvent = { body: JSON.stringify({ userId: user_id, name: '홍길동', age: 25 }), requestContext: { identity: { sourceIp: '1.2.3.4' } } };
     const saveProfileRes = await handler.saveProfile(saveProfileEvent);
     expect(JSON.parse(saveProfileRes.body).ok).toBe(true);
 
     // 5. 이상형 저장
-    const savePrefEvent = { body: JSON.stringify({ userId: id, idealType: '착한 사람' }), requestContext: { identity: { sourceIp: '1.2.3.4' } } };
-    const savePrefRes = await handler.savePreferences(savePrefEvent);
+    const savePrefEvent = { body: JSON.stringify({ userId: user_id, idealType: '착한 사람' }), requestContext: { identity: { sourceIp: '1.2.3.4' } } };
+    const savePrefRes = await handler.saveUserPreferences(savePrefEvent);
     expect(JSON.parse(savePrefRes.body).ok).toBe(true);
 
     // 6. 로그 기록 검증

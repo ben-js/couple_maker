@@ -1,14 +1,69 @@
 # Backend Cursor Rule (커서룰)
 
 ## 1. API 설계 원칙
-- RESTful 엔드포인트 사용 (ex: /signup, /login, /user/{id}, /user-preferences)
+- **RESTful 엔드포인트 사용** (ex: /signup, /login, /user/{id}, /user-preferences)
+- **URL은 kebab-case 사용** (소문자 + 하이픈)
+  - ✅ 올바른 예: `/user-preferences`, `/matching-requests`, `/points-history`
+  - ❌ 잘못된 예: `/userPreferences`, `/matchingRequests`, `/pointsHistory`
+- **리소스 중심의 URL 설계**
+  - 사용자 관련: `/users/{id}`, `/users/{id}/profile`, `/users/{id}/preferences`
+  - 매칭 관련: `/matching/requests`, `/matching/confirm`, `/matching/choices`
+  - 리뷰 관련: `/reviews`, `/reviews/{id}`
+  - 포인트 관련: `/points/charge`, `/points/history`
+- **HTTP 메서드 적절히 사용**
+  - GET: 조회, POST: 생성, PUT: 전체 수정, PATCH: 부분 수정, DELETE: 삭제
 - 모든 응답은 JSON 형식
 - 성공 시 2xx, 실패 시 4xx/5xx 상태코드와 에러 메시지 반환
 
 ## 2. 데이터/스키마 규칙
-- Users: { id, username, password, name }
-- UserStatusHistory: { userId, status, date }
-- UserPreferences: { userId, ... }
+- **백엔드 내부(DB 포함)**: snake_case 사용
+  - 예: user_id, created_at, has_profile, preferred_gender 등
+- **API 요청 수신**: camelCase → snake_case 변환 후 내부 처리
+- **API 응답 전송**: snake_case → camelCase 변환 후 프론트엔드로 반환
+- **핸들러/서비스 계층**: 변환 계층 필수 적용
+- **테스트/더미 데이터**: snake_case로 작성
+- **로그/이벤트**: snake_case 필드명 사용
+
+### API 통신 규칙 (MUST FOLLOW)
+- **백엔드 내부(DB 포함)**: snake_case 사용
+- **API 요청 수신**: camelCase → snake_case 변환 후 처리
+- **API 응답 전송**: snake_case → camelCase 변환 후 반환
+- **REST API URL**: kebab-case 사용 (소문자 + 하이픈)
+  - ✅ 올바른 예: `/user-preferences`, `/matching-requests`, `/points-history`
+  - ❌ 잘못된 예: `/userPreferences`, `/matchingRequests`, `/pointsHistory`
+- **쿼리 파라미터**: camelCase 수신 후 snake_case로 변환
+  - ✅ 올바른 예: `?sortBy=createdAt&filterBy=active`
+  - ❌ 잘못된 예: `?sort_by=created_at&filter_by=active`
+
+### 데이터 변환 책임 분리 (MUST FOLLOW)
+- **백엔드 변환 책임**: 
+  - API 요청 수신: camelCase → snake_case 변환 후 내부 처리
+  - API 응답 전송: snake_case → camelCase 변환 후 반환
+  - 쿼리 파라미터: camelCase → snake_case 변환 후 처리
+  - `camelToSnakeCase()` / `snakeToCamelCase()` 함수 사용
+- **절대 금지**: 
+  - 백엔드에서 변환 책임을 소홀히 하는 행위
+  - API 요청/응답을 변환하지 않는 행위
+
+### 쿼리 파라미터 처리 예시
+```typescript
+// 백엔드 핸들러에서 쿼리 파라미터 처리
+export const getUsers = async (event: any) => {
+  // 쿼리 파라미터를 snake_case로 변환
+  const queryParams = event.queryStringParameters || {};
+  const snakeCaseParams = camelToSnakeCase(queryParams);
+  
+  // 예: sortBy=createdAt → sort_by=created_at
+  const { sort_by, filter_by, page, limit } = snakeCaseParams;
+  
+  // 내부 로직 처리...
+  
+  return {
+    statusCode: 200,
+    body: JSON.stringify(snakeToCamelCase(result))
+  };
+};
+```
 
 ## 3. 목업/더미 데이터
 - handler.ts 상단에 메모리 배열로 관리
@@ -26,13 +81,36 @@
 - serverless offline으로 로컬 개발
 - Postman/Insomnia 등으로 API 테스트 권장
 
-## 6. 개발 완료 시 품질 보증 절차 (필수)
+## 7. 빌드 데이터 동기화 규칙 (필수)
+- **backend/data 폴더의 모든 JSON 파일은 .serverless/build/data와 일치해야 함**
+- Serverless Framework는 빌드 시 backend/data의 파일들을 .serverless/build/data로 복사
+- 실제 런타임에서는 .serverless/build/data의 파일들이 사용됨
+- **데이터 파일 수정 후 반드시 다음 중 하나를 실행:**
+  1. `npm run dev` (서버 재시작)
+  2. `npm run build` (빌드만 실행)
+  3. `npm run sync-data` (Windows) 또는 `npm run sync-data-unix` (Linux/Mac)
+  4. 수동으로 .serverless/build/data 파일들 동기화
+- **데이터 파일 변경 시 체크리스트:**
+  - [ ] backend/data/ 파일 수정
+  - [ ] .serverless/build/data/ 파일 동기화
+  - [ ] 서버 재시작 또는 빌드 실행
+  - [ ] API 테스트로 데이터 확인
+
+## 8. 개발 완료 시 품질 보증 절차 (필수)
 - **백엔드 기능 개발/수정이 완료될 때마다 반드시 jest 단위테스트를 실행한다.**
 - 테스트 실행 후, 날짜별 로그 파일(`logs/YYYY-MM-DD.json`)을 직접 분석하여
   - 모든 비즈니스 이벤트(회원가입, 로그인, 프로필 저장, 이상형 저장 등)가
   - 로그에 정확히 기록되는지 확인한다.
 - 테스트 및 로그 검증이 완료되어야만 PR/배포/운영이 가능하다.
 - (자동화 권장) CI 파이프라인에서 테스트 및 로그 검증을 자동화할 것.
+
+### API 개발 체크리스트 (MUST FOLLOW)
+- [ ] 백엔드: API 요청 수신 시 camelCase → snake_case 변환
+- [ ] 백엔드: API 응답 전송 시 snake_case → camelCase 변환
+- [ ] 백엔드: `camelToSnakeCase()` / `snakeToCamelCase()` 함수 사용
+- [ ] REST API URL: kebab-case 형식 사용
+- [ ] 쿼리 파라미터: camelCase 수신 후 snake_case로 변환
+- [ ] 에러 처리 및 로깅 추가
 
 ---
 
@@ -62,6 +140,8 @@
 
 ## [추가/변경 내역]
 - 2024-07-03: 전체 플로우 및 화면 분기 정책 추가
+- 2024-07-05: REST API URL 설계 원칙 및 데이터/스키마 규칙 상세화 추가
+- 2024-07-05: 빌드 데이터 동기화 규칙 추가 (backend/data ↔ .serverless/build/data)
 
 # 백엔드 로그 설계 및 운영 정책 (커서룰)
 

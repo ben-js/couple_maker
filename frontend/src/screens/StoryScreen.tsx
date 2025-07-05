@@ -1,5 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { View, Text } from 'react-native-ui-lib';
+import { colors, typography } from '@/constants';
 
 const StoryScreen = () => (
   <View style={styles.container}>
@@ -8,8 +10,8 @@ const StoryScreen = () => (
 );
 
 const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' },
-  text: { fontSize: 18, color: '#333' },
+  container: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background },
+  text: { ...typography.h2, color: colors.text.primary },
 });
 
 export default StoryScreen; 

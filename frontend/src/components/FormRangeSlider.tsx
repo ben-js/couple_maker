@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import MultiSlider from '@ptomasroos/react-native-multi-slider';
 import { colors } from '../constants/colors';
 
 interface FormRangeSliderProps {
@@ -23,37 +24,6 @@ export const FormRangeSlider: React.FC<FormRangeSliderProps> = ({
   error,
   required = false,
 }) => {
-  const [range, setRange] = useState<[number, number]>(value);
-
-  const handleValueChange = (newRange: [number, number]) => {
-    setRange(newRange);
-    onValueChange(newRange);
-  };
-
-  const decreaseMin = () => {
-    if (range[0] > min) {
-      handleValueChange([range[0] - step, range[1]]);
-    }
-  };
-
-  const increaseMin = () => {
-    if (range[0] < range[1] - step) {
-      handleValueChange([range[0] + step, range[1]]);
-    }
-  };
-
-  const decreaseMax = () => {
-    if (range[1] > range[0] + step) {
-      handleValueChange([range[0], range[1] - step]);
-    }
-  };
-
-  const increaseMax = () => {
-    if (range[1] < max) {
-      handleValueChange([range[0], range[1] + step]);
-    }
-  };
-
   return (
     <View style={styles.container}>
       <View style={styles.labelContainer}>
@@ -61,39 +31,24 @@ export const FormRangeSlider: React.FC<FormRangeSliderProps> = ({
           {label}
           {required && <Text style={styles.required}> *</Text>}
         </Text>
-        <Text style={styles.valueText}>
-          {range[0]} - {range[1]}
+        <Text style={styles.valueTextBlack}>
+          {value[0]} - {value[1]}
         </Text>
       </View>
-      
-      <View style={styles.rangeContainer}>
-        <View style={styles.rangeItem}>
-          <Text style={styles.rangeLabel}>최소</Text>
-          <View style={styles.rangeControls}>
-            <TouchableOpacity onPress={decreaseMin} style={styles.controlButton}>
-              <Text style={styles.controlText}>-</Text>
-            </TouchableOpacity>
-            <Text style={styles.rangeValue}>{range[0]}</Text>
-            <TouchableOpacity onPress={increaseMin} style={styles.controlButton}>
-              <Text style={styles.controlText}>+</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-        
-        <View style={styles.rangeItem}>
-          <Text style={styles.rangeLabel}>최대</Text>
-          <View style={styles.rangeControls}>
-            <TouchableOpacity onPress={decreaseMax} style={styles.controlButton}>
-              <Text style={styles.controlText}>-</Text>
-            </TouchableOpacity>
-            <Text style={styles.rangeValue}>{range[1]}</Text>
-            <TouchableOpacity onPress={increaseMax} style={styles.controlButton}>
-              <Text style={styles.controlText}>+</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+      <View style={styles.sliderRow}>
+        <MultiSlider
+          values={[value[0], value[1]]}
+          min={min}
+          max={max}
+          step={step}
+          onValuesChange={vals => onValueChange([vals[0], vals[1]])}
+          selectedStyle={{ backgroundColor: '#3B82F6' }}
+          unselectedStyle={{ backgroundColor: '#eee' }}
+          markerStyle={styles.thumb}
+          containerStyle={{ flex: 1, marginHorizontal: 12 }}
+          trackStyle={{ height: 6, borderRadius: 3 }}
+        />
       </View>
-      
       {error && <Text style={styles.errorText}>{error}</Text>}
     </View>
   );
@@ -101,7 +56,6 @@ export const FormRangeSlider: React.FC<FormRangeSliderProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 20,
   },
   labelContainer: {
     flexDirection: 'row',
@@ -117,49 +71,28 @@ const styles = StyleSheet.create({
   required: {
     color: colors.error,
   },
-  valueText: {
-    fontSize: 14,
-    color: colors.primary,
+  valueTextBlack: {
+    fontSize: 16,
+    color: '#000',
     fontWeight: '500',
   },
-  rangeContainer: {
+  sliderRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-  rangeItem: {
-    flex: 1,
     alignItems: 'center',
-  },
-  rangeLabel: {
-    fontSize: 14,
-    color: colors.text.secondary,
     marginBottom: 8,
   },
-  rangeControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  controlButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  controlText: {
-    color: colors.text.inverse,
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  rangeValue: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text.primary,
-    marginHorizontal: 16,
-    minWidth: 30,
-    textAlign: 'center',
+  thumb: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: '#3B82F6',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   errorText: {
     color: colors.error,

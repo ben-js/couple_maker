@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { View, Text, TextField } from 'react-native-ui-lib';
 import { useNavigation } from '@react-navigation/native';
 import PrimaryButton from '../components/PrimaryButton';
+import { colors, typography } from '@/constants';
 
 const SignupScreen = () => {
   const [email, setEmail] = useState('');
@@ -10,7 +12,7 @@ const SignupScreen = () => {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>회원가입</Text>
-      <TextInput
+      <TextField
         style={styles.input}
         placeholder="이메일"
         value={email}
@@ -24,9 +26,28 @@ const SignupScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff', padding: 24 },
-  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 32, color: '#222' },
-  input: { width: '100%', maxWidth: 320, height: 48, borderColor: '#ddd', borderWidth: 1, borderRadius: 8, paddingHorizontal: 16, marginBottom: 16, fontSize: 16 },
+  container: { 
+    flex: 1, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    backgroundColor: colors.background, 
+    padding: 24 
+  },
+  title: { 
+    ...typography.h1,
+    marginBottom: 32,
+  },
+  input: { 
+    width: '100%', 
+    maxWidth: 320, 
+    height: 48, 
+    borderColor: colors.border, 
+    borderWidth: 1, 
+    borderRadius: 8, 
+    paddingHorizontal: 16, 
+    marginBottom: 16, 
+    fontSize: 16 
+  },
 });
 
 export default SignupScreen; 

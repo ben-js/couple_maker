@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { AuthState, User } from '@/types';
 import { saveUser, getUser, deleteUser } from '../db/user';
+import { logger } from '@/utils/logger';
 
 // 액션 타입 정의
 type AuthAction =
@@ -74,9 +75,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const storedUser = await getUser();
         dispatch({ type: 'INIT_USER', payload: storedUser });
-        console.log('Stored user loaded:', storedUser?.id || 'none');
+        logger.info('저장된 사용자 로드됨', { userId: storedUser?.id || 'none' });
       } catch (error) {
-        console.error('Failed to load stored user:', error);
+        logger.error('저장된 사용자 로드 실패', { error });
         dispatch({ type: 'SET_LOADING', payload: false });
       }
     };
@@ -90,9 +91,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         await saveUser(user);
         dispatch({ type: 'SET_USER', payload: user });
-        console.log('User set and saved:', user.id);
+        logger.success('사용자 설정 및 저장됨', { userId: user.id });
       } catch (error) {
-        console.error('Failed to save user:', error);
+        logger.error('사용자 저장 실패', { error });
         dispatch({ type: 'SET_USER', payload: user }); // Context는 업데이트하되 저장 실패 로그
       }
     } else {
@@ -105,9 +106,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await deleteUser();
       dispatch({ type: 'LOGOUT' });
-      console.log('User logged out and deleted from storage');
+      logger.success('사용자 로그아웃 및 저장소에서 삭제됨');
     } catch (error) {
-      console.error('Failed to delete user from storage:', error);
+      logger.error('저장소에서 사용자 삭제 실패', { error });
       dispatch({ type: 'LOGOUT' }); // Context는 로그아웃하되 삭제 실패 로그
     }
   };
@@ -119,9 +120,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const updatedUser = { ...state.user, ...userData };
         await saveUser(updatedUser);
         dispatch({ type: 'UPDATE_USER', payload: userData });
-        console.log('User updated and saved:', updatedUser.id);
+        logger.success('사용자 업데이트 및 저장됨', { userId: updatedUser.id });
       } catch (error) {
-        console.error('Failed to update user:', error);
+        logger.error('사용자 업데이트 실패', { error });
         dispatch({ type: 'UPDATE_USER', payload: userData }); // Context는 업데이트하되 저장 실패 로그
       }
     }

@@ -1,37 +1,38 @@
 [
   {
-    "userId": "user-1",
-    "hasChildren": "없음",
-    "maritalStatus": "미혼",
-    "favoriteFoods": [
-      "한식",
-      "샐러드"
-    ],
+    "user_id": "user-1",
+    "name": "aaa",
+    "birth_date": {
+      "year": 1990,
+      "month": 8,
+      "day": 8
+    },
+    "gender": "남",
+    "height": 179,
+    "body_type": "근육질",
+    "job": "학생",
+    "education": "대학원",
+    "region": {
+      "region": "서울",
+      "district": "강남구"
+    },
+    "mbti": "ISFP",
     "interests": [
       "캠핑",
       "악기",
       "패션"
     ],
-    "drinking": "음주",
+    "favorite_foods": [
+      "한식",
+      "샐러드"
+    ],
     "smoking": "흡연",
-    "mbti": "ISFP",
+    "drinking": "음주",
     "religion": "천주교",
-    "education": "석사",
-    "job": "학생",
-    "bodyType": "근육질",
-    "height": "179",
-    "region": {
-      "region": "서울",
-      "district": ""
-    },
-    "birthDate": {
-      "year": 2018,
-      "month": 8,
-      "day": 8
-    },
-    "gender": "남",
-    "name": "aaa",
-    "introduction": "",
+    "marital_status": "미혼",
+    "has_children": "없음",
+    "marriage_plans": "1-2년 내",
+    "introduction": "안녕하세요! 만나서 반갑습니다.",
     "photos": [
       "file:///data/user/0/host.exp.exponent/cache/ImageManipulator/8925cbc6-151e-4d39-b8f7-3530da5d7d0e.jpg"
     ]
