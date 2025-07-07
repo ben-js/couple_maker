@@ -101,6 +101,13 @@ functions:
           path: /reviews
           method: post
 
+  getReviews:
+    handler: handler.getReviews
+    events:
+      - httpApi:
+          path: /reviews
+          method: get
+
   chargePoints:
     handler: handler.chargePoints
     events:
@@ -114,6 +121,83 @@ functions:
       - httpApi:
           path: /user-status/{userId}
           method: put
+
+  getCards:
+    handler: handler.getCards
+    events:
+      - httpApi:
+          path: /cards
+          method: get
+
+  getMainCard:
+    handler: handler.getMainCard
+    events:
+      - httpApi:
+          path: /main-card
+          method: get
+
+  getCardDetail:
+    handler: handler.getCardDetail
+    events:
+      - httpApi:
+          path: /card-detail/{userId}
+          method: get
+
+  getMatchDetail:
+    handler: handler.getMatchDetail
+    events:
+      - httpApi:
+          path: /match-detail/{matchId}
+          method: get
+
+  uploadImage:
+    handler: handler.uploadImage
+    events:
+      - httpApi:
+          path: /upload-image
+          method: post
+
+  serveFile:
+    handler: handler.serveFile
+    events:
+      - httpApi:
+          path: /files/{year}/{month}/{day}/{userId}/{fileName}
+          method: get
+
+  migrateImages:
+    handler: handler.migrateImages
+    events:
+      - httpApi:
+          path: /migrate-images
+          method: post
+
+  cleanupTempFiles:
+    handler: handler.cleanupTempFiles
+    events:
+      - httpApi:
+          path: /cleanup-files
+          method: post
+
+  getTerms:
+    handler: handler.getTerms
+    events:
+      - httpApi:
+          path: /terms
+          method: get
+
+  getPrivacy:
+    handler: handler.getPrivacy
+    events:
+      - httpApi:
+          path: /privacy
+          method: get
+
+  getCustomerService:
+    handler: handler.getCustomerService
+    events:
+      - httpApi:
+          path: /customer-service
+          method: get
 
 plugins:
   - serverless-offline 

@@ -1,53 +1,24 @@
-import React from 'react';
-import { StyleSheet, ScrollView } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { View, Card, Text, Icon, Avatar } from 'react-native-ui-lib';
 import { colors, typography } from '@/constants';
+import { apiGet } from '@/utils/apiUtils';
+import { useAuth } from '../store/AuthContext';
 
 const ReviewsScreen = () => {
-  const reviews = [
-    {
-      id: 1,
-      userName: '김소영',
-      date: '2024.01.15',
-      rating: {
-        appearance: 5,
-        conversation: 4,
-        manners: 5,
-        honesty: 4
-      },
-      tags: ['친화력 좋음', '매너 좋음', '대화 재미있음'],
-      comment: '정말 좋은 시간이었어요. 대화도 잘 통하고 매너도 좋으셨어요.',
-      wantToMeetAgain: true
-    },
-    {
-      id: 2,
-      userName: '이미나',
-      date: '2024.01.10',
-      rating: {
-        appearance: 4,
-        conversation: 5,
-        manners: 4,
-        honesty: 5
-      },
-      tags: ['대화 잘됨', '성격 좋음'],
-      comment: '편안하게 대화할 수 있어서 좋았습니다.',
-      wantToMeetAgain: true
-    },
-    {
-      id: 3,
-      userName: '박지민',
-      date: '2024.01.05',
-      rating: {
-        appearance: 3,
-        conversation: 4,
-        manners: 4,
-        honesty: 4
-      },
-      tags: ['괜찮음'],
-      comment: '무난했어요.',
-      wantToMeetAgain: false
-    }
-  ];
+  const { user } = useAuth();
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    setLoading(true);
+    apiGet('/reviews', { userId: user.id })
+      .then(setReviews)
+      .catch(e => setError(e.message || '후기 목록을 불러오지 못했습니다.'))
+      .finally(() => setLoading(false));
+  }, [user?.id]);
 
   const getAverageRating = (rating: any) => {
     const sum = rating.appearance + rating.conversation + rating.manners + rating.honesty;
@@ -65,18 +36,27 @@ const ReviewsScreen = () => {
     ));
   };
 
+  if (loading) {
+    return <View flex center><ActivityIndicator size="large" color={colors.primary} /></View>;
+  }
+  if (error) {
+    return <View flex center><Text>{error}</Text></View>;
+  }
+
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <Text style={styles.headerTitle}>후기</Text>
       <Text style={styles.headerSubtitle}>소개팅 상대가 남긴 후기</Text>
-      
+      {reviews.length === 0 && (
+        <View flex center><Text>아직 후기가 없습니다.</Text></View>
+      )}
       {reviews.map(review => (
-        <Card key={review.id} enableShadow style={styles.reviewCard}>
+        <Card key={review.reviewId} enableShadow style={styles.reviewCard}>
           <View style={styles.reviewHeader}>
-            <Avatar size={40} label={review.userName[0]} backgroundColor={colors.primary} labelColor={colors.surface} />
+            <Avatar size={40} label={review.reviewerId?.[0] || '?'} backgroundColor={colors.primary} labelColor={colors.surface} />
             <View style={styles.reviewInfo}>
-              <Text style={styles.reviewUserName}>{review.userName}</Text>
-              <Text style={styles.reviewDate}>{review.date}</Text>
+              <Text style={styles.reviewUserName}>{review.reviewerId}</Text>
+              <Text style={styles.reviewDate}>{review.date || review.createdAt || '-'}</Text>
             </View>
             <View style={styles.overallRating}>
               <Text style={styles.ratingText}>{getAverageRating(review.rating)}</Text>
@@ -85,7 +65,6 @@ const ReviewsScreen = () => {
               </View>
             </View>
           </View>
-          
           <View style={styles.ratingDetails}>
             <View style={styles.ratingItem}>
               <Text style={styles.ratingLabel}>외모</Text>
@@ -112,17 +91,14 @@ const ReviewsScreen = () => {
               </View>
             </View>
           </View>
-          
           <View style={styles.tagsContainer}>
-            {review.tags.map((tag, index) => (
+            {review.tags?.map((tag: string, index: number) => (
               <View key={index} style={styles.tag}>
                 <Text style={styles.tagText}>{tag}</Text>
               </View>
             ))}
           </View>
-          
           <Text style={styles.comment}>{review.comment}</Text>
-          
           <View style={styles.meetAgainContainer}>
             <Icon 
               name={review.wantToMeetAgain ? 'heart' : 'heart-o'} 
@@ -135,7 +111,6 @@ const ReviewsScreen = () => {
           </View>
         </Card>
       ))}
-      
       <View style={{ height: 100 }} />
     </ScrollView>
   );

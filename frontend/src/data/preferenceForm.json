@@ -1,6 +1,6 @@
 [
   {
-    "name": "age_range",
+    "name": "ageRange",
     "type": "range_slider",
     "label": "나이",
     "min": 18,
@@ -11,7 +11,7 @@
     "errorMessage": "나이 범위를 선택해 주세요"
   },
   {
-    "name": "height_range",
+    "name": "heightRange",
     "type": "range_slider",
     "label": "키",
     "min": 140,
@@ -34,7 +34,7 @@
     "errorMessage": "지역을 선택해 주세요"
   },
   {
-    "name": "job_types",
+    "name": "jobTypes",
     "type": "chips",
     "label": "직업",
     "placeholder": "직업 선택",
@@ -45,7 +45,7 @@
     "errorMessage": "직업을 선택해 주세요"
   },
   {
-    "name": "education_levels",
+    "name": "educationLevels",
     "type": "chips",
     "label": "학력",
     "placeholder": "학력 선택",
@@ -56,7 +56,7 @@
     "errorMessage": "학력을 선택해 주세요"
   },
   {
-    "name": "body_types",
+    "name": "bodyTypes",
     "type": "chips",
     "label": "체형",
     "placeholder": "체형 선택",
@@ -67,7 +67,7 @@
     "errorMessage": "체형을 선택해 주세요"
   },
   {
-    "name": "mbti_types",
+    "name": "mbtiTypes",
     "type": "chips",
     "label": "MBTI",
     "placeholder": "MBTI 선택",
@@ -116,7 +116,7 @@
     "errorMessage": "종교를 선택해 주세요"
   },
   {
-    "name": "children_desire",
+    "name": "childrenDesire",
     "type": "picker",
     "label": "딩크족 희망",
     "placeholder": "딩크족 희망 여부 선택",
@@ -125,7 +125,7 @@
     "errorMessage": "딩크족 희망 여부를 선택해 주세요"
   },
   {
-    "name": "marriage_plan",
+    "name": "marriagePlan",
     "type": "picker",
     "label": "결혼 계획",
     "placeholder": "결혼 계획 선택",

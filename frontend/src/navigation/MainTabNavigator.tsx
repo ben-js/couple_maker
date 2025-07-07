@@ -1,6 +1,6 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { FontAwesome } from '@expo/vector-icons';
+import { Feather, FontAwesome5 } from '@expo/vector-icons';
 import MainScreen from '../screens/MainScreen';
 import TipsScreen from '../screens/TipsScreen';
 import CardsScreen from '../screens/CardsScreen';
@@ -19,11 +19,11 @@ const MainTabNavigator = () => {
         headerShown: false,
         tabBarActiveTintColor: '#FF6B6B',
         tabBarInactiveTintColor: '#aaa',
-        tabBarLabelStyle: { fontSize: 11, marginTop: 0, marginBottom: 6 },
+        tabBarLabelStyle: { fontSize: 10, marginTop: 0, marginBottom: 4 },
         tabBarStyle: {
-          height: 60 + insets.bottom,
-          paddingBottom: insets.bottom + 0,
-          paddingTop: 10,
+          height: 48 + insets.bottom,
+          paddingBottom: insets.bottom,
+          paddingTop: 5,
         },
         tabBarItemStyle: {
           alignItems: 'center',
@@ -31,7 +31,9 @@ const MainTabNavigator = () => {
           paddingVertical: 0,
         },
         tabBarIcon: ({ color, size, focused }) => {
-          let iconName = '';
+          let iconName: 'home' | 'star' | 'mail' | 'file-text' | 'menu' = 'home';
+          let useFontAwesome = false;
+          
           switch (route.name) {
             case 'Home':
               iconName = 'home';
@@ -40,18 +42,23 @@ const MainTabNavigator = () => {
               iconName = 'star';
               break;
             case 'Cards':
-              iconName = 'envelope';
+              iconName = 'mail';
               break;
             case 'Reviews':
               iconName = 'file-text';
+              useFontAwesome = true;
               break;
             case 'Menu':
-              iconName = 'bars';
+              iconName = 'menu';
               break;
             default:
               iconName = 'home';
           }
-          return <FontAwesome name={iconName} size={24} color={color} style={{ marginBottom: 0 }} />;
+          
+          if (useFontAwesome) {
+            return <FontAwesome5 name="history" size={24} color={color} style={{ marginBottom: 0 }} />;
+          }
+          return <Feather name={iconName} size={24} color={color} style={{ marginBottom: 0 }} />;
         },
       })}
     >

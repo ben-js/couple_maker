@@ -5,7 +5,7 @@ export const colors = {
   secondary: '#FFA07A',    // 보조 색상
   
   // 배경 색상
-  background: '#FFFDF8',   // 전체 배경색
+  background: '#FFFFFF',   // 전체 배경색
   surface: '#FFFFFF',      // 카드/컴포넌트 배경
   
   // 텍스트 색상

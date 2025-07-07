@@ -6,6 +6,8 @@ import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { camelToSnakeCase, snakeToCamelCase } from './utils/caseUtils';
+import { User, UserProfile, UserPreferences, MatchingRequest, MatchPair, Review, ReviewStats, UserStatusHistory, PointsHistory, ApiResponse } from './types';
+import { UserStatus } from './types';
 
 const usersPath = path.join(__dirname, 'data/users.json');
 const profilesPath = path.join(__dirname, 'data/profiles.json');
@@ -17,6 +19,9 @@ const reviewStatsPath = path.join(__dirname, 'data/review-stats.json');
 const userStatusHistoryPath = path.join(__dirname, 'data/user-status-history.json');
 const pointsHistoryPath = path.join(__dirname, 'data/points-history.json');
 const logsPath = path.join(__dirname, 'data/logs.json');
+const termsPath = path.join(__dirname, 'data/terms.json');
+const privacyPath = path.join(__dirname, 'data/privacy.json');
+const customerServicePath = path.join(__dirname, 'data/customer-service.json');
 
 function readJson(filePath: string) {
   return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
@@ -24,22 +29,6 @@ function readJson(filePath: string) {
 function writeJson(filePath: string, data: any) {
   fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
 }
-
-type User = { 
-  user_id: string; 
-  email: string; 
-  password: string; 
-  is_verified: boolean;
-  has_profile: boolean; 
-  has_preferences: boolean;
-  grade: 'general' | 'excellent' | 'gold' | 'vip' | 'vvip';
-  status: 'green' | 'yellow' | 'red' | 'black';
-  points: number;
-  created_at: string;
-};
-type UserStatus = { userId: string; status: string; date: string };
-type UserProfile = { user_id: string; [key: string]: any };
-type UserPreferences = { user_id: string; [key: string]: any };
 
 // 날짜별 로그 파일 생성 함수
 function getLogFileName(date: Date = new Date()): string {
@@ -167,8 +156,13 @@ async function appendLog({
     // 기존 로그 파일 읽기
     let logs = [];
     if (fs.existsSync(logFilePath)) {
-      const fileContent = fs.readFileSync(logFilePath, 'utf-8');
-      logs = JSON.parse(fileContent);
+      try {
+        const fileContent = fs.readFileSync(logFilePath, 'utf-8');
+        logs = JSON.parse(fileContent);
+      } catch (parseError) {
+        console.error('Log file parse error, starting fresh:', parseError);
+        logs = [];
+      }
     }
     
     // 새 로그 추가
@@ -178,8 +172,9 @@ async function appendLog({
     fs.writeFileSync(logFilePath, JSON.stringify(logs, null, 2));
     
     // 콘솔에도 출력 (개발용)
-    const logLevel = logEntry.tags.isError ? '❌ ERROR' : logEntry.tags.isSuccess ? '✅ SUCCESS' : 'ℹ️ INFO';
-    console.log(`${logLevel} [${type}] ${action || message} - User: ${userId} - Time: ${logEntry.executionTime}ms`);
+    const logLevel = logEntry.tags.isError ? 'ERROR' : logEntry.tags.isSuccess ? 'SUCCESS' : 'INFO';
+    console.log(`${logLevel} [${logEntry.type}] ${logEntry.action || logEntry.message} - User: ${logEntry.userId} - Time: ${logEntry.executionTime}ms`);
+    console.log('appendLog called:', logEntry); // 디버깅용
   } catch (error) {
     console.error('Log write error:', error);
   }
@@ -219,7 +214,7 @@ export const signup = async (event: any) => {
   };
   users.push(newUser);
   writeJson(usersPath, users);
-  appendLog({
+  await appendLog({
     type: 'signup',
     userId: user_id,
     email,
@@ -267,7 +262,7 @@ export const login = async (event: any) => {
 
       console.log('❌ 로그인 실패: 사용자를 찾을 수 없음');
       
-      appendLog({
+      await appendLog({
         type: 'login',
         userId: '',
         email,
@@ -334,7 +329,7 @@ export const login = async (event: any) => {
     
     const responseBody = JSON.stringify(snakeToCamelCase(userResponse));
 
-    appendLog({
+    await appendLog({
       type: 'login',
       userId: user.user_id,
       email: user.email,
@@ -346,8 +341,8 @@ export const login = async (event: any) => {
       detail: {
         userProfileCount: profiles.length,
         userPreferencesCount: preferences.length,
-        userProfileExists: profiles.some(p => p.userId === user.user_id),
-        userPreferencesExists: preferences.some(p => p.userId === user.user_id)
+        userProfileExists: profiles.some(p => p.user_id === user.user_id),
+        userPreferencesExists: preferences.some(p => p.user_id === user.user_id)
       },
       requestMethod: event.requestContext?.http?.method || 'POST',
       requestPath: event.requestContext?.http?.path || '/login',
@@ -376,7 +371,7 @@ export const login = async (event: any) => {
     console.error('로그인 처리 중 에러 발생:', error);
     console.error('에러 스택:', error.stack);
 
-    appendLog({
+    await appendLog({
       type: 'login',
       userId: '',
       email: '',
@@ -427,7 +422,7 @@ export const saveProfile = async (event: any) => {
     writeJson(usersPath, users);
   }
 
-  appendLog({
+  await appendLog({
     type: 'profile_save',
     userId: user_id,
     email,
@@ -503,7 +498,7 @@ export const saveUserPreferences = async (event: any) => {
     const executionTime = Date.now() - startTime;
     const responseBody = JSON.stringify({ ok: true });
 
-    appendLog({
+    await appendLog({
       type: 'preferences_save',
       userId: user_id,
       email,
@@ -541,7 +536,7 @@ export const saveUserPreferences = async (event: any) => {
     console.error('이상형 저장 중 에러 발생:', error);
     console.error('에러 스택:', error.stack);
 
-    appendLog({
+    await appendLog({
       type: 'preferences_save',
       userId: '',
       email: '',
@@ -573,15 +568,28 @@ export const saveUserPreferences = async (event: any) => {
 };
 
 // 프로필 조회
+function getBaseUrl(event: any) {
+  const host = event.headers?.['host'] || event.requestContext?.domainName || 'localhost:3000';
+  const protocol = event.headers?.['x-forwarded-proto'] || 'http';
+  return `${protocol}://${host}`;
+}
+
 export const getProfile = async (event: any) => {
   const { userId } = event.pathParameters || {};
   console.log('프로필 조회 요청:', { userId, path: event.requestContext?.http?.path });
   const profiles: UserProfile[] = readJson(profilesPath);
   const profile = profiles.find(p => p.user_id === userId);
   if (profile) {
-    const transformedProfile = snakeToCamelCase(profile);
+    const baseUrl = getBaseUrl(event);
+    // photos의 각 경로 앞에 baseUrl 붙이기
+    const transformedProfile = snakeToCamelCase({
+      ...profile,
+      photos: (profile.photos || []).map((url: string) =>
+        url && url.startsWith('/files/') ? `${baseUrl}${url}` : url
+      ),
+    });
     const responseBody = JSON.stringify(transformedProfile);
-    appendLog({
+    await appendLog({
       type: 'profile_get',
       userId: userId,
       result: 'success',
@@ -597,7 +605,7 @@ export const getProfile = async (event: any) => {
     });
     return { statusCode: 200, body: responseBody };
   }
-  appendLog({
+  await appendLog({
     type: 'profile_get',
     userId: userId,
     result: 'fail',
@@ -658,7 +666,7 @@ export const requestMatching = async (event: any) => {
   matchingRequests.push(newRequest);
   writeJson(matchingRequestsPath, matchingRequests);
   
-  appendLog({
+  await appendLog({
     type: 'matching_request',
     userId,
     email: user.email,
@@ -711,7 +719,7 @@ export const confirmMatching = async (event: any) => {
   matchPairs.push(newMatch);
   writeJson(matchPairsPath, matchPairs);
   
-  appendLog({
+  await appendLog({
     type: 'matching_confirmed',
     userId: user_a_id,
     result: 'success',
@@ -739,7 +747,7 @@ export const submitChoices = async (event: any) => {
     writeJson(matchPairsPath, matchPairs);
   }
   
-  appendLog({
+  await appendLog({
     type: 'choices_submitted',
     userId: user_id,
     result: 'success',
@@ -803,7 +811,7 @@ export const saveReview = async (event: any) => {
   
   writeJson(reviewStatsPath, reviewStats);
   
-  appendLog({
+  await appendLog({
     type: 'review_saved',
     userId: reviewer_id,
     result: 'success',
@@ -839,7 +847,7 @@ export const chargePoints = async (event: any) => {
     pointsHistory.push(newHistory);
     writeJson(pointsHistoryPath, pointsHistory);
     
-    appendLog({
+    await appendLog({
       type: 'points_charged',
       userId,
       result: 'success',
@@ -880,11 +888,14 @@ export const updateUserStatus = async (event: any) => {
     statusHistory.push(newHistory);
     writeJson(statusHistoryPath, statusHistory);
     
-    appendLog({
+    await appendLog({
       type: 'user_status_updated',
       userId,
       result: 'success',
       detail: { from_status: oldStatus, to_status: new_status, reason },
+      action: '사용자 상태 변경',
+      screen: 'AdminScreen',
+      component: 'user_status'
     });
     
     return { statusCode: 200, body: JSON.stringify({ status: new_status }) };
@@ -904,14 +915,685 @@ export const getUser = async (event: any) => {
   if (!user) {
     return { statusCode: 404, body: JSON.stringify({ error: 'User not found' }) };
   }
-  appendLog({
+  await appendLog({
     type: 'user_retrieved',
     userId,
     result: 'success',
     detail: { user_id: userId },
+    action: '사용자 정보 조회',
+    screen: 'UserDetailScreen',
+    component: 'user_info'
   });
   return {
     statusCode: 200,
     body: JSON.stringify(snakeToCamelCase(user))
   };
+};
+
+// 카드(소개팅 상대) 목록 조회
+export const getCards = async (event: any) => {
+  const userId = event.queryStringParameters?.userId || event.headers?.userid;
+  const search = event.queryStringParameters?.search || ''; // 검색어
+  const status = event.queryStringParameters?.status || 'all'; // 상태 필터
+  const page = parseInt(event.queryStringParameters?.page || '1', 10);
+  const pageSize = parseInt(event.queryStringParameters?.pageSize || '10', 10);
+  
+  if (!userId) {
+    return { statusCode: 400, body: JSON.stringify({ error: 'userId required' }) };
+  }
+  
+  const matchPairs = readJson(matchPairsPath);
+  const profiles = readJson(profilesPath);
+  const myMatches = matchPairs.filter((m: any) => m.user_a_id === userId || m.user_b_id === userId);
+  
+  function calcAge(birthDate: any): number | null {
+    if (!birthDate) return null;
+    let year;
+    if (typeof birthDate === 'string') {
+      year = parseInt(birthDate.split('-')[0], 10);
+    } else if (typeof birthDate === 'object' && birthDate.year) {
+      year = birthDate.year;
+    }
+    if (!year) return null;
+    const now = new Date();
+    return now.getFullYear() - year;
+  }
+
+  let cards = myMatches.map((m: any) => {
+    const otherUserId = m.user_a_id === userId ? m.user_b_id : m.user_a_id;
+    const profile = profiles.find((p: any) => p.user_id === otherUserId);
+    if (!profile) {
+      return null;
+    }
+    return {
+      matchId: m.match_id,
+      userId: otherUserId,
+      isDeleted: false,
+      name: profile.name || '',
+      job: profile.job || '',
+      region: profile.region?.region || '',
+      district: profile.region?.district || '',
+      photoUrl: profile.photos?.[0] || null,
+      age: calcAge(profile.birth_date),
+      date: m.final_date || null,
+      status: m.final_date ? 'revealed' : 'pending',
+    };
+  }).filter(Boolean);
+
+  // 검색어 필터링
+  if (search.trim()) {
+    cards = cards.filter((card: any) => 
+      card.name?.toLowerCase().includes(search.toLowerCase()) ||
+      card.job?.toLowerCase().includes(search.toLowerCase()) ||
+      card.region?.toLowerCase().includes(search.toLowerCase()) ||
+      card.district?.toLowerCase().includes(search.toLowerCase())
+    );
+  }
+
+  // 상태별 필터링
+  if (status !== 'all') {
+    cards = cards.filter((card: any) => card.status === status);
+  }
+
+  // 페이징 처리 (필터링 후)
+  const total = cards.length;
+  const start = (page - 1) * pageSize;
+  const paged = cards.slice(start, start + pageSize);
+  
+  await appendLog({
+    type: 'get_cards',
+    userId,
+    requestMethod: event.requestContext?.http?.method || 'GET',
+    requestPath: event.requestContext?.http?.path || '/cards',
+    result: 'success',
+    detail: { 
+      page, 
+      pageSize, 
+      total, 
+      returned: paged.length,
+      search: search || null,
+      status: status !== 'all' ? status : null
+    },
+    action: '카드함 조회',
+    screen: 'CardsScreen',
+    component: 'cards_list'
+  });
+  
+  return { 
+    statusCode: 200, 
+    body: JSON.stringify({
+      cards: paged.map(snakeToCamelCase),
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.ceil(total / pageSize)
+      }
+    })
+  };
+};
+
+// 리뷰 목록 조회
+export const getReviews = async (event: any) => {
+  const userId = event.queryStringParameters?.userId || event.headers?.userid;
+  const page = parseInt(event.queryStringParameters?.page || '1', 10);
+  const pageSize = parseInt(event.queryStringParameters?.pageSize || '10', 10);
+  if (!userId) {
+    return { statusCode: 400, body: JSON.stringify({ error: 'userId required' }) };
+  }
+  const reviews = readJson(reviewsPath);
+  const myReviews = reviews.filter((r: any) => r.target_id === userId);
+  // 페이징 처리
+  const start = (page - 1) * pageSize;
+  const paged = myReviews.slice(start, start + pageSize);
+  // 로그 기록
+  await appendLog({
+    type: 'get_reviews',
+    userId,
+    requestMethod: event.requestContext?.http?.method || 'GET',
+    requestPath: event.requestContext?.http?.path || '/reviews',
+    result: 'success',
+    detail: { page, pageSize, total: myReviews.length, returned: paged.length },
+    action: '후기 조회',
+    screen: 'ReviewsScreen',
+    component: 'reviews_list'
+  });
+  return { statusCode: 200, body: JSON.stringify(paged.map(snakeToCamelCase)) };
+};
+
+// 홈(메인) 프로필 카드 1건 조회
+export const getMainCard = async (event: any) => {
+  const userId = event.queryStringParameters?.userId || event.headers?.userid;
+  if (!userId) {
+    return { statusCode: 400, body: JSON.stringify({ error: 'userId required' }) };
+  }
+  const matchPairs = readJson(matchPairsPath);
+  const profiles = readJson(profilesPath);
+  const myMatches = matchPairs.filter((m: any) => m.user_a_id === userId || m.user_b_id === userId);
+  if (myMatches.length === 0) {
+    await appendLog({ 
+      type: 'get_main_card', 
+      userId, 
+      result: 'empty', 
+      detail: { found: 0 },
+      action: '메인카드 조회',
+      screen: 'MainScreen',
+      component: 'main_card'
+    });
+    return { statusCode: 200, body: JSON.stringify(null) };
+  }
+  const latest = myMatches[myMatches.length - 1];
+  const otherUserId = latest.user_a_id === userId ? latest.user_b_id : latest.user_a_id;
+  const profile = profiles.find((p: any) => p.user_id === otherUserId);
+  let card;
+  if (!profile) {
+    card = {
+      matchId: latest.match_id,
+      userId: otherUserId,
+      isDeleted: true,
+      name: '탈퇴한 회원',
+      job: '',
+      region: '',
+      district: '',
+      photoUrl: null,
+      date: latest.final_date || null,
+      status: 'deleted',
+    };
+  } else {
+    card = {
+      matchId: latest.match_id,
+      userId: otherUserId,
+      isDeleted: false,
+      name: profile.name || '',
+      job: profile.job || '',
+      region: profile.region?.region || '',
+      district: profile.region?.district || '',
+      photoUrl: profile.photos?.[0] || null,
+      date: latest.final_date || null,
+      status: latest.final_date ? 'revealed' : 'pending',
+    };
+  }
+  await appendLog({ 
+    type: 'get_main_card', 
+    userId, 
+    result: 'success', 
+    detail: { matchId: card.matchId },
+    action: '메인카드 조회',
+    screen: 'MainScreen',
+    component: 'main_card'
+  });
+  return { statusCode: 200, body: JSON.stringify(snakeToCamelCase(card)) };
+};
+
+// 카드 상세 정보 조회
+export const getCardDetail = async (event: any) => {
+  const userId = event.pathParameters?.userId;
+  if (!userId) {
+    return { statusCode: 400, body: JSON.stringify({ error: 'userId required' }) };
+  }
+  
+  const profiles = readJson(profilesPath);
+  const profile = profiles.find((p: any) => p.user_id === userId);
+  
+  if (!profile) {
+    await appendLog({
+      type: 'get_card_detail',
+      userId: '',
+      result: 'fail',
+      message: 'Profile not found',
+      detail: { requestedUserId: userId },
+      action: '카드 상세 조회',
+      screen: 'UserDetailScreen',
+      component: 'card_detail'
+    });
+    return { statusCode: 404, body: JSON.stringify({ error: 'Profile not found' }) };
+  }
+  
+  await appendLog({
+    type: 'get_card_detail',
+    userId: userId,
+    result: 'success',
+    detail: { profileFound: true },
+    action: '카드 상세 조회',
+    screen: 'UserDetailScreen',
+    component: 'card_detail'
+  });
+  
+  return { statusCode: 200, body: JSON.stringify(snakeToCamelCase(profile)) };
+};
+
+// 이미지 업로드
+export const uploadImage = async (event: any) => {
+  const { userId, imageData, fileName } = JSON.parse(event.body || '{}');
+  
+  if (!userId || !imageData) {
+    return { statusCode: 400, body: JSON.stringify({ error: 'userId and imageData required' }) };
+  }
+
+  try {
+    // base64 데이터에서 실제 이미지 데이터 추출
+    const base64Data = imageData.replace(/^data:image\/[a-z]+;base64,/, '');
+    const buffer = Buffer.from(base64Data, 'base64');
+
+    // 파일 검증
+    if (!validateFileSize(buffer)) {
+      return { statusCode: 400, body: JSON.stringify({ error: 'File size exceeds 10MB limit' }) };
+    }
+
+    if (!validateImageFormat(fileName || 'image.jpg')) {
+      return { statusCode: 400, body: JSON.stringify({ error: 'Invalid image format' }) };
+    }
+
+    // AWS S3 구조를 고려한 경로 생성
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    
+    // S3 구조: images/profile/{year}/{month}/{day}/{userId}/
+    const s3Path = generateS3Path(userId, '', 'profile');
+    const localPath = `${year}/${month}/${day}/${userId}`;
+    const filesDir = path.join(__dirname, 'files', localPath);
+    
+    // 디렉토리 생성
+    if (!fs.existsSync(filesDir)) {
+      fs.mkdirSync(filesDir, { recursive: true });
+    }
+
+    // 파일명 생성 (타임스탬프 + 원본 확장자)
+    const timestamp = Date.now();
+    const extension = fileName ? fileName.split('.').pop()?.toLowerCase() : 'jpg';
+    const savedFileName = `${timestamp}.${extension}`;
+    const filePath = path.join(filesDir, savedFileName);
+
+    // 파일 저장
+    fs.writeFileSync(filePath, buffer);
+
+    // URL 생성 (S3 구조를 고려한 경로)
+    const imageUrl = `/files/${localPath}/${savedFileName}`;
+    const s3FullPath = `${s3Path}/${savedFileName}`;
+    const baseUrl = getBaseUrl(event);
+
+    await appendLog({
+      type: 'image_upload',
+      userId,
+      result: 'success',
+      detail: { 
+        fileName: savedFileName, 
+        localPath,
+        s3Path: s3FullPath,
+        fileSize: buffer.length,
+        fullPath: imageUrl
+      },
+      action: '이미지 업로드',
+      screen: 'ProfileEditScreen',
+      component: 'image_upload'
+    });
+
+    return { 
+      statusCode: 200, 
+      body: JSON.stringify({ 
+        imageUrl: `${baseUrl}${imageUrl}`,
+        fileName: savedFileName,
+        localPath,
+        s3Path: s3FullPath,
+        fullPath: imageUrl
+      }) 
+    };
+  } catch (error: any) {
+    console.error('이미지 업로드 에러:', error);
+    
+    await appendLog({
+      type: 'image_upload',
+      userId,
+      result: 'fail',
+      message: error.message,
+      detail: { error: error.message },
+      action: '이미지 업로드',
+      screen: 'ProfileEditScreen',
+      component: 'image_upload'
+    });
+
+    return { 
+      statusCode: 500, 
+      body: JSON.stringify({ error: 'Image upload failed' }) 
+    };
+  }
+};
+
+// 정적 파일 서빙 (개발용)
+export const serveFile = async (event: any) => {
+  const { year, month, day, userId, fileName } = event.pathParameters || {};
+  
+  if (!year || !month || !day || !userId || !fileName) {
+    return { statusCode: 404, body: 'File not found' };
+  }
+
+  try {
+    // 구조화된 경로로 파일 찾기
+    const filePath = path.join(__dirname, 'files', year, month, day, userId, fileName);
+    
+    if (!fs.existsSync(filePath)) {
+      return { statusCode: 404, body: 'File not found' };
+    }
+
+    const fileContent = fs.readFileSync(filePath);
+    const contentType = getContentType(fileName);
+
+    return {
+      statusCode: 200,
+      headers: {
+        'Content-Type': contentType,
+        'Cache-Control': 'public, max-age=31536000'
+      },
+      body: fileContent.toString('base64'),
+      isBase64Encoded: true
+    };
+  } catch (error) {
+    console.error('파일 서빙 에러:', error);
+    return { statusCode: 500, body: 'Internal server error' };
+  }
+};
+
+// 파일 확장자에 따른 Content-Type 반환
+function getContentType(fileName: string): string {
+  const extension = fileName.split('.').pop()?.toLowerCase();
+  switch (extension) {
+    case 'jpg':
+    case 'jpeg':
+      return 'image/jpeg';
+    case 'png':
+      return 'image/png';
+    case 'gif':
+      return 'image/gif';
+    case 'webp':
+      return 'image/webp';
+    default:
+      return 'application/octet-stream';
+  }
+}
+
+// 기존 이미지 마이그레이션 (개발용)
+export const migrateImages = async (event: any) => {
+  try {
+    const profiles = readJson(profilesPath);
+    const migratedCount = { success: 0, failed: 0 };
+    
+    for (const profile of profiles) {
+      if (profile.photos && Array.isArray(profile.photos)) {
+        const newPhotos = [];
+        
+        for (const photoUrl of profile.photos) {
+          // 기존 로컬 파일 경로인지 확인
+          if (photoUrl && photoUrl.startsWith('file:///')) {
+            try {
+              // 실제 파일 경로 추출
+              const localPath = photoUrl.replace('file://', '');
+              if (!fs.existsSync(localPath)) {
+                // 파일이 없으면 기존 경로 유지
+                newPhotos.push(photoUrl);
+                migratedCount.failed++;
+                continue;
+              }
+              // 새 경로 생성
+              const now = new Date();
+              const year = now.getFullYear();
+              const month = String(now.getMonth() + 1).padStart(2, '0');
+              const day = String(now.getDate()).padStart(2, '0');
+              const timestamp = Date.now();
+              const ext = localPath.split('.').pop() || 'jpg';
+              const newFileName = `${timestamp}.${ext}`;
+              const newDir = path.join(__dirname, 'files', `${year}`, `${month}`, `${day}`, profile.user_id);
+              if (!fs.existsSync(newDir)) {
+                fs.mkdirSync(newDir, { recursive: true });
+              }
+              const newFilePath = path.join(newDir, newFileName);
+              fs.copyFileSync(localPath, newFilePath);
+              const newPhotoUrl = `/files/${year}/${month}/${day}/${profile.user_id}/${newFileName}`;
+              newPhotos.push(newPhotoUrl);
+              migratedCount.success++;
+            } catch (error) {
+              console.error(`이미지 마이그레이션 실패: ${photoUrl}`, error);
+              migratedCount.failed++;
+              // 실패 시 기존 URL 유지
+              newPhotos.push(photoUrl);
+            }
+          } else {
+            // 이미 올바른 형식이거나 외부 URL인 경우 그대로 유지
+            newPhotos.push(photoUrl);
+          }
+        }
+        // 프로필 업데이트
+        profile.photos = newPhotos;
+      }
+    }
+    // 업데이트된 프로필 저장
+    writeJson(profilesPath, profiles);
+    await appendLog({
+      type: 'image_migration',
+      userId: '',
+      result: 'success',
+      detail: { 
+        migratedCount,
+        totalProfiles: profiles.length
+      },
+      action: '이미지 마이그레이션',
+      screen: 'AdminScreen',
+      component: 'image_migration'
+    });
+    return { 
+      statusCode: 200, 
+      body: JSON.stringify({ 
+        message: 'Image migration completed',
+        migratedCount,
+        totalProfiles: profiles.length
+      }) 
+    };
+  } catch (error: any) {
+    console.error('이미지 마이그레이션 에러:', error);
+    await appendLog({
+      type: 'image_migration',
+      userId: '',
+      result: 'fail',
+      message: error.message,
+      detail: { error: error.message },
+      action: '이미지 마이그레이션',
+      screen: 'AdminScreen',
+      component: 'image_migration'
+    });
+    return { 
+      statusCode: 500, 
+      body: JSON.stringify({ error: 'Image migration failed' }) 
+    };
+  }
+};
+
+// AWS S3 구조를 고려한 파일 경로 생성 함수
+function generateS3Path(userId: string, fileName: string, type: 'profile' | 'temp' = 'profile'): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  
+  // S3 구조: {bucket}/images/{type}/{year}/{month}/{day}/{userId}/{fileName}
+  return `images/${type}/${year}/${month}/${day}/${userId}/${fileName}`;
+}
+
+// 파일 크기 제한 체크 (10MB)
+function validateFileSize(buffer: Buffer): boolean {
+  const maxSize = 10 * 1024 * 1024; // 10MB
+  return buffer.length <= maxSize;
+}
+
+// 허용된 이미지 형식 체크
+function validateImageFormat(fileName: string): boolean {
+  const allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+  const extension = fileName.split('.').pop()?.toLowerCase();
+  return extension ? allowedExtensions.includes(extension) : false;
+}
+
+// 파일 정리 함수 (오래된 임시 파일 삭제)
+export const cleanupTempFiles = async (event: any) => {
+  try {
+    const tempDir = path.join(__dirname, 'files');
+    const maxAge = 24 * 60 * 60 * 1000; // 24시간
+    const now = Date.now();
+    let deletedCount = 0;
+    
+    function cleanupDirectory(dirPath: string) {
+      if (!fs.existsSync(dirPath)) return;
+      
+      const items = fs.readdirSync(dirPath);
+      for (const item of items) {
+        const itemPath = path.join(dirPath, item);
+        const stats = fs.statSync(itemPath);
+        
+        if (stats.isDirectory()) {
+          cleanupDirectory(itemPath);
+          // 빈 디렉토리 삭제
+          if (fs.readdirSync(itemPath).length === 0) {
+            fs.rmdirSync(itemPath);
+          }
+        } else if (stats.isFile()) {
+          // 임시 파일이고 24시간 이상 된 경우 삭제
+          if (now - stats.mtime.getTime() > maxAge) {
+            fs.unlinkSync(itemPath);
+            deletedCount++;
+          }
+        }
+      }
+    }
+    
+    cleanupDirectory(tempDir);
+    
+    await appendLog({
+      type: 'file_cleanup',
+      userId: '',
+      result: 'success',
+      detail: { deletedCount },
+      action: '파일 정리',
+      screen: 'AdminScreen',
+      component: 'file_cleanup'
+    });
+    
+    return { 
+      statusCode: 200, 
+      body: JSON.stringify({ 
+        message: 'File cleanup completed',
+        deletedCount 
+      }) 
+    };
+  } catch (error: any) {
+    console.error('파일 정리 에러:', error);
+    
+    await appendLog({
+      type: 'file_cleanup',
+      userId: '',
+      result: 'fail',
+      message: error.message,
+      detail: { error: error.message },
+      action: '파일 정리',
+      screen: 'AdminScreen',
+      component: 'file_cleanup'
+    });
+    
+    return { 
+      statusCode: 500, 
+      body: JSON.stringify({ error: 'File cleanup failed' }) 
+    };
+  }
+};
+
+export const getTerms = async () => {
+  const terms = readJson(termsPath);
+  return { statusCode: 200, body: JSON.stringify(snakeToCamelCase(terms)) };
+};
+
+export const getPrivacy = async () => {
+  const privacy = readJson(privacyPath);
+  return { statusCode: 200, body: JSON.stringify(snakeToCamelCase(privacy)) };
+};
+
+export const getCustomerService = async () => {
+  const cs = readJson(customerServicePath);
+  return { statusCode: 200, body: JSON.stringify(snakeToCamelCase(cs)) };
+};
+
+// 매칭 상세 정보 조회 (matchId 기반)
+export const getMatchDetail = async (event: any) => {
+  const matchId = event.pathParameters?.matchId;
+  const requestUserId = event.queryStringParameters?.userId || event.headers?.userid;
+  
+  if (!matchId) {
+    return { statusCode: 400, body: JSON.stringify({ error: 'matchId required' }) };
+  }
+  
+  if (!requestUserId) {
+    return { statusCode: 400, body: JSON.stringify({ error: 'userId required' }) };
+  }
+  
+  const matchPairs = readJson(matchPairsPath);
+  const profiles = readJson(profilesPath);
+  const preferences = readJson(preferencesPath);
+  
+  const match = matchPairs.find((m: any) => m.match_id === matchId);
+  if (!match) {
+    await appendLog({
+      type: 'get_match_detail',
+      userId: requestUserId,
+      result: 'fail',
+      message: 'Match not found',
+      detail: { requestedMatchId: matchId },
+      action: '매칭 상세 조회',
+      screen: 'UserDetailScreen',
+      component: 'match_detail'
+    });
+    return { statusCode: 404, body: JSON.stringify({ error: 'Match not found' }) };
+  }
+  
+  // 요청한 사용자가 매칭에 포함되어 있는지 확인
+  if (match.user_a_id !== requestUserId && match.user_b_id !== requestUserId) {
+    await appendLog({
+      type: 'get_match_detail',
+      userId: requestUserId,
+      result: 'fail',
+      message: 'User not in match',
+      detail: { requestedMatchId: matchId, userA: match.user_a_id, userB: match.user_b_id },
+      action: '매칭 상세 조회',
+      screen: 'UserDetailScreen',
+      component: 'match_detail'
+    });
+    return { statusCode: 403, body: JSON.stringify({ error: 'User not authorized for this match' }) };
+  }
+  
+  // 매칭된 상대방의 userId 찾기
+  const otherUserId = match.user_a_id === requestUserId ? match.user_b_id : match.user_a_id;
+  const profile = profiles.find((p: any) => p.user_id === otherUserId);
+  const preference = preferences.find((p: any) => p.user_id === otherUserId);
+  
+  const result = {
+    matchId: match.match_id,
+    userId: otherUserId,
+    profile: profile || null,
+    preference: preference || null,
+    matchDate: match.final_date || null,
+    status: match.final_date ? 'revealed' : 'pending'
+  };
+  
+  await appendLog({
+    type: 'get_match_detail',
+    userId: requestUserId,
+    result: 'success',
+    detail: { 
+      matchId: match.match_id,
+      otherUserId,
+      profileFound: !!profile,
+      preferenceFound: !!preference
+    },
+    action: '매칭 상세 조회',
+    screen: 'UserDetailScreen',
+    component: 'match_detail'
+  });
+  
+  return { statusCode: 200, body: JSON.stringify(snakeToCamelCase(result)) };
 }; 

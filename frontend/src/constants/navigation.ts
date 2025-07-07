@@ -27,7 +27,7 @@ export const TAB_ROUTES = {
 export const NAVIGATION_OPTIONS = {
   PROFILE_EDIT: { headerShown: true, title: '프로필 수정' },
   PREFERENCE_EDIT: { headerShown: true, title: '이상형 수정' },
-  USER_DETAIL: { headerShown: true, title: '프로필' },
+  USER_DETAIL: { headerShown: false },
   CHAT: { headerShown: true, title: '채팅' },
   FILTER: { headerShown: true, title: '필터' },
   SETTINGS: { headerShown: true, title: '설정' },

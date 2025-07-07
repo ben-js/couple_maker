@@ -34,7 +34,89 @@
     "marriage_plans": "1-2년 내",
     "introduction": "안녕하세요! 만나서 반갑습니다.",
     "photos": [
-      "file:///data/user/0/host.exp.exponent/cache/ImageManipulator/8925cbc6-151e-4d39-b8f7-3530da5d7d0e.jpg"
+      "http://192.168.219.100:3000/files/2025/07/06/user-1/1751779329750.jpg",
+      "http://192.168.219.100:3000/files/2025/07/06/user-1/1751779329667.jpg",
+      "http://192.168.219.100:3000/files/2025/07/06/user-1/1751775315198.jpg",
+      "http://192.168.219.100:3000/files/2025/07/06/user-1/1751775315135.jpg",
+      "http://192.168.219.100:3000/files/2025/07/06/user-1/1751775077341.jpg",
+      "http://192.168.219.100:3000/files/2025/07/06/user-1/1751775077249.jpg"
+    ]
+  },
+  {
+    "user_id": "user-3",
+    "name": "bbb",
+    "birth_date": {
+      "year": 1992,
+      "month": 5,
+      "day": 20
+    },
+    "gender": "여",
+    "height": 165,
+    "body_type": "슬림",
+    "job": "회사원",
+    "education": "대학교",
+    "region": {
+      "region": "경기",
+      "district": "성남시"
+    },
+    "mbti": "ENFP",
+    "interests": [
+      "여행",
+      "독서"
+    ],
+    "favorite_foods": [
+      "양식",
+      "디저트"
+    ],
+    "smoking": "비흡연",
+    "drinking": "가끔",
+    "religion": "무교",
+    "marital_status": "미혼",
+    "has_children": "없음",
+    "marriage_plans": "3년 이후",
+    "introduction": "취미가 많은 사람입니다.",
+    "photos": [
+      "http://192.168.219.100:3000/files/2025/07/06/user-3/3f08ef50-cba0-4e67-9b03-24e6f966f15b.jpg",
+      "http://192.168.219.100:3000/files/2025/07/06/user-3/IE003091159_STD.jpg",
+      "http://192.168.219.100:3000/files/2025/07/06/user-3/vQjwwVXnA_FXXcgH9BNyPO7xToGqHmbXfVPQomzVY3K2KjOTueJGJWm6snzJxd2tG1pIqRF3fo_jCN8QHUr2OIuGEeDTi1OabL2c0sNyF4lIQmS60fDhNjbTL-OvjK0Rrx7dGSVxbv1mgqA3tsUmzA.webp"
+    ]
+  },
+  {
+    "user_id": "user-5",
+    "name": "ccc",
+    "birth_date": {
+      "year": 1988,
+      "month": 12,
+      "day": 1
+    },
+    "gender": "남",
+    "height": 172,
+    "body_type": "보통",
+    "job": "프리랜서",
+    "education": "고등학교",
+    "region": {
+      "region": "부산",
+      "district": "해운대구"
+    },
+    "mbti": "ISTJ",
+    "interests": [
+      "운동",
+      "영화"
+    ],
+    "favorite_foods": [
+      "중식",
+      "분식"
+    ],
+    "smoking": "비흡연",
+    "drinking": "음주",
+    "religion": "불교",
+    "marital_status": "이혼",
+    "has_children": "있음",
+    "marriage_plans": "미정",
+    "introduction": "진지한 만남을 원합니다.",
+    "photos": [
+      "http://192.168.219.100:3000/files/2025/07/06/user-5/vHChG8leH5ro7Y_eije7-SluX2orR1HUwVodnXZw6cIO-GzM4EcptJD7ogPXOqRY4FVD6heFCwCY_MSlNtVxTA.webp",
+      "http://192.168.219.100:3000/files/2025/07/06/user-5/202407161542145646710_20240716154229_01.webp"
     ]
   }
 ]

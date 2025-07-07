@@ -85,27 +85,25 @@ const PreferenceSetupScreen = () => {
       try {
         const preferences = await getUserPreferences(user.id);
         if (preferences) {
-          // 변환: 배열 → 객체
-          if (Array.isArray(preferences.ageRange)) {
-            preferences.ageRange = { min: preferences.ageRange[0], max: preferences.ageRange[1] };
-          }
-          if (Array.isArray(preferences.heightRange)) {
-            preferences.heightRange = { min: preferences.heightRange[0], max: preferences.heightRange[1] };
-          }
-          // regions 변환 예시 (string[] → 객체 배열)
-          if (
-            Array.isArray(preferences.regions) &&
-            preferences.regions.length > 0 &&
-            typeof preferences.regions[0] === 'string'
-          ) {
-            const regionNames = preferences.regions as unknown as string[];
-            preferences.regions = regionNames.map(regionName => ({
-              region: regionName,
-              district: regionName,
-            }));
-          }
-          Object.keys(preferences).forEach(key => {
-            setValue(key, (preferences as any)[key]);
+          // 모든 필드에 대해 폼에 값 세팅 (매핑 적용)
+          preferenceForm.forEach(field => {
+            const key = field.name as keyof UserPreferences;
+            let value = preferences[key];
+            // range_slider 변환: [min, max] → {min, max}
+            if (
+              field.type === 'range_slider' &&
+              Array.isArray(value) &&
+              value.length === 2 &&
+              typeof value[0] === 'number' &&
+              typeof value[1] === 'number'
+            ) {
+              value = { min: value[0], max: value[1] };
+            }
+            // region_choice 변환
+            if (field.type === 'region_choice' && Array.isArray(value) && typeof value[0] === 'string') {
+              value = (value as string[]).map(regionName => ({ region: regionName, district: regionName }));
+            }
+            setValue(field.name, value);
           });
         }
       } catch (error) {

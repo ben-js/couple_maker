@@ -1,37 +1,50 @@
 import React from 'react';
 import { StyleSheet, ScrollView } from 'react-native';
-import { View, Card, Text, Icon } from 'react-native-ui-lib';
+import { View, Card, Text } from 'react-native-ui-lib';
+import { Feather, FontAwesome5 } from '@expo/vector-icons';
 import { colors, typography } from '@/constants';
 
 const TipsScreen = () => {
-  const tips = [
+  const tips: Array<{
+    id: number;
+    title: string;
+    content: string;
+    featherIcon?: 'star';
+    fontAwesomeIcon?: 'comment' | 'map-marker-alt' | 'gift';
+    category: string;
+    useFontAwesome: boolean;
+  }> = [
     {
       id: 1,
       title: '첫 만남 데이트룩',
       content: '깔끔하고 편안한 스타일을 추천합니다. 과도한 화장보다는 자연스러운 메이크업이 좋아요.',
-      icon: 'star',
-      category: '패션'
+      featherIcon: 'star',
+      category: '패션',
+      useFontAwesome: false
     },
     {
       id: 2,
       title: '편안한 대화 주제',
       content: '직업, 취미, 여행 경험 등 서로의 관심사를 자연스럽게 나누어보세요.',
-      icon: 'message-circle',
-      category: '대화'
+      fontAwesomeIcon: 'comment',
+      category: '대화',
+      useFontAwesome: true
     },
     {
       id: 3,
       title: '좋은 만남 장소',
       content: '카페, 공원, 박물관 등 대화하기 좋은 장소를 선택하는 것이 좋습니다.',
-      icon: 'map-pin',
-      category: '장소'
+      fontAwesomeIcon: 'map-marker-alt',
+      category: '장소',
+      useFontAwesome: true
     },
     {
       id: 4,
       title: '기념품 아이디어',
       content: '작은 꽃다발이나 디저트 등 간단한 선물로 좋은 인상을 남겨보세요.',
-      icon: 'gift',
-      category: '선물'
+      fontAwesomeIcon: 'gift',
+      category: '선물',
+      useFontAwesome: true
     }
   ];
 
@@ -43,7 +56,11 @@ const TipsScreen = () => {
       {tips.map(tip => (
         <Card key={tip.id} enableShadow style={styles.tipCard}>
           <View style={styles.tipHeader}>
-            <Icon name={tip.icon} size={24} color={colors.primary} />
+            {tip.useFontAwesome ? (
+              <FontAwesome5 name={tip.fontAwesomeIcon} size={24} color={colors.primary} />
+            ) : (
+              <Feather name={tip.featherIcon} size={24} color={colors.primary} />
+            )}
             <View style={styles.tipInfo}>
               <Text style={styles.tipTitle}>{tip.title}</Text>
               <Text style={styles.tipCategory}>{tip.category}</Text>

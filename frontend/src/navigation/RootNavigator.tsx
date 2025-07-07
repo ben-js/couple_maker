@@ -18,6 +18,7 @@ import FilterScreen from '@/screens/FilterScreen';
 import SettingsScreen from '@/screens/SettingsScreen';
 import LoadingScreen from '@/screens/LoadingScreen';
 import SignupScreen from '@/screens/SignupScreen';
+import TermsScreen from '../screens/TermsScreen';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -73,6 +74,7 @@ const RootNavigator: React.FC = () => {
       <Stack.Screen name={NAVIGATION_ROUTES.CHAT} component={ChatScreen} options={NAVIGATION_OPTIONS.CHAT} />
       <Stack.Screen name={NAVIGATION_ROUTES.FILTER} component={FilterScreen} options={NAVIGATION_OPTIONS.FILTER} />
       <Stack.Screen name={NAVIGATION_ROUTES.SETTINGS} component={SettingsScreen} options={NAVIGATION_OPTIONS.SETTINGS} />
+      <Stack.Screen name="Terms" component={TermsScreen} options={{ headerShown: true, title: '' }} />
     </Stack.Navigator>
   );
 };

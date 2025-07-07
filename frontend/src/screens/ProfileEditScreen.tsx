@@ -23,6 +23,7 @@ import FormChips from '../components/FormChips';
 import { Feather } from '@expo/vector-icons';
 import { logger } from '@/utils/logger';
 import { TOAST_MESSAGES, NAVIGATION_ROUTES } from '@/constants';
+import * as FileSystem from 'expo-file-system';
 
 
 const options = optionsRaw as Options;
@@ -83,6 +84,15 @@ formTemplate.forEach(field => {
 });
 const schema = yup.object().shape(schemaFields);
 
+const API_BASE_URL = 'http://localhost:3000'; // 실제 배포시 환경변수로 대체
+function getImageUri(photoUrl: string) {
+  if (!photoUrl) return undefined;
+  if (photoUrl.startsWith('/files/')) {
+    return API_BASE_URL + photoUrl;
+  }
+  return photoUrl;
+}
+
 const ProfileEditScreen = () => {
   // 사진 관련 상태만 유지 (UI 전용)
   const [photos, setPhotos] = useState<(string | null)[]>([null, null, null, null, null]);
@@ -95,7 +105,7 @@ const ProfileEditScreen = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   const navigation = useNavigation<any>();
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
   const route = useRoute<any>();
   const isEditMode = route?.params?.isEditMode ?? false;
   
@@ -211,29 +221,37 @@ const ProfileEditScreen = () => {
   const handleSaveCrop = async () => {
     if (!previewUri || previewTargetIdx === null) return;
     
-    Image.getSize(previewUri, async (width, height) => {
-      const size = Math.min(width, height);
-      const cropRegion = {
-        originX: Math.floor((width - size) / 2),
-        originY: Math.floor((height - size) / 2),
-        width: size,
-        height: size,
-      };
-      const manipResult = await ImageManipulator.manipulateAsync(
-        previewUri,
-        [{ crop: cropRegion }],
-        { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
-      );
-      const newPhotos = [...photos];
-      if (previewTargetIdx >= 0 && previewTargetIdx < newPhotos.length) {
-        newPhotos[previewTargetIdx] = manipResult.uri;
-      }
-      setPhotos(newPhotos);
-      setShowPreview(false);
-      setPreviewUri(null);
-      setPreviewTargetIdx(null);
-      setPhotoActionIndex(null);
-    });
+    try {
+      Image.getSize(previewUri, async (width, height) => {
+        const size = Math.min(width, height);
+        const cropRegion = {
+          originX: Math.floor((width - size) / 2),
+          originY: Math.floor((height - size) / 2),
+          width: size,
+          height: size,
+        };
+        
+        const manipResult = await ImageManipulator.manipulateAsync(
+          previewUri,
+          [{ crop: cropRegion }],
+          { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+        );
+
+        // 로컬에서만 이미지 URI 저장 (백엔드 업로드는 프로필 저장 시 수행)
+        const newPhotos = [...photos];
+        if (previewTargetIdx >= 0 && previewTargetIdx < newPhotos.length) {
+          newPhotos[previewTargetIdx] = manipResult.uri;
+        }
+        setPhotos(newPhotos);
+        setShowPreview(false);
+        setPreviewUri(null);
+        setPreviewTargetIdx(null);
+        setPhotoActionIndex(null);
+      });
+    } catch (error) {
+      console.error('이미지 크롭 에러:', error);
+      Alert.alert('이미지 처리 실패', '이미지를 처리하는 중 오류가 발생했습니다.');
+    }
   };
 
   const onSubmit = async (data: any) => {
@@ -256,9 +274,13 @@ const ProfileEditScreen = () => {
     };
     
     try {
-      logger.api.request('saveProfile', { userId: user.id });
       const success = await saveProfile(profile);
-      logger.api.response('saveProfile', { success, userId: user.id });
+      
+      if (success) {
+        // 프로필 저장 성공 시 최신 프로필 fetch 후 setUser로 갱신
+        const latestProfile = await getUserProfile(user.id);
+        if (latestProfile) setUser(latestProfile);
+      }
       
       if (Platform.OS === 'android') {
         ToastAndroid.show(TOAST_MESSAGES.PROFILE_SAVED, ToastAndroid.SHORT);
@@ -267,8 +289,8 @@ const ProfileEditScreen = () => {
       }
       
       if (!user.hasPreferences) {
-                      logger.navigation.navigate('ProfileEditScreen', NAVIGATION_ROUTES.PREFERENCE_EDIT);
-              navigation.navigate(NAVIGATION_ROUTES.PREFERENCE_EDIT);
+        logger.navigation.navigate('ProfileEditScreen', NAVIGATION_ROUTES.PREFERENCE_EDIT);
+        navigation.navigate(NAVIGATION_ROUTES.PREFERENCE_EDIT);
       } else {
         logger.navigation.navigate('ProfileSetupScreen', NAVIGATION_ROUTES.MAIN);
         navigation.navigate(NAVIGATION_ROUTES.MAIN, { screen: NAVIGATION_ROUTES.MAIN });
@@ -298,7 +320,7 @@ const ProfileEditScreen = () => {
             style={{ width: 160, height: 160, backgroundColor: '#eee', borderRadius: 12, justifyContent: 'center', alignItems: 'center' }}
           >
             {photos[0] ? (
-              <Image source={{ uri: photos[0] }} style={{ width: '100%', height: '100%', borderRadius: 12 }} resizeMode="cover" />
+              <Image source={{ uri: getImageUri(photos[0]) }} style={{ width: '100%', height: '100%', borderRadius: 12 }} resizeMode="cover" />
             ) : (
               <Avatar
                 size={64}
@@ -329,7 +351,7 @@ const ProfileEditScreen = () => {
               style={{ width: 120, height: 120, backgroundColor: '#eee', borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: 16, position: 'relative' }}
             >
               {photos[0] ? (
-                <Image source={{ uri: photos[0] }} style={{ width: '101%', height: '100%', borderRadius: 12 }} resizeMode="cover" />
+                <Image source={{ uri: getImageUri(photos[0]) }} style={{ width: '101%', height: '100%', borderRadius: 12 }} resizeMode="cover" />
               ) : (
                 <Avatar
                   size={48}
@@ -354,7 +376,7 @@ const ProfileEditScreen = () => {
                   style={{ width: 56, height: 56, backgroundColor: '#eee', borderRadius: 8, marginHorizontal: 6, justifyContent: 'center', alignItems: 'center' }}
                 >
                   {photos[i] ? (
-                    <Image source={{ uri: photos[i] }} style={{ width: '100%', height: '100%', borderRadius: 8 }} resizeMode="cover" />
+                    <Image source={{ uri: getImageUri(photos[i]) }} style={{ width: '100%', height: '100%', borderRadius: 8 }} resizeMode="cover" />
                   ) : (
                     <Avatar
                       size={28}

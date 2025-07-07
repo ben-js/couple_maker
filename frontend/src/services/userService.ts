@@ -1,53 +1,98 @@
-// '@/utils/apiUtils' 관련 import 구문을 모두 삭제
-import { User } from '@/types';
-import { apiGet, apiPost } from '@/utils/apiUtils';
+import { UserProfile } from '../types/profile';
+import { apiGet, apiPost } from '../utils/apiUtils';
+import * as FileSystem from 'expo-file-system';
 
-export async function signup(userData: { email: string; password: string; name: string }): Promise<User | null> {
+// 회원가입 (단일 책임)
+export async function signup(userData: { email: string; password: string; name: string }): Promise<UserProfile | null> {
   try {
-    const data = await apiPost<any>('/signup', userData);
+    const data = await apiPost<UserProfile>('/signup', userData);
     if (data && !data.id && (data.userId || data.user_id)) {
       data.id = data.userId || data.user_id;
     }
-    return data as User;
+    return data;
   } catch (error) {
     console.error('회원가입 실패:', error);
     return null;
   }
 }
 
-export async function login(credentials: { email: string; password: string }): Promise<User | null> {
+// 로그인 (단일 책임)
+export async function login(credentials: { email: string; password: string }): Promise<UserProfile | null> {
   try {
-    console.log('🔐 로그인 시도:', { email: credentials.email, password: credentials.password ? '***' : 'empty' });
-    const data = await apiPost<any>('/login', credentials);
-    console.log('📥 로그인 응답:', data);
+    console.log('로그인 시도:', { email: credentials.email, password: credentials.password ? '***' : 'empty' });
+    const data = await apiPost<UserProfile>('/login', credentials);
+    console.log('로그인 응답:', data);
     if (data && !data.id && (data.userId || data.user_id)) {
       data.id = data.userId || data.user_id;
-      console.log('🔄 ID 매핑 완료:', { originalId: data.userId || data.user_id, mappedId: data.id });
+      console.log('ID 매핑 완료:', { originalId: data.userId || data.user_id, mappedId: data.id });
     }
-    console.log('✅ 최종 사용자 데이터:', data);
-    return data as User;
+    console.log('최종 사용자 데이터:', data);
+    return data;
   } catch (error) {
-    console.error('❌ 로그인 실패:', error);
+    console.error('로그인 실패:', error);
     return null;
   }
 }
 
-export async function getUserProfile(userId: string): Promise<User | null> {
+// 프로필 조회 (단일 책임)
+export async function getUserProfile(userId: string): Promise<UserProfile | null> {
   try {
-    const data = await apiGet<any>(`/profile/${userId}`);
+    const data = await apiGet<UserProfile>(`/profile/${userId}`);
     if (data && !data.id && (data.userId || data.user_id)) {
       data.id = data.userId || data.user_id;
     }
-    return data as User;
+    return data;
   } catch (error) {
     console.error('프로필 조회 실패:', error);
     return null;
   }
 }
 
-export async function saveProfile(profile: User): Promise<boolean> {
+// 프로필 저장 (단일 책임)
+export async function saveProfile(profile: UserProfile): Promise<boolean> {
   try {
-    await apiPost('/profile', profile);
+    // 이미지들을 백엔드에 업로드
+    const uploadedPhotos = [];
+    if (profile.photos && profile.photos.length > 0) {
+      for (let i = 0; i < profile.photos.length; i++) {
+        const photoUri = profile.photos[i];
+        // 백엔드 URL인 경우 건너뛰기
+        if (photoUri && (photoUri.startsWith('http') || photoUri.startsWith('/files/'))) {
+          uploadedPhotos.push(photoUri);
+          continue;
+        }
+        // 로컬 파일인 경우 백엔드에 업로드
+        if (photoUri && photoUri.startsWith('file://')) {
+          try {
+            const base64 = await FileSystem.readAsStringAsync(photoUri, {
+              encoding: FileSystem.EncodingType.Base64,
+            });
+            const uploadResponse = await apiPost<{ imageUrl: string }>('/upload-image', {
+              userId: profile.userId,
+              imageData: `data:image/jpeg;base64,${base64}`,
+              fileName: `photo_${i}.jpg`
+            });
+            if (uploadResponse && uploadResponse.imageUrl) {
+              uploadedPhotos.push(uploadResponse.imageUrl);
+            } else {
+              console.error('이미지 업로드 실패:', uploadResponse);
+              return false;
+            }
+          } catch (uploadError) {
+            console.error(`이미지 ${i} 업로드 실패:`, uploadError);
+            return false;
+          }
+        } else {
+          continue;
+        }
+      }
+    }
+    // 업로드된 이미지 URL로 프로필 업데이트
+    const profileWithUploadedPhotos = {
+      ...profile,
+      photos: uploadedPhotos
+    };
+    await apiPost('/profile', profileWithUploadedPhotos);
     return true;
   } catch (error) {
     console.error('프로필 저장 실패:', error);

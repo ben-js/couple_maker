@@ -1,15 +1,31 @@
-import React from 'react';
-import { StyleSheet, ScrollView, Image } from 'react-native';
-import { View, Card, Text, Button, Avatar, Icon, TouchableOpacity } from 'react-native-ui-lib';
+import React, { useEffect, useState } from 'react';
+import { StyleSheet, ScrollView, Image, ActivityIndicator } from 'react-native';
+import { View, Card, Text, Button, Avatar, TouchableOpacity } from 'react-native-ui-lib';
+import { Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../store/AuthContext';
 import { NAVIGATION_ROUTES, colors, typography } from '@/constants';
 import { useUserProfile } from '../hooks/useUserProfile';
+import { apiGet } from '@/utils/apiUtils';
 
 const MainScreen = () => {
   const navigation = useNavigation<any>();
   const { user } = useAuth();
   const { getProfilePhoto, getUserDisplayName, getUserInitial } = useUserProfile();
+
+  // 메인 프로필 카드 API 연동
+  const [mainCard, setMainCard] = useState<any>(null);
+  const [loadingCard, setLoadingCard] = useState(true);
+  const [cardError, setCardError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    setLoadingCard(true);
+    apiGet('/main-card', { userId: user.id })
+      .then(setMainCard)
+      .catch(e => setCardError(e.message || '프로필 카드를 불러오지 못했습니다.'))
+      .finally(() => setLoadingCard(false));
+  }, [user?.id]);
 
   // 매칭 상태 (예시 데이터)
   const matchingStatus = {
@@ -45,7 +61,7 @@ const MainScreen = () => {
                 index <= matchingStatus.currentStep ? styles.progressDotActive : styles.progressDotInactive
               ]}>
                 {index < matchingStatus.currentStep && (
-                  <Icon name="check" size={12} color={colors.surface} />
+                  <Feather name="check" size={12} color={colors.surface} />
                 )}
               </View>
               <Text style={[
@@ -69,22 +85,35 @@ const MainScreen = () => {
   };
 
   const renderProfileCard = () => {
+    if (loadingCard) {
+      return <View flex center style={{ minHeight: 180 }}><ActivityIndicator size="large" color={colors.primary} /></View>;
+    }
+    if (cardError) {
+      return <View flex center style={{ minHeight: 180 }}><Text>{cardError}</Text></View>;
+    }
+    if (!mainCard) {
+      return <View flex center style={{ minHeight: 180 }}><Text>도착한 프로필 카드가 없습니다.</Text></View>;
+    }
     return (
       <Card enableShadow style={styles.profileCard}>
         <View style={styles.profileCardHeader}>
           <Text style={styles.profileCardTitle}>프로필 카드가 도착했어요!</Text>
-          <Icon name="mail" size={24} color={colors.primary} />
+          <Feather name="mail" size={24} color={colors.primary} />
         </View>
         <View style={styles.profileCardContent}>
-          <View style={styles.blurredImage}>
-            <Icon name="user" size={40} color={colors.text.disabled} />
-          </View>
-          <Text style={styles.profileCardDesc}>소개팅 당일 오전 9시에 사진이 공개돼요</Text>
+          {mainCard.photoUrl ? (
+            <Image source={{ uri: mainCard.photoUrl }} style={styles.profileImage} resizeMode="cover" />
+          ) : (
+            <View style={styles.blurredImage}>
+              <Feather name="user" size={40} color={colors.text.disabled} />
+            </View>
+          )}
+          <Text style={styles.profileCardDesc}>{mainCard.name}님의 프로필이 도착했습니다.</Text>
           <Button 
             label="지금 확인하러 가기" 
             style={styles.profileCardButton}
             labelStyle={styles.profileCardButtonText}
-            onPress={() => navigation.navigate(NAVIGATION_ROUTES.USER_DETAIL, { userId: 'temp' })}
+            onPress={() => navigation.navigate(NAVIGATION_ROUTES.USER_DETAIL, { userId: mainCard.userId })}
           />
         </View>
       </Card>
@@ -144,7 +173,7 @@ const MainScreen = () => {
             <Text style={styles.chargeButtonText}>충전하기</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.notificationButton}>
-            <Icon name="bell" size={24} color={colors.text.primary} />
+            <Feather name="bell" size={24} color={colors.text.primary} />
           </TouchableOpacity>
         </View>
       </View>

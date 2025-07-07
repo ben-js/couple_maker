@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, ScrollView, Alert, Platform, ToastAndroid, Image } from 'react-native';
-import { View, Card, Text, Icon, Avatar, TouchableOpacity } from 'react-native-ui-lib';
+import { View, Card, Text, Avatar, TouchableOpacity } from 'react-native-ui-lib';
+import { Feather, FontAwesome5, MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../store/AuthContext';
 import { colors, typography } from '@/constants';
@@ -91,17 +92,24 @@ const MenuScreen = () => {
       title: '이용약관',
       subtitle: '서비스 이용약관',
       icon: 'file-text',
-      action: () => console.log('이용약관')
+      action: () => navigation.navigate('Terms', { type: 'terms' })
     },
     {
       id: 7,
       title: '개인정보처리방침',
       subtitle: '개인정보 보호정책',
       icon: 'shield',
-      action: () => console.log('개인정보처리방침')
+      action: () => navigation.navigate('Terms', { type: 'privacy' })
     },
     {
       id: 8,
+      title: '고객센터 안내',
+      subtitle: '문의사항 및 도움말',
+      icon: 'help-circle',
+      action: () => navigation.navigate('Terms', { type: 'customer' })
+    },
+    {
+      id: 9,
       title: '로그아웃',
       subtitle: '계정에서 로그아웃',
       icon: 'log-out',
@@ -136,7 +144,7 @@ const MenuScreen = () => {
               {user?.email || 'user@example.com'}
             </Text>
             <View style={styles.pointsContainer}>
-              <Icon name="star" size={16} color="#FFD700" />
+              <Feather name="star" size={16} color="#FFD700" />
               <Text style={styles.pointsText}>
                 {user?.points || 120}P
               </Text>
@@ -146,22 +154,35 @@ const MenuScreen = () => {
       </Card>
 
       {/* 메뉴 아이템들 */}
-      {menuItems.map(item => (
-        <TouchableOpacity key={item.id} onPress={item.action}>
-          <Card enableShadow style={styles.menuCard}>
-            <View style={styles.menuItem}>
-              <View style={styles.menuIcon}>
-                <Icon name={item.icon} size={24} color={colors.primary} />
+      {menuItems.map(item => {
+        let iconComponent;
+        if (item.icon === 'log-out') {
+          iconComponent = <MaterialIcons name="logout" size={24} color={colors.primary} />;
+        } else if (item.icon === 'shield') {
+          iconComponent = <FontAwesome5 name="shield-alt" size={24} color={colors.primary} />;
+        } else {
+          const useFontAwesome = ['credit-card', 'help-circle'].includes(item.icon);
+          iconComponent = useFontAwesome
+            ? <FontAwesome5 name={item.icon as any} size={24} color={colors.primary} />
+            : <Feather name={item.icon as any} size={24} color={colors.primary} />;
+        }
+        return (
+          <TouchableOpacity key={item.id} onPress={item.action}>
+            <Card enableShadow style={styles.menuCard}>
+              <View style={styles.menuItem}>
+                <View style={styles.menuIcon}>
+                  {iconComponent}
+                </View>
+                <View style={styles.menuContent}>
+                  <Text style={styles.menuTitle}>{item.title}</Text>
+                  <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
+                </View>
+                <Feather name="chevron-right" size={20} color={colors.text.disabled} />
               </View>
-              <View style={styles.menuContent}>
-                <Text style={styles.menuTitle}>{item.title}</Text>
-                <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
-              </View>
-              <Icon name="chevron-right" size={20} color={colors.text.disabled} />
-            </View>
-          </Card>
-        </TouchableOpacity>
-      ))}
+            </Card>
+          </TouchableOpacity>
+        );
+      })}
       
       <View style={{ height: 100 }} />
     </ScrollView>
