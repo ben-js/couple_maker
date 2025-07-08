@@ -17,23 +17,24 @@ const MainTabNavigator = () => {
       initialRouteName="Home"
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarActiveTintColor: '#FF6B6B',
-        tabBarInactiveTintColor: '#aaa',
-        tabBarLabelStyle: { fontSize: 10, marginTop: 0, marginBottom: 4 },
+        tabBarShowLabel: false, // 라벨 숨김
+        tabBarActiveTintColor: '#262626', // 진한 검정
+        tabBarInactiveTintColor: '#8E8E8E', // 연한 회색
         tabBarStyle: {
-          height: 48 + insets.bottom,
+          backgroundColor: '#fff',
+          borderTopWidth: 0.2,
+          borderTopColor: '#efefef',
+          elevation: 0, // 그림자 제거
+          height: 56 + insets.bottom,
           paddingBottom: insets.bottom,
-          paddingTop: 5,
         },
         tabBarItemStyle: {
           alignItems: 'center',
           justifyContent: 'center',
-          paddingVertical: 0,
         },
         tabBarIcon: ({ color, size, focused }) => {
           let iconName: 'home' | 'star' | 'mail' | 'file-text' | 'menu' = 'home';
           let useFontAwesome = false;
-          
           switch (route.name) {
             case 'Home':
               iconName = 'home';
@@ -54,11 +55,10 @@ const MainTabNavigator = () => {
             default:
               iconName = 'home';
           }
-          
           if (useFontAwesome) {
-            return <FontAwesome5 name="history" size={24} color={color} style={{ marginBottom: 0 }} />;
+            return <FontAwesome5 name="history" size={26} color={color} />;
           }
-          return <Feather name={iconName} size={24} color={color} style={{ marginBottom: 0 }} />;
+          return <Feather name={iconName} size={26} color={color} />;
         },
       })}
     >

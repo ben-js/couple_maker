@@ -1,30 +1,46 @@
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { colors } from '../constants/colors';
 
 type Props = {
   title: string;
   onPress: () => void;
+  style?: object;
+  textColor?: string;
+  backgroundColor?: string;
 };
 
-const PrimaryButton = ({ title, onPress }: Props) => (
-  <TouchableOpacity style={styles.button} onPress={onPress} activeOpacity={0.8}>
-    <Text style={styles.text}>{title}</Text>
+const PrimaryButton = ({ title, onPress, style, textColor, backgroundColor }: Props) => (
+  <TouchableOpacity
+    style={[
+      styles.button,
+      backgroundColor ? { backgroundColor } : {},
+      style,
+    ]}
+    onPress={onPress}
+    activeOpacity={0.8}
+  >
+    <Text style={[styles.text, textColor ? { color: textColor } : {}]}>{title}</Text>
   </TouchableOpacity>
 );
 
 const styles = StyleSheet.create({
   button: {
-    backgroundColor: '#FF5A5F',
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-    borderRadius: 24,
+    backgroundColor: colors.surface, // '#FAFAFA'
+    borderRadius: 999,
+    paddingVertical: 10,
+    paddingHorizontal: 28,
     alignItems: 'center',
-    marginTop: 16,
+    justifyContent: 'center',
+    minHeight: 40,
+    minWidth: 120,
+    borderWidth: 0,
+    marginVertical: 4,
   },
   text: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
+    color: colors.text.primary, // '#262626'
+    fontSize: 15,
+    fontWeight: '600',
   },
 });
 

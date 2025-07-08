@@ -7,6 +7,8 @@ import { useAuth } from '../store/AuthContext';
 import { NAVIGATION_ROUTES, colors, typography } from '@/constants';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { apiGet } from '@/utils/apiUtils';
+import PrimaryButton from '../components/PrimaryButton';
+import StepProgressBar from '../components/StepProgressBar';
 
 const MainScreen = () => {
   const navigation = useNavigation<any>();
@@ -51,42 +53,21 @@ const MainScreen = () => {
 
   const renderMatchingProgress = () => {
     return (
-      <View style={styles.progressContainer}>
-        <Text style={styles.progressTitle}>매칭 진행 상황</Text>
-        <View style={styles.progressSteps}>
-          {matchingStatus.steps.map((step, index) => (
-            <View key={index} style={styles.progressStep}>
-              <View style={[
-                styles.progressDot,
-                index <= matchingStatus.currentStep ? styles.progressDotActive : styles.progressDotInactive
-              ]}>
-                {index < matchingStatus.currentStep && (
-                  <Feather name="check" size={12} color={colors.surface} />
-                )}
-              </View>
-              <Text style={[
-                styles.progressText,
-                index <= matchingStatus.currentStep ? styles.progressTextActive : styles.progressTextInactive
-              ]}>
-                {step}
-              </Text>
-              {index < matchingStatus.steps.length - 1 && (
-                <View style={[
-                  styles.progressLine,
-                  index < matchingStatus.currentStep ? styles.progressLineActive : styles.progressLineInactive
-                ]} />
-              )}
-            </View>
-          ))}
-        </View>
-        <Text style={styles.progressSubtitle}>설레는 인연을 준비하고 있어요</Text>
+      <View style={styles.matchingProgressContainer}>
+        <Text style={styles.matchingProgressTitle}>매칭 준비 중이에요</Text>
+        <Text style={styles.matchingProgressDesc}>상대 확인 중입니다</Text>
+        <StepProgressBar
+          total={4}
+          current={matchingStatus.currentStep}
+          labels={['신청완료', '매칭 중', '일정 조율', '소개팅 예정']}
+        />
       </View>
     );
   };
 
   const renderProfileCard = () => {
     if (loadingCard) {
-      return <View flex center style={{ minHeight: 180 }}><ActivityIndicator size="large" color={colors.primary} /></View>;
+      return <View flex center style={{ minHeight: 180 }}><ActivityIndicator size="large" color={colors.text.primary} /></View>;
     }
     if (cardError) {
       return <View flex center style={{ minHeight: 180 }}><Text>{cardError}</Text></View>;
@@ -98,22 +79,21 @@ const MainScreen = () => {
       <Card enableShadow style={styles.profileCard}>
         <View style={styles.profileCardHeader}>
           <Text style={styles.profileCardTitle}>프로필 카드가 도착했어요!</Text>
-          <Feather name="mail" size={24} color={colors.primary} />
+          <Feather name="mail" size={24} color={colors.text.primary} />
         </View>
         <View style={styles.profileCardContent}>
           {mainCard.photoUrl ? (
             <Image source={{ uri: mainCard.photoUrl }} style={styles.profileImage} resizeMode="cover" />
           ) : (
             <View style={styles.blurredImage}>
-              <Feather name="user" size={40} color={colors.text.disabled} />
+              <Feather name="user" size={40} color={colors.disabled} />
             </View>
           )}
           <Text style={styles.profileCardDesc}>{mainCard.name}님의 프로필이 도착했습니다.</Text>
-          <Button 
-            label="지금 확인하러 가기" 
-            style={styles.profileCardButton}
-            labelStyle={styles.profileCardButtonText}
+          <PrimaryButton
+            title="지금 확인하러 가기"
             onPress={() => navigation.navigate(NAVIGATION_ROUTES.USER_DETAIL, { userId: mainCard.userId })}
+            style={{ marginTop: 12, minWidth: 140, height: 40, alignSelf: 'center' }}
           />
         </View>
       </Card>
@@ -169,9 +149,11 @@ const MainScreen = () => {
           </View>
         </View>
         <View style={styles.headerRight}>
-          <TouchableOpacity style={styles.chargeButton}>
-            <Text style={styles.chargeButtonText}>충전하기</Text>
-          </TouchableOpacity>
+          <PrimaryButton
+            title="충전하기"
+            onPress={() => {/* 충전 로직 또는 네비게이션 */}}
+            style={{ minWidth: 80, height: 36, marginRight: 8, paddingHorizontal: 16, paddingVertical: 0 }}
+          />
           <TouchableOpacity style={styles.notificationButton}>
             <Feather name="bell" size={24} color={colors.text.primary} />
           </TouchableOpacity>
@@ -223,11 +205,11 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   welcomeTitle: {
-    ...typography.h3,
+    ...typography.title,
     marginBottom: 2,
   },
   pointsText: {
-    ...typography.small,
+    ...typography.caption,
   },
   headerRight: {
     flexDirection: 'row',
@@ -241,7 +223,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   chargeButtonText: {
-    ...typography.buttonSmall,
+    ...typography.button,
   },
   notificationButton: {
     width: 40,
@@ -259,7 +241,7 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     paddingHorizontal: 24,
     alignItems: 'center',
-    shadowColor: colors.primary,
+    shadowColor: 'transparent',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -279,7 +261,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   progressTitle: {
-    ...typography.h3,
+    ...typography.title,
     marginBottom: 16,
   },
   progressSteps: {
@@ -307,7 +289,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
   },
   progressText: {
-    ...typography.small,
+    ...typography.caption,
     textAlign: 'center',
     marginBottom: 8,
   },
@@ -350,7 +332,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   profileCardTitle: {
-    ...typography.h3,
+    ...typography.title,
   },
   profileCardContent: {
     alignItems: 'center',
@@ -376,13 +358,13 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   profileCardButtonText: {
-    ...typography.buttonSmall,
+    ...typography.button,
   },
   tipsContainer: {
     marginBottom: 24,
   },
   sectionTitle: {
-    ...typography.h3,
+    ...typography.title,
     marginHorizontal: 24,
     marginBottom: 16,
   },
@@ -408,12 +390,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   tipTitle: {
-    ...typography.bodySmall,
+    ...typography.body,
     fontWeight: '600',
     marginBottom: 4,
   },
   tipSubtitle: {
-    ...typography.small,
+    ...typography.caption,
     textAlign: 'center',
   },
   statsCard: {
@@ -446,7 +428,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   statSubtext: {
-    ...typography.small,
+    ...typography.caption,
     marginLeft: 8,
   },
   profileImage: {
@@ -454,6 +436,28 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 22,
     marginRight: 12,
+  },
+  matchingProgressContainer: {
+    backgroundColor: '#F8FBFF', // 연한 파랑
+    borderRadius: 20,
+    paddingVertical: 28,
+    paddingHorizontal: 16,
+    marginVertical: 16,
+    alignItems: 'center',
+    marginHorizontal: 24, // profileCard와 동일하게 좌우 마진 적용
+  },
+  matchingProgressTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#222',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  matchingProgressDesc: {
+    fontSize: 15,
+    color: '#888',
+    marginBottom: 12,
+    textAlign: 'center',
   },
 });
 

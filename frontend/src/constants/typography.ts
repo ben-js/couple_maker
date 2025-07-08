@@ -1,59 +1,25 @@
 // 타이포그래피 규칙 (커서 룰 기반)
 export const typography = {
-  // 헤더
-  h1: {
-    fontSize: 24,
-    fontWeight: 'bold' as const,
-    color: '#333333',
-  },
-  h2: {
-    fontSize: 20,
-    fontWeight: '600' as const,
-    color: '#333333',
-  },
-  h3: {
+  title: {
+    fontFamily: 'Pretendard-SemiBold',
     fontSize: 18,
-    fontWeight: '600' as const,
-    color: '#333333',
+    color: '#262626',
   },
-  
-  // 본문
   body: {
+    fontFamily: 'Pretendard-SemiBold',
     fontSize: 16,
-    fontWeight: '400' as const,
-    color: '#333333',
+    color: '#262626',
   },
-  bodySmall: {
-    fontSize: 14,
-    fontWeight: '400' as const,
-    color: '#666666',
-  },
-  
-  // 캡션
   caption: {
-    fontSize: 14,
-    fontWeight: '400' as const,
-    color: '#666666',
+    fontFamily: 'Pretendard-Regular',
+    fontSize: 13,
+    color: '#8E8E8E',
   },
-  
-  // 작은 텍스트
-  small: {
-    fontSize: 12,
-    fontWeight: '400' as const,
-    color: '#888888',
-  },
-  
-  // 버튼 텍스트
   button: {
+    fontFamily: 'Pretendard-SemiBold',
     fontSize: 16,
-    fontWeight: '600' as const,
-    color: '#FFFFFF',
+    color: '#262626',
   },
-  buttonSmall: {
-    fontSize: 14,
-    fontWeight: '600' as const,
-    color: '#FFFFFF',
-  },
-} as const;
+};
 
 export type TypographyKey = keyof typeof typography; 
