@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
-import { AuthState, User } from '@/types';
+import { UserProfile as User } from '@/types/profile';
 import { saveUser, getUser, deleteUser } from '../db/user';
 import { logger } from '@/utils/logger';
 
@@ -12,6 +12,12 @@ type AuthAction =
   | { type: 'INIT_USER'; payload: User | null };
 
 // 초기 상태
+interface AuthState {
+  user: User | null;
+  isLoading: boolean;
+  isAuthenticated: boolean;
+}
+
 const initialState: AuthState = {
   user: null,
   isLoading: true, // 앱 시작 시 로딩 상태
@@ -75,7 +81,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const storedUser = await getUser();
         dispatch({ type: 'INIT_USER', payload: storedUser });
-        logger.info('저장된 사용자 로드됨', { userId: storedUser?.id || 'none' });
+        logger.info('저장된 사용자 로드됨', { userId: storedUser?.userId || 'none' });
       } catch (error) {
         logger.error('저장된 사용자 로드 실패', { error });
         dispatch({ type: 'SET_LOADING', payload: false });
@@ -91,7 +97,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         await saveUser(user);
         dispatch({ type: 'SET_USER', payload: user });
-        logger.success('사용자 설정 및 저장됨', { userId: user.id });
+        logger.success('사용자 설정 및 저장됨', { userId: user.userId });
       } catch (error) {
         logger.error('사용자 저장 실패', { error });
         dispatch({ type: 'SET_USER', payload: user }); // Context는 업데이트하되 저장 실패 로그
@@ -120,7 +126,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const updatedUser = { ...state.user, ...userData };
         await saveUser(updatedUser);
         dispatch({ type: 'UPDATE_USER', payload: userData });
-        logger.success('사용자 업데이트 및 저장됨', { userId: updatedUser.id });
+        logger.success('사용자 업데이트 및 저장됨', { userId: updatedUser.userId });
       } catch (error) {
         logger.error('사용자 업데이트 실패', { error });
         dispatch({ type: 'UPDATE_USER', payload: userData }); // Context는 업데이트하되 저장 실패 로그

@@ -439,3 +439,21 @@
   * type: signup | charge | ad | review\_bonus | event | manual
   * points: (number)
   * description: (string)
+
+## 이상형 입력/수정/소개팅 신청 Flow 정책
+
+1. **이상형 입력(최초)**
+   - 사용자가 이상형 정보를 한 번도 입력하지 않은 경우
+   - PreferenceEditScreen에서 필수 조건(나이, 지역, 성별 등) 입력 후 저장
+   - 저장 시 user-preferences API만 호출, 신청은 별도
+
+2. **이상형 수정**
+   - 이미 입력된 이상형 정보를 수정하는 경우
+   - PreferenceEditScreen에서 기존 값 수정 후 저장
+   - 저장 시 user-preferences API만 호출, 신청은 별도
+
+3. **소개팅 신청**
+   - 이상형 정보가 입력된 상태에서 “지금 소개팅 신청하기” 클릭
+   - 이상형 정보 확인(필요시 수정) 후, matching-request API 호출
+   - 신청 성공 시 매칭 상태(currentStep) 0(신청완료)로 변경
+   - “신청이 완료되었습니다” 안내 및 매칭 진행 바 노출

@@ -27,4 +27,5 @@ export interface UserProfile {
   marriagePlans: string;
   introduction: string;
   photos: string[];
+  points: number;
 } 

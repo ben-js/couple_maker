@@ -10,7 +10,7 @@ import { useUserProfile } from '../hooks/useUserProfile';
 
 const MenuScreen = () => {
   const navigation = useNavigation<any>();
-  const { user, logout } = useAuth();
+  const auth = useAuth();
   const { getProfilePhoto, getUserDisplayName, getUserInitial } = useUserProfile();
   
   // 로그아웃 처리 함수
@@ -28,7 +28,7 @@ const MenuScreen = () => {
           style: 'destructive',
           onPress: async () => {
             try {
-              await logout();
+              await auth.logout();
               if (Platform.OS === 'android') {
                 ToastAndroid.show(TOAST_MESSAGES.LOGOUT_SUCCESS, ToastAndroid.SHORT);
               } else {
@@ -51,6 +51,38 @@ const MenuScreen = () => {
     );
   };
 
+  // 후기 통계 데이터
+  const reviewStats = {
+    mannerLevel: '상',
+    recentReviews: 3,
+    aiFeedback: '친화력 높음',
+    conversationSkill: '말문 안 막힘'
+  };
+
+  const renderReviewStats = () => {
+    return (
+      <Card enableShadow style={styles.statsCard}>
+        <Text style={styles.sectionTitle}>나의 매너 레벨</Text>
+        <View style={styles.statsContent}>
+          <View style={styles.statsRow}>
+            <View style={styles.statItem}>
+              <Text style={styles.statLabel}>매너 등급</Text>
+              <View style={styles.statValue}>
+                <Text style={styles.statValueText}>{reviewStats.mannerLevel}</Text>
+                <Text style={styles.statSubtext}>(최근 {reviewStats.recentReviews}회)</Text>
+              </View>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statLabel}>AI 분석</Text>
+              <Text style={styles.statValueText}>{reviewStats.aiFeedback}</Text>
+              <Text style={styles.statSubtext}>{reviewStats.conversationSkill}</Text>
+            </View>
+          </View>
+        </View>
+      </Card>
+    );
+  };
+
   const menuItems = [
     {
       id: 1,
@@ -69,7 +101,7 @@ const MenuScreen = () => {
     {
       id: 3,
       title: '포인트 충전',
-      subtitle: `현재 보유: ${user?.points || 120}P`,
+      subtitle: `현재 보유: ${typeof auth.user?.points === 'number' ? auth.user.points : 0}P`,
       icon: 'credit-card',
       action: () => console.log('포인트 충전')
     },
@@ -79,13 +111,6 @@ const MenuScreen = () => {
       subtitle: '푸시 알림 관리',
       icon: 'bell',
       action: () => console.log('알림 설정')
-    },
-    {
-      id: 5,
-      title: '고객센터',
-      subtitle: '문의사항 및 도움말',
-      icon: 'help-circle',
-      action: () => console.log('고객센터')
     },
     {
       id: 6,
@@ -137,18 +162,18 @@ const MenuScreen = () => {
             />
           )}
           <View style={styles.userDetails}>
-            <Text style={styles.userName}>
-              {getUserDisplayName()}
-            </Text>
-            <Text style={styles.userEmail}>
-              {user?.email || 'user@example.com'}
-            </Text>
-            <View style={styles.pointsContainer}>
-              <Feather name="star" size={16} color="#FFD700" />
-              <Text style={styles.pointsText}>
-                {user?.points || 120}P
+            <View style={styles.profileCardHeader}>
+              <Text style={[styles.userName, { flex: 1, textAlign: 'center' }]}> 
+                {getUserDisplayName()}
               </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', minWidth: 60 }}>
+                <Text style={styles.pointsText}>{typeof auth.user?.points === 'number' ? auth.user.points : 0}P</Text>
+                <Feather name="star" size={20} color="#FFD700" style={{ marginLeft: 4 }} />
+              </View>
             </View>
+            <Text style={styles.userEmail}>
+              {auth.user ? auth.user.userId : 'user@example.com'}
+            </Text>
           </View>
         </View>
       </Card>
@@ -177,7 +202,7 @@ const MenuScreen = () => {
                   <Text style={styles.menuTitle}>{item.title}</Text>
                   <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
                 </View>
-                <Feather name="chevron-right" size={20} color={colors.text.disabled} />
+                <Feather name="chevron-right" size={20} color={colors.text.disabled} style={{ marginLeft: 8 }} />
               </View>
             </Card>
           </TouchableOpacity>
@@ -210,11 +235,11 @@ const styles = StyleSheet.create({
     marginLeft: 16,
   },
   userName: {
-    ...typography.h3,
+    ...typography.title,
     marginBottom: 4,
   },
   userEmail: {
-    ...typography.bodySmall,
+    ...typography.caption,
     color: colors.text.disabled,
     marginBottom: 8,
   },
@@ -223,7 +248,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   pointsText: {
-    ...typography.bodySmall,
+    ...typography.caption,
     color: colors.primary,
     fontWeight: '600',
     marginLeft: 4,
@@ -237,12 +262,13 @@ const styles = StyleSheet.create({
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
   menuIcon: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#FFF5F5',
+    backgroundColor: 'transparent',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
@@ -256,12 +282,67 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   menuSubtitle: {
-    ...typography.small,
+    ...typography.caption,
   },
   profileImage: {
     width: 60,
     height: 60,
     borderRadius: 30,
+  },
+  statsCard: {
+    marginTop: 24,
+    marginBottom: 16,
+    borderRadius: 16,
+    backgroundColor: colors.surface,
+    minHeight: 180,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  sectionTitle: {
+    ...typography.title,
+    marginBottom: 12,
+    color: colors.text.primary,
+  },
+  statsContent: {
+    flexDirection: 'column',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statLabel: {
+    ...typography.caption,
+    color: colors.text.secondary,
+    marginBottom: 4,
+  },
+  statValue: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statValueText: {
+    ...typography.title,
+    color: colors.text.primary,
+    marginRight: 4,
+  },
+  statSubtext: {
+    ...typography.caption,
+    color: colors.text.secondary,
+  },
+  profileCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
   },
 });
 

@@ -19,6 +19,7 @@ import { useAuth } from '../store/AuthContext';
 import { UserPreferences } from '../types';
 import { logger } from '@/utils/logger';
 import { TOAST_MESSAGES, NAVIGATION_ROUTES } from '@/constants';
+import { apiPost } from '@/utils/apiUtils';
 
 const options = optionsRaw as Record<string, any>;
 
@@ -62,6 +63,7 @@ const PreferenceSetupScreen = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const isEditMode = route?.params?.isEditMode ?? false;
+  const mode = route?.params?.mode ?? 'edit';
   const { user, updateUser } = useAuth();
   const [activeChipsModalField, setActiveChipsModalField] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -81,9 +83,9 @@ const PreferenceSetupScreen = () => {
   // 기존 이상형 데이터 로딩
   useEffect(() => {
     const loadPreferences = async () => {
-      if (!user?.id || !isEditMode) return;
+      if (!user?.userId || !isEditMode) return;
       try {
-        const preferences = await getUserPreferences(user.id);
+        const preferences = await getUserPreferences(user.userId);
         if (preferences) {
           // 모든 필드에 대해 폼에 값 세팅 (매핑 적용)
           preferenceForm.forEach(field => {
@@ -111,7 +113,7 @@ const PreferenceSetupScreen = () => {
       }
     };
     loadPreferences();
-  }, [user?.id, isEditMode, setValue]);
+  }, [user?.userId, isEditMode, setValue]);
 
   const onSubmit = async (data: any) => {
     if (!user) {
@@ -127,7 +129,7 @@ const PreferenceSetupScreen = () => {
     try {
       // 데이터를 UserPreferences 형식으로 변환 (카멜케이스)
       const preferences: UserPreferences = {
-        userId: user.id,
+        userId: user.userId,
         preferredGender: data.preferredGender || '',
                   ageRange: data.ageRange || { min: 20, max: 50 },
                   heightRange: data.heightRange || { min: 140, max: 190 },
@@ -151,7 +153,7 @@ const PreferenceSetupScreen = () => {
           priorityOrder: data.priorityOrder || [],
       };
 
-      logger.info('프론트엔드 이상형 저장 시작', { userId: user.id, timestamp: new Date().toISOString() });
+      logger.info('프론트엔드 이상형 저장 시작', { userId: user.userId, timestamp: new Date().toISOString() });
       logger.debug('폼 데이터', data);
       logger.debug('변환된 preferences', preferences);
 
@@ -194,6 +196,48 @@ const PreferenceSetupScreen = () => {
       ToastAndroid.show('이상형을 모두 작성해주세요.', ToastAndroid.SHORT);
     } else {
       Alert.alert('이상형을 모두 작성해주세요.');
+    }
+  };
+
+  // 소개팅 신청하기 핸들러
+  const handleMatchingRequest = async () => {
+    if (!user) {
+      if (Platform.OS === 'android') {
+        ToastAndroid.show('사용자 정보를 찾을 수 없습니다.', ToastAndroid.SHORT);
+      } else {
+        Alert.alert('사용자 정보를 찾을 수 없습니다.');
+      }
+      return;
+    }
+    if (!user.points || user.points <= 0) {
+      if (Platform.OS === 'android') {
+        ToastAndroid.show('포인트가 부족합니다. 충전하기로 이동합니다.', ToastAndroid.SHORT);
+      } else {
+        Alert.alert('포인트가 부족합니다. 충전하기로 이동합니다.');
+      }
+      navigation.navigate(NAVIGATION_ROUTES.POINT_CHARGE);
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      // 이상형 정보 저장
+      await handleSubmit(onSubmit, onInvalid)();
+      // 소개팅 신청 API 호출
+      await apiPost('/matching-request', { userId: user.userId });
+      if (Platform.OS === 'android') {
+        ToastAndroid.show('소개팅 신청이 완료되었습니다!', ToastAndroid.SHORT);
+      } else {
+        Alert.alert('소개팅 신청이 완료되었습니다!');
+      }
+      navigation.navigate(NAVIGATION_ROUTES.MAIN);
+    } catch (error) {
+      if (Platform.OS === 'android') {
+        ToastAndroid.show('소개팅 신청에 실패했습니다.', ToastAndroid.SHORT);
+      } else {
+        Alert.alert('소개팅 신청에 실패했습니다.');
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -324,17 +368,31 @@ const PreferenceSetupScreen = () => {
           return null;
         })}
       </ScrollView>
-      <View style={styles.footerButtonWrap}>
-        <TouchableOpacity
-          style={[styles.saveButton, isSubmitting && styles.saveButtonDisabled]}
-          onPress={handleSubmit(onSubmit, onInvalid)}
-          disabled={isSubmitting}
-        >
-          <Text style={styles.saveButtonText}>
-            {isSubmitting ? '저장 중...' : '저장'}
-          </Text>
-        </TouchableOpacity>
-      </View>
+      {mode === 'apply' ? (
+        <View style={styles.footerButtonWrap}>
+          <TouchableOpacity
+            style={[styles.saveButton, isSubmitting && styles.saveButtonDisabled]}
+            onPress={handleMatchingRequest}
+            disabled={isSubmitting}
+          >
+            <Text style={styles.saveButtonText}>
+              {isSubmitting ? '저장 중...' : '소개팅 신청하기'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <View style={styles.footerButtonWrap}>
+          <TouchableOpacity
+            style={[styles.saveButton, isSubmitting && styles.saveButtonDisabled]}
+            onPress={handleSubmit(onSubmit, onInvalid)}
+            disabled={isSubmitting}
+          >
+            <Text style={styles.saveButtonText}>
+              {isSubmitting ? '저장 중...' : '저장'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 };

@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, ScrollView, Image, ActivityIndicator } from 'react-native';
+import { StyleSheet, ScrollView, Image, ActivityIndicator, ToastAndroid, Alert, Platform } from 'react-native';
 import { View, Card, Text, Button, Avatar, TouchableOpacity } from 'react-native-ui-lib';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../store/AuthContext';
-import { NAVIGATION_ROUTES, colors, typography } from '@/constants';
+import { NAVIGATION_ROUTES, colors, typography, spacing } from '@/constants';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { apiGet } from '@/utils/apiUtils';
 import PrimaryButton from '../components/PrimaryButton';
@@ -21,41 +21,83 @@ const MainScreen = () => {
   const [cardError, setCardError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.userId) return;
     setLoadingCard(true);
-    apiGet('/main-card', { userId: user.id })
+    apiGet('/main-card', { userId: user.userId })
       .then(setMainCard)
       .catch(e => setCardError(e.message || '프로필 카드를 불러오지 못했습니다.'))
       .finally(() => setLoadingCard(false));
-  }, [user?.id]);
+  }, [user?.userId]);
 
   // 매칭 상태 (예시 데이터)
   const matchingStatus = {
-    currentStep: 2, // 0: 신청완료, 1: 매칭 중, 2: 일정 조율, 3: 소개팅 예정
+    currentStep: -1, // -1: 신청 안함, 0: 신청완료, 1: 매칭 중, 2: 일정 조율, 3: 소개팅 예정
     steps: ['신청완료', '매칭 중', '일정 조율', '소개팅 예정']
   };
 
-  // 소개팅 팁 데이터
-  const datingTips = [
-    { id: 1, icon: 'star', title: '데이트룩', subtitle: '첫 만남 스타일링' },
-    { id: 2, icon: 'message-circle', title: '대화 주제', subtitle: '편안한 대화 팁' },
-    { id: 3, icon: 'map-pin', title: '장소 추천', subtitle: '좋은 만남 장소' },
-    { id: 4, icon: 'gift', title: '선물 아이디어', subtitle: '기념품 추천' },
+  // KST 기준 오늘 날짜 0시 (타임존 보정)
+  const now = new Date();
+  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+  const todayKST = new Date(utc + 9 * 60 * 60 * 1000);
+  todayKST.setHours(0, 0, 0, 0); // 0시로 강제
+
+  // 소개팅 날짜 예시 (KST 9시)
+  const meetingDate = new Date('2025-07-09T09:00:00+09:00');
+  meetingDate.setHours(0, 0, 0, 0); // 0시로 강제
+
+  // D-day 계산
+  const diffTime = meetingDate.getTime() - todayKST.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  let ddayText = '';
+  if (diffDays > 0) {
+    ddayText = `D-${diffDays}`;
+  } else if (diffDays === 0) {
+    ddayText = 'D-day';
+  } // 이미 지난 경우는 빈 문자열 유지
+
+  // 소개팅 사진 공개 여부 (정책 적용)
+  const isPhotoOpen = matchingStatus.currentStep === 3 && todayKST.getTime() >= meetingDate.getTime();
+
+ // 매칭 단계별 고객 안내 문구
+  const matchingStepDescriptions = [
+    '신청이 완료되었어요.\n매칭 소식을 곧 알려드릴게요!',
+    '매칭이 진행 중이에요.\n잠시만 기다려주세요!',
+    '매칭 성공!\n일정 조율 중이에요.',
+    isPhotoOpen
+      ? `${ddayText ? ddayText + '\n' : ''}프로필이 공개되었습니다!`
+      : `${ddayText ? ddayText + '\n' : ''}소개팅이 곧 시작돼요.\n당일 오전 9시에 프로필이 공개됩니다.`,
   ];
 
-  // 후기 통계 데이터
-  const reviewStats = {
-    mannerLevel: '상',
-    recentReviews: 3,
-    aiFeedback: '친화력 높음',
-    conversationSkill: '말문 안 막힘'
+  /*
+   [매칭 상태(currentStep) 값 의미 - flow.md 기준]
+   0: '신청완료'      // 사용자가 소개팅 신청만 한 상태 (아직 매칭 시작 전)
+   1: '매칭 중'        // 매칭 상대를 찾는 중 (아직 상대 확정 전)
+   2: '일정 조율'      // 매칭이 성사되어 일정 조율 중 (프로필 카드 도착 가능)
+   3: '소개팅 예정'    // 소개팅 일정 확정, 당일(사진 공개 등)
+   ※ 2, 3에서만 프로필 카드 도착/공개 가능, 0~1에서는 프로필 카드 없음
+  */
+
+  // 소개팅 신청 여부 (임시)
+  const isRequested = true; // true면 매칭 상태/프로필 카드만, false면 CTA만
+
+  const handleCtaPress = () => {
+    if (typeof user.points !== 'number' || user.points <= 0) {
+      if (Platform.OS === 'android') {
+        ToastAndroid.show('포인트가 부족합니다. 충전하기로 이동합니다.', ToastAndroid.SHORT);
+      } else {
+        Alert.alert('포인트가 부족합니다. 충전하기로 이동합니다.');
+      }
+      navigation.navigate(NAVIGATION_ROUTES.POINT_CHARGE);
+      return;
+    }
+    navigation.navigate(NAVIGATION_ROUTES.PREFERENCE_EDIT, { mode: 'apply' });
   };
 
   const renderMatchingProgress = () => {
     return (
       <View style={styles.matchingProgressContainer}>
-        <Text style={styles.matchingProgressTitle}>매칭 준비 중이에요</Text>
-        <Text style={styles.matchingProgressDesc}>상대 확인 중입니다</Text>
+        <Text style={styles.matchingProgressTitle}>매칭 진행 상황</Text>
+        <Text style={styles.matchingProgressDesc}>{matchingStepDescriptions[matchingStatus.currentStep]}</Text>
         <StepProgressBar
           total={4}
           current={matchingStatus.currentStep}
@@ -78,17 +120,15 @@ const MainScreen = () => {
     return (
       <Card enableShadow style={styles.profileCard}>
         <View style={styles.profileCardHeader}>
-          <Text style={styles.profileCardTitle}>프로필 카드가 도착했어요!</Text>
-          <Feather name="mail" size={24} color={colors.text.primary} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={[styles.profileCardTitle, { textAlign: 'center' }]}>프로필 카드가 도착했어요!</Text>
+            <Feather name="mail" size={24} color={colors.text.primary} style={{ marginLeft: 8, marginTop: 2 }} />
+          </View>
         </View>
         <View style={styles.profileCardContent}>
-          {mainCard.photoUrl ? (
-            <Image source={{ uri: mainCard.photoUrl }} style={styles.profileImage} resizeMode="cover" />
-          ) : (
-            <View style={styles.blurredImage}>
-              <Feather name="user" size={40} color={colors.disabled} />
+            <View style={[styles.blurredImage, { justifyContent: 'center', alignItems: 'center' }]}> 
+              <Feather name={isPhotoOpen ? 'unlock' : 'lock'} size={40} color={colors.accent} />
             </View>
-          )}
           <Text style={styles.profileCardDesc}>{mainCard.name}님의 프로필이 도착했습니다.</Text>
           <PrimaryButton
             title="지금 확인하러 가기"
@@ -99,30 +139,21 @@ const MainScreen = () => {
       </Card>
     );
   };
-
-  const renderReviewStats = () => {
+  
+  const renderCtaCard = () => {
     return (
-      <Card enableShadow style={styles.statsCard}>
-        <Text style={styles.sectionTitle}>나의 매너 레벨</Text>
-        <View style={styles.statsContent}>
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <Text style={styles.statLabel}>매너 등급</Text>
-              <View style={styles.statValue}>
-                <Text style={styles.statValueText}>{reviewStats.mannerLevel}</Text>
-                <Text style={styles.statSubtext}>(최근 {reviewStats.recentReviews}회)</Text>
-              </View>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statLabel}>AI 분석</Text>
-              <Text style={styles.statValueText}>{reviewStats.aiFeedback}</Text>
-              <Text style={styles.statSubtext}>{reviewStats.conversationSkill}</Text>
-            </View>
+      <TouchableOpacity onPress={handleCtaPress} activeOpacity={0.85} style={{ width: '100%' }}>
+        <Card enableShadow style={[styles.profileCard, { minHeight: 180, justifyContent: 'center', alignItems: 'center' }]}> 
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={[styles.profileCardTitle, { textAlign: 'center', flex: 0 }]}>지금 소개팅 신청하기</Text>
+            <Feather name="edit-3" size={24} color={colors.text.primary} style={{ marginLeft: 8 }} />
           </View>
-        </View>
-      </Card>
+          <Text style={[styles.ctaButtonSubtext, { textAlign: 'center', alignSelf: 'center', marginTop: 8 }]}>AI + 매니저가 어울리는 상대를 찾아드려요!</Text>
+        </Card>
+      </TouchableOpacity>
     );
   };
+  const showCtaCard = matchingStatus.currentStep === -1 || !isRequested;
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -144,8 +175,8 @@ const MainScreen = () => {
             />
           )}
           <View style={styles.welcomeText}>
-            <Text style={styles.welcomeTitle}>{getUserDisplayName()}님, 반가워요</Text>
-            <Text style={styles.pointsText}>보유 포인트: {user?.points || 120}P</Text>
+            <Text style={styles.welcomeTitle}>{getUserDisplayName()}</Text>
+            <Text style={styles.pointsText}>보유 포인트: {typeof user.points === 'number' ? user.points : 0}P</Text>
           </View>
         </View>
         <View style={styles.headerRight}>
@@ -155,31 +186,19 @@ const MainScreen = () => {
             style={{ minWidth: 80, height: 36, marginRight: 8, paddingHorizontal: 16, paddingVertical: 0 }}
           />
           <TouchableOpacity style={styles.notificationButton}>
-            <Feather name="bell" size={24} color={colors.text.primary} />
+            <Feather name="bell" size={28} color={colors.text.primary} style={{ opacity: 0.9 }} />
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* 소개팅 신청 CTA */}
-      <TouchableOpacity 
-        style={styles.ctaButton} 
-        onPress={() => navigation.navigate(NAVIGATION_ROUTES.PREFERENCE_EDIT)}
-      >
-        <Text style={styles.ctaButtonText}>지금 소개팅 신청하기</Text>
-        <Text style={styles.ctaButtonSubtext}>AI + 매니저가 어울리는 상대를 찾아드려요!</Text>
-      </TouchableOpacity>
+      {/* 소개팅 신청 CTA: 신청 전(currentStep -1) 또는 isRequested false일 때만 */}
+      {showCtaCard && renderCtaCard()}
 
-      {/* 매칭 상태 뷰 */}
-      {renderMatchingProgress()}
+      {/* 매칭 상태 뷰/프로필 카드: 신청 이후(currentStep >= 0) */}
+      {!showCtaCard && renderMatchingProgress()}
+      {!showCtaCard && (matchingStatus.currentStep === 2 || matchingStatus.currentStep === 3) && mainCard && renderProfileCard()}
 
-      {/* 프로필 카드 수신 영역 */}
-      {renderProfileCard()}
-
-      {/* 후기/통계 요약 */}
-      {renderReviewStats()}
-
-      {/* 하단 여백 */}
-      <View style={{ height: 100 }} />
+      <View style={{ height: 20 }} />
     </ScrollView>
   );
 };
@@ -193,16 +212,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: spacing.lg,
     paddingTop: 60,
-    paddingBottom: 20,
+    paddingBottom: spacing.lg,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   welcomeText: {
-    marginLeft: 12,
+    marginLeft: spacing.md,
   },
   welcomeTitle: {
     ...typography.title,
@@ -229,31 +248,29 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: colors.border,
     justifyContent: 'center',
     alignItems: 'center',
+    // backgroundColor, border, shadow 등 배경/테두리/그림자 제거
   },
   ctaButton: {
-    marginHorizontal: 24,
-    marginBottom: 24,
-    backgroundColor: colors.primary,
-    borderRadius: 16,
-    paddingVertical: 18,
-    paddingHorizontal: 24,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
+    padding: spacing.lg + 4,
+    borderRadius: spacing.lg,
+    backgroundColor: colors.surface,
     alignItems: 'center',
-    shadowColor: 'transparent',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    justifyContent: 'center',
   },
   ctaButtonText: {
     ...typography.button,
     marginBottom: 4,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    lineHeight: 20,
   },
   ctaButtonSubtext: {
     ...typography.caption,
-    color: colors.surface,
+    color: colors.text.secondary,
     opacity: 0.9,
   },
   progressContainer: {
@@ -319,17 +336,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   profileCard: {
-    marginHorizontal: 24,
-    marginBottom: 24,
-    padding: 20,
-    borderRadius: 16,
-    backgroundColor: colors.surface,
+    marginHorizontal: spacing.lg,
+    padding: spacing.lg + 4,
+    borderRadius: spacing.lg,
+    backgroundColor: colors.background, // 완전 흰색 배경
+    minHeight: 180,
+    textAlign: 'center',
   },
   profileCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
   profileCardTitle: {
     ...typography.title,
@@ -338,18 +353,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   blurredImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   profileCardDesc: {
     ...typography.caption,
     textAlign: 'center',
-    marginBottom: 16,
   },
   profileCardButton: {
     backgroundColor: colors.primary,
@@ -361,7 +369,7 @@ const styles = StyleSheet.create({
     ...typography.button,
   },
   tipsContainer: {
-    marginBottom: 24,
+    marginBottom: spacing.lg,
   },
   sectionTitle: {
     ...typography.title,
@@ -375,9 +383,9 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     backgroundColor: colors.surface,
-    borderRadius: 16,
-    marginRight: 12,
-    padding: 16,
+    borderRadius: spacing.lg,
+    marginRight: spacing.md,
+    padding: spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: colors.shadow,
@@ -399,11 +407,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   statsCard: {
-    marginHorizontal: 24,
-    marginBottom: 24,
-    padding: 20,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
+    padding: spacing.lg + 4,
     borderRadius: 16,
     backgroundColor: colors.surface,
+    minHeight: 180,
   },
   statsContent: {
     marginTop: 8,
@@ -445,6 +454,7 @@ const styles = StyleSheet.create({
     marginVertical: 16,
     alignItems: 'center',
     marginHorizontal: 24, // profileCard와 동일하게 좌우 마진 적용
+    minHeight: 180,
   },
   matchingProgressTitle: {
     fontSize: 20,

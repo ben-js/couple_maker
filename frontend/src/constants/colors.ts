@@ -5,7 +5,7 @@ export const colors = {
 
   // ✅ 배경 색상
   background: '#FFFFFF',    // 앱 전체 배경
-  surface: '#FAFAFA',       // 카드 / 컴포넌트 영역 배경
+  surface: '#F8F8F8',       // 카드/컴포넌트 영역 배경 (ux.md 기준)
 
   // ✅ 텍스트 색상
   text: {

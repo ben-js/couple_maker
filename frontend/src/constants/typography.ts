@@ -20,6 +20,26 @@ export const typography = {
     fontSize: 16,
     color: '#262626',
   },
+  headingMedium: {
+    fontFamily: 'Pretendard-Bold',
+    fontSize: 16,
+    color: '#262626',
+  },
+  bodyRegular: {
+    fontFamily: 'Pretendard-Regular',
+    fontSize: 14,
+    color: '#262626',
+  },
+  captionSmall: {
+    fontFamily: 'Pretendard-Light',
+    fontSize: 12,
+    color: '#8E8E8E',
+  },
+  hashtag: {
+    fontFamily: 'Pretendard-Medium',
+    fontSize: 14,
+    color: '#3897F0',
+  },
 };
 
 export type TypographyKey = keyof typeof typography; 

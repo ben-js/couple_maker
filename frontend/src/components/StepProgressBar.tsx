@@ -2,6 +2,8 @@ import React from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
 import { colors } from '../constants/colors';
+import { typography } from '../constants/typography';
+import { spacing } from '../constants';
 
 const CIRCLE_SIZE = 20;
 const LINE_WIDTH = 44;
@@ -80,9 +82,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.stepInactive,
   },
   label: {
-    marginTop: 4,
-    fontSize: 12,
-    color: '#888',
+    marginTop: spacing.xs,
+    ...typography.captionSmall,
     textAlign: 'center',
     width: ITEM_WIDTH,
   },
