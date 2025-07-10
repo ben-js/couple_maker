@@ -12,7 +12,7 @@ import regionData from '../data/regions.json';
 import FormPicker from '../components/FormPicker';
 import FormChips from '../components/FormChips';
 import { FormRangeSlider } from '../components/FormRangeSlider';
-import FormRegionModal from '../components/FormRegionModal';
+import FormRegionChoiceModal from '../components/FormRegionChoiceModal';
 import { Feather } from '@expo/vector-icons';
 import { getUserPreferences, saveUserPreferences } from '../services/userPreferencesService';
 import { useAuth } from '../store/AuthContext';
@@ -287,10 +287,9 @@ const PreferenceSetupScreen = () => {
                     </TouchableOpacity>
                     <Modal visible={activeChipsModalField === field.name} transparent={false} animationType="slide">
                       <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', height: 56, borderBottomWidth: 0, paddingHorizontal: 8, justifyContent: 'space-between' }}>
-                          <View style={{ width: 40 }} />
+                        <View style={{ flexDirection: 'row', alignItems: 'center', height: 56, borderBottomWidth: 0, paddingHorizontal: 8, justifyContent: 'center', position: 'relative' }}>
                           <Text style={{ flex: 1, textAlign: 'center', fontSize: 18, fontWeight: 'bold', color: '#222' }}>{field.label}</Text>
-                          <TouchableOpacity onPress={async () => { setActiveChipsModalField(null); await trigger(field.name); }} style={{ width: 40, height: 40, justifyContent: 'center', alignItems: 'center' }} hitSlop={{top:10, bottom:10, left:10, right:10}}>
+                          <TouchableOpacity onPress={async () => { setActiveChipsModalField(null); await trigger(field.name); }} style={{ position: 'absolute', right: 8, top: 8, width: 40, height: 40, justifyContent: 'center', alignItems: 'center' }} hitSlop={{top:10, bottom:10, left:10, right:10}}>
                             <Feather name="x" size={26} color="#bbb" />
                           </TouchableOpacity>
                         </View>
@@ -353,7 +352,7 @@ const PreferenceSetupScreen = () => {
                 control={control}
                 name={field.name}
                 render={({ field: { onChange, value }, fieldState: { error } }) => (
-                  <FormRegionModal
+                  <FormRegionChoiceModal
                     label={field.label}
                     value={value || []}
                     onChange={onChange}

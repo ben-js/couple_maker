@@ -13,4 +13,5 @@ export type RootStackParamList = {
   Onboarding: undefined;
   Terms: { type?: 'terms' | 'privacy' | 'customer' } | undefined;
   Auth?: undefined;
+  PointCharge: undefined;
 }; 

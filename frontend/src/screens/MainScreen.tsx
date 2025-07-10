@@ -32,23 +32,15 @@ const MainScreen = () => {
   const [otherChoices, setOtherChoices] = useState<{ dates: string[]; locations: string[] } | null>(null);
   const [showFailedModal, setShowFailedModal] = useState(false);
   // 일정 선택 상태
-  const [selectedDates, setSelectedDates] = useState<string[]>([]);
-  const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
-  const [selectedSchedules, setSelectedSchedules] = useState([
-    { date: '', location: '' },
-    { date: '', location: '' },
-    { date: '', location: '' },
-  ]);
-  const [activeScheduleIndex, setActiveScheduleIndex] = useState<number | null>(null);
   const [showBottomSheet, setShowBottomSheet] = useState(false);
   const [dateSelections, setDateSelections] = useState<(string|null)[]>([null, null, null]);
   const [showDatePickerIdx, setShowDatePickerIdx] = useState<number|null>(null);
-  const [showRegionModal, setShowRegionModal] = useState(false);
   const [locationSelection, setLocationSelection] = useState<string[]>([]);
   // 장소 추천 리스트(profile 기반)
   const region = typeof user?.region === 'string' ? user?.region : user?.region?.region || '';
   const district = user?.region?.district || '';
   const locationOptions = [district, region, '강남역', '홍대입구역', '잠실역', '신촌역'].filter(Boolean);
+  const [showDateDuplicateModal, setShowDateDuplicateModal] = useState(false);
 
   useEffect(() => {
     if (!user?.userId) return;
@@ -79,9 +71,9 @@ const MainScreen = () => {
           </View>
         </View>
         <View style={styles.profileCardContent}>
-          <View style={[styles.blurredImage, { justifyContent: 'center', alignItems: 'center' }]}> 
+            <View style={[styles.blurredImage, { justifyContent: 'center', alignItems: 'center' }]}> 
             <Feather name={'unlock'} size={40} color={colors.accent} />
-          </View>
+            </View>
           <Text style={styles.profileCardDesc}>{matchedUser.name}님의 프로필이 도착했습니다.</Text>
           <PrimaryButton
             title="지금 확인하러 가기"
@@ -133,7 +125,7 @@ const MainScreen = () => {
       </View>
     );
   };
-
+  
   const renderCtaCard = () => {
     return (
       <TouchableOpacity onPress={handleCtaPress} activeOpacity={0.85} style={{ width: '100%' }}>
@@ -164,16 +156,25 @@ const MainScreen = () => {
   };
 
   // 일정/장소 바텀시트 확인
-  const handleConfirmSchedule = () => {
-    if (activeScheduleIndex === null) return;
-    const newSchedules = [...selectedSchedules];
-    newSchedules[activeScheduleIndex] = {
-      date: dateSelections[activeScheduleIndex]!,
-      location: locationSelection!,
-    };
-    setSelectedSchedules(newSchedules);
-    setShowBottomSheet(false);
-    setActiveScheduleIndex(null);
+  const handleConfirmSchedule = async () => {
+    if (!dateSelections.every(d => d) || locationSelection.length === 0) return;
+    await apiGet('/submit-choices', {
+      match_id: matchId,
+      user_id: user?.userId,
+      dates: dateSelections,
+      locations: locationSelection,
+    });
+    setLoadingStatus(true);
+    apiGet('/matching-status', { userId: user?.userId })
+      .then(res => {
+        setStatus(res.status);
+        setMatchedUser(res.matchedUser || null);
+        setMatchId(res.matchId || null);
+        setMyChoices(res.myChoices || null);
+        setOtherChoices(res.otherChoices || null);
+        if (res.status === 'failed') setShowFailedModal(true);
+      })
+      .finally(() => setLoadingStatus(false));
   };
 
   // 일정 선택 UI
@@ -188,158 +189,75 @@ const MainScreen = () => {
         </View>
       )}
       <View style={{ marginBottom: 24 }} />
-          <TouchableOpacity
-            onPress={() => {
-              setShowBottomSheet(true);
-            }}
-            activeOpacity={0.8}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              height: 48,
-              backgroundColor:  '#F8F8F8',
-              borderRadius: 8,
-              borderWidth: 1,
-              borderColor: '#DBDBDB',
-              paddingHorizontal: 16,
-              marginBottom: 12,
-              justifyContent: 'flex-start',
-            }}
-          >
-            <Feather name="calendar" size={22} color='#bbb' style={{ marginRight: 8 }} />
-            <Text style={{ fontSize: 16, color: '#222', fontWeight: '400', textAlign: 'left' }}>
-              일정 선택하기
-            </Text>
-          </TouchableOpacity>
- 
-      <PrimaryButton
-        title="일정 제출"
-        onPress={async () => {
-          await apiGet('/submit-choices', {
-            match_id: matchId,
-            user_id: user?.userId,
-            dates: selectedSchedules.map(s => s.date),
-            locations: selectedSchedules.map(s => s.location),
-          });
-          setLoadingStatus(true);
-          apiGet('/matching-status', { userId: user?.userId })
-            .then(res => {
-              setStatus(res.status);
-              setMatchedUser(res.matchedUser || null);
-              setMatchId(res.matchId || null);
-              setMyChoices(res.myChoices || null);
-              setOtherChoices(res.otherChoices || null);
-              if (res.status === 'failed') setShowFailedModal(true);
-            })
-            .finally(() => setLoadingStatus(false));
-        }}
-        style={{ marginTop: 12, minWidth: 140, height: 40, alignSelf: 'center', opacity: selectedSchedules.some(s => !s.date || !s.location) ? 0.5 : 1 }}
-      />
-      {/* 일정/장소 선택 모달 */}
-      <Modal
-        visible={showBottomSheet}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowBottomSheet(false)}
-      >
-        <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
-          <TouchableOpacity
-            style={{ flex: 1 }}
-            activeOpacity={1}
-            onPress={() => setShowBottomSheet(false)}
-          />
-          <View style={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            bottom: 0,
-            height: Dimensions.get('window').height * 0.96,
-            backgroundColor: '#fff',
-            borderTopLeftRadius: 16,
-            borderTopRightRadius: 16,
-            overflow: 'hidden',
-            flex: 1,
-          }}>
-            {/* 상단 헤더 - chips 바텀시트와 동일하게 */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', height: 56, borderBottomWidth: 0, paddingHorizontal: 8, justifyContent: 'center', position: 'relative', backgroundColor: '#fff' }}>
-              <Text style={{ flex: 1, textAlign: 'center', fontSize: 24, fontWeight: 'bold', color: '#222' }}>일정/장소 선택</Text>
-              <TouchableOpacity onPress={() => setShowBottomSheet(false)} style={{ position: 'absolute', right: 8, top: 8, width: 40, height: 40, justifyContent: 'center', alignItems: 'center' }} hitSlop={{top:10, bottom:10, left:10, right:10}}>
-                <Feather name="x" size={26} color="#bbb" />
-              </TouchableOpacity>
-            </View>
-            {/* 안내문구 */}
-            <View style={{ paddingTop: 32, alignItems: 'center', minHeight: 32 }}>
-              <Text style={{ color: '#222', fontSize: 16, textAlign: 'center' }}>날짜와 장소를 모두 선택하세요</Text>
-            </View>
-            {/* 컨텐츠 */}
-            <View style={{ flex: 1, justifyContent: 'flex-start', alignItems: 'stretch', padding: 24 }}>
-              {[0,1,2].map(i => (
-                <View key={i} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-                  <Text style={{ fontWeight: 'bold', color: '#222', fontSize: 16, width: 90 }}>{i+1}. 날짜 선택</Text>
-                  <TouchableOpacity
-                    onPress={() => setShowDatePickerIdx(i)}
-                    activeOpacity={0.8}
-                    style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 0, minHeight: 44 }}
-                  >
-                    <Text style={{ color: dateSelections[i] ? '#222' : '#bbb', fontSize: 16 }}>
-                      {dateSelections[i] || '날짜를 선택해 주세요'}
-                    </Text>
-                  </TouchableOpacity>
-                  {showDatePickerIdx === i && (
-                    <DateTimePicker
-                      value={dateSelections[i] ? new Date(dateSelections[i]!) : new Date()}
-                      mode="date"
-                      display="default"
-                      minimumDate={(() => { const d = new Date(); d.setDate(d.getDate() + 1); return d; })()}
-                      onChange={(_, date) => {
-                        if (date) {
-                          const d = date;
-                          const formatted = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
-                          // 이미 다른 row에서 선택된 날짜인지 확인
-                          if (dateSelections.includes(formatted)) {
-                            Alert.alert('이미 선택된 날짜입니다');
-                          } else {
-                            const newDates = [...dateSelections];
-                            newDates[i] = formatted;
-                            setDateSelections(newDates);
-                          }
-                        }
-                        setShowDatePickerIdx(null);
-                      }}
-                    />
-                  )}
-                </View>
-              ))}
-              <FormRegionChoiceModal
-                label="장소"
-                value={locationSelection.map(loc => {
-                  const [region, district] = loc.split(' ');
-                  return { region, district: district || '' };
-                })}
-                onChange={val => {
-                  setLocationSelection(val.map(v => v.region + (v.district ? ' ' + v.district : '')));
-                  setShowRegionModal(false);
+      {/* 1,2,3번 날짜/장소 선택 row를 바로 노출 */}
+      <View style={{ flex: 1, justifyContent: 'flex-start', alignItems: 'stretch', padding: 0 }}>
+        {[0,1,2].map(i => (
+          <View key={i} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+            <Text style={{ fontWeight: 'bold', color: '#222', fontSize: 16, width: 90 }}>{i+1}. 날짜 선택</Text>
+            <TouchableOpacity
+              onPress={() => setShowDatePickerIdx(i)}
+              activeOpacity={0.8}
+              style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 0, minHeight: 44 }}
+            >
+              <Text style={{ color: dateSelections[i] ? '#222' : '#bbb', fontSize: 16 }}>
+                {dateSelections[i] || '날짜를 선택해 주세요'}
+              </Text>
+            </TouchableOpacity>
+            {showDatePickerIdx === i && (
+              <DateTimePicker
+                value={dateSelections[i] ? new Date(dateSelections[i]!) : new Date()}
+                mode="date"
+                display="default"
+                minimumDate={(() => { const d = new Date(); d.setDate(d.getDate() + 1); return d; })()}
+                onChange={(_, date) => {
+                  if (date) {
+                    const d = date;
+                    const formatted = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
+                    if (dateSelections.includes(formatted)) {
+                      setShowDateDuplicateModal(true);
+                    } else {
+                      const newDates = [...dateSelections];
+                      newDates[i] = formatted;
+                      setDateSelections(newDates);
+                    }
+                  }
+                  setShowDatePickerIdx(null);
                 }}
-                regionData={regionData}
-                placeholder="장소를 선택해 주세요"
-                minSelect={1}
-                maxSelect={3}
-                error={undefined}
               />
-            </View>
-            {/* 하단 고정 버튼 */}
-            <View style={{ padding: 24, paddingTop: 0 }}>
-              <TouchableOpacity
-                style={{ backgroundColor: dateSelections.every(d => d) && locationSelection.length > 0 ? '#3B82F6' : '#eee', borderRadius: 12, paddingVertical: 14, alignItems: 'center' }}
-                disabled={!dateSelections.every(d => d) || locationSelection.length === 0}
-                onPress={handleConfirmSchedule}
-              >
-                <Text style={{ color: dateSelections.every(d => d) && locationSelection.length > 0 ? '#fff' : '#bbb', fontWeight: 'bold', fontSize: 16 }}>확인</Text>
-              </TouchableOpacity>
-            </View>
+            )}
           </View>
-        </SafeAreaView>
-      </Modal>
+        ))}
+        {/* 장소 chips 선택 모달: showRegionModal이 true일 때만 Modal로 렌더링 */}
+        {(
+          <FormRegionChoiceModal
+            label="장소"
+            value={locationSelection.map(loc => {
+              const [region, district] = loc.split(' ');
+              return { region, district: district || '' };
+            })}
+            onChange={val => {
+              setLocationSelection(
+                Array.from(new Set(val.map(v => v.region + (v.district ? ' ' + v.district : ''))))
+              );
+            }}
+            regionData={regionData}
+            placeholder="장소를 선택해 주세요"
+            minSelect={1}
+            maxSelect={3}
+            error={undefined}
+          />
+        )}
+      </View>
+      {/* 하단 고정 버튼 */}
+      <View style={{ paddingTop: 12 }}>
+        <TouchableOpacity
+          style={{ backgroundColor: dateSelections.every(d => d) && locationSelection.length > 0 ? '#3B82F6' : '#eee', borderRadius: 12, paddingVertical: 14, alignItems: 'center' }}
+          disabled={!dateSelections.every(d => d) || locationSelection.length === 0}
+          onPress={handleConfirmSchedule}
+        >
+          <Text style={{ color: dateSelections.every(d => d) && locationSelection.length > 0 ? '#fff' : '#bbb', fontWeight: 'bold', fontSize: 16 }}>확인</Text>
+        </TouchableOpacity>
+      </View>
     </Card>
   );
 
@@ -454,24 +372,25 @@ const MainScreen = () => {
       )}
 
       {/* 장소 선택 모달 */}
-      {showRegionModal && (
-        <FormRegionChoiceModal
-          label="장소"
-          value={locationSelection.map(loc => {
-            const [region, district] = loc.split(' ');
-            return { region, district: district || '' };
-          })}
-          onChange={val => {
-            setLocationSelection(val.map(v => v.region + (v.district ? ' ' + v.district : '')));
-            setShowRegionModal(false);
-          }}
-          regionData={regionData}
-          placeholder="장소를 선택해 주세요"
-          minSelect={1}
-          maxSelect={3}
-          error={undefined}
-        />
-      )}
+      {/* 이미 선택된 날짜 안내 모달 */}
+      <Modal
+        visible={showDateDuplicateModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDateDuplicateModal(false)}
+      >
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)' }}>
+          <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 28, alignItems: 'center', minWidth: 220 }}>
+            <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 16, textAlign: 'center' }}>이미 선택된 날짜입니다</Text>
+            <TouchableOpacity
+              style={{ backgroundColor: '#222', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 32, marginTop: 8 }}
+              onPress={() => setShowDateDuplicateModal(false)}
+            >
+              <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>확인</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       <View style={{ height: 20 }} />
     </ScrollView>

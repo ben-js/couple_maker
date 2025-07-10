@@ -5,6 +5,7 @@ frameworkVersion: '4'
 provider:
   name: aws
   runtime: nodejs18.x
+  stage: ""
   region: ap-northeast-2
   httpApi:
     cors: true
@@ -197,6 +198,13 @@ functions:
     events:
       - httpApi:
           path: /customer-service
+          method: get
+
+  getMatchingStatus:
+    handler: handler.getMatchingStatus
+    events:
+      - httpApi:
+          path: matching-status
           method: get
 
 plugins:

@@ -729,31 +729,53 @@ export const confirmMatching = async (event: any) => {
   return { statusCode: 200, body: JSON.stringify({ match_id }) };
 };
 
-// 소개팅 일정/장소 선택
+// 일정 제출 및 조율 실패/재매칭 로직 추가
 export const submitChoices = async (event: any) => {
-  const { match_id, user_id, dates, locations } = JSON.parse(event.body || '{}');
-  
+  const { match_id, user_id, dates, locations, acceptOtherSchedule } = JSON.parse(event.body || '{}');
+
   const matchPairsPath = path.join(__dirname, 'data/match-pairs.json');
   const matchPairs = fs.existsSync(matchPairsPath) ? readJson(matchPairsPath) : [];
   const matchIndex = matchPairs.findIndex((match: any) => match.match_id === match_id);
-  
+
   if (matchIndex >= 0) {
     const match = matchPairs[matchIndex];
+    // 일정 제출
     if (match.user_a_id === user_id) {
       match.user_a_choices = { dates, locations };
     } else if (match.user_b_id === user_id) {
       match.user_b_choices = { dates, locations };
     }
+    // 양쪽 모두 제출했는지 확인
+    if (match.user_a_choices.dates.length && match.user_b_choices.dates.length) {
+      // 겹치는 날짜/장소 찾기
+      const commonDates = match.user_a_choices.dates.filter((d: string) => match.user_b_choices.dates.includes(d));
+      const commonLocations = match.user_a_choices.locations.filter((l: string) => match.user_b_choices.locations.includes(l));
+      if (commonDates.length && commonLocations.length) {
+        // 일정 확정
+        match.final_date = commonDates[0];
+        match.final_location = commonLocations[0];
+        match.status = 'scheduled';
+      } else {
+        // 일정 조율 실패
+        match.status = 'failed';
+      }
+    }
+    // 상대방 일정에 맞추기(acceptOtherSchedule)
+    if (acceptOtherSchedule) {
+      // 상대방이 먼저 제출한 일정으로 확정
+      const otherChoices = match.user_a_id === user_id ? match.user_b_choices : match.user_a_choices;
+      match.final_date = otherChoices.dates[0];
+      match.final_location = otherChoices.locations[0];
+      match.status = 'scheduled';
+    }
     writeJson(matchPairsPath, matchPairs);
   }
-  
   await appendLog({
     type: 'choices_submitted',
     userId: user_id,
     result: 'success',
     detail: { match_id, dates, locations },
   });
-  
   return { statusCode: 200, body: JSON.stringify({ ok: true }) };
 };
 
@@ -1067,62 +1089,25 @@ export const getMainCard = async (event: any) => {
   if (!userId) {
     return { statusCode: 400, body: JSON.stringify({ error: 'userId required' }) };
   }
-  const matchPairs = readJson(matchPairsPath);
-  const profiles = readJson(profilesPath);
-  const myMatches = matchPairs.filter((m: any) => m.user_a_id === userId || m.user_b_id === userId);
-  if (myMatches.length === 0) {
-    await appendLog({ 
-      type: 'get_main_card', 
-      userId, 
-      result: 'empty', 
-      detail: { found: 0 },
-      action: '메인카드 조회',
-      screen: 'MainScreen',
-      component: 'main_card'
-    });
-    return { statusCode: 200, body: JSON.stringify(null) };
+  // matching-requests에서 신청 기록 조회
+  const matchingRequestsPath = path.join(__dirname, 'data/matching-requests.json');
+  const matchingRequests = fs.existsSync(matchingRequestsPath) ? readJson(matchingRequestsPath) : [];
+  const myRequest = matchingRequests.find((req: any) => req.requester_id === userId);
+  let status = null;
+  if (myRequest) {
+    status = myRequest.status; // waiting, matching, confirmed, scheduled 등
   }
-  const latest = myMatches[myMatches.length - 1];
-  const otherUserId = latest.user_a_id === userId ? latest.user_b_id : latest.user_a_id;
-  const profile = profiles.find((p: any) => p.user_id === otherUserId);
-  let card;
-  if (!profile) {
-    card = {
-      matchId: latest.match_id,
-      userId: otherUserId,
-      isDeleted: true,
-      name: '탈퇴한 회원',
-      job: '',
-      region: '',
-      district: '',
-      photoUrl: null,
-      date: latest.final_date || null,
-      status: 'deleted',
-    };
-  } else {
-    card = {
-      matchId: latest.match_id,
-      userId: otherUserId,
-      isDeleted: false,
-      name: profile.name || '',
-      job: profile.job || '',
-      region: profile.region?.region || '',
-      district: profile.region?.district || '',
-      photoUrl: profile.photos?.[0] || null,
-      date: latest.final_date || null,
-      status: latest.final_date ? 'revealed' : 'pending',
-    };
-  }
+  // mainCard 없이 status만 반환
   await appendLog({ 
     type: 'get_main_card', 
     userId, 
     result: 'success', 
-    detail: { matchId: card.matchId },
+    detail: { status },
     action: '메인카드 조회',
     screen: 'MainScreen',
     component: 'main_card'
   });
-  return { statusCode: 200, body: JSON.stringify(snakeToCamelCase(card)) };
+  return { statusCode: 200, body: JSON.stringify({ matchingStatus: status }) };
 };
 
 // 카드 상세 정보 조회
@@ -1596,4 +1581,50 @@ export const getMatchDetail = async (event: any) => {
   });
   
   return { statusCode: 200, body: JSON.stringify(snakeToCamelCase(result)) };
+}; 
+
+export const getMatchingStatus = async (event: any) => {
+  const userId = event.queryStringParameters?.userId || event.headers?.userid;
+  if (!userId) {
+    return { statusCode: 400, body: JSON.stringify({ error: 'userId required' }) };
+  }
+  // matching-requests에서 신청 기록 조회
+  const matchingRequestsPath = path.join(__dirname, 'data/matching-requests.json');
+  const matchingRequests = fs.existsSync(matchingRequestsPath) ? readJson(matchingRequestsPath) : [];
+  const myRequest = matchingRequests.find((req: any) => req.requester_id === userId);
+  let status = null;
+  let matchedUser = null;
+  if (myRequest) {
+    status = myRequest.status;
+  }
+  // match-pairs에서 내 userId가 포함된 쌍 찾기 (신청자가 아니더라도)
+  const matchPairs = readJson(path.join(__dirname, 'data/match-pairs.json'));
+  const profiles = readJson(path.join(__dirname, 'data/profiles.json'));
+  const myMatch = matchPairs.find((m: any) => m.user_a_id === userId || m.user_b_id === userId);
+  if (myMatch) {
+    const otherUserId = myMatch.user_a_id === userId ? myMatch.user_b_id : myMatch.user_a_id;
+    const profile = profiles.find((p: any) => p.user_id === otherUserId);
+    if (profile) {
+      matchedUser = {
+        userId: profile.user_id,
+        name: profile.name || '',
+        job: profile.job || '',
+        region: profile.region?.region || '',
+        photoUrl: profile.photos?.[0] || null,
+        // 필요시 추가 필드
+      };
+      // matching-requests에 신청 기록이 없고, 매칭이 성사된 경우 status를 'confirmed'로 간주
+      if (!status) status = 'confirmed';
+    }
+  }
+  await appendLog({ 
+    type: 'get_matching_status', 
+    userId, 
+    result: 'success', 
+    detail: { status, matchedUserId: matchedUser?.userId },
+    action: '매칭상태 조회',
+    screen: 'MainScreen',
+    component: 'matching_status'
+  });
+  return { statusCode: 200, body: JSON.stringify(matchedUser ? { status, matchedUser } : { status }) };
 }; 

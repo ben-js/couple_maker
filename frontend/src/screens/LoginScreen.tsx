@@ -27,21 +27,16 @@ const LoginScreen = () => {
       logger.info('로그인 시도', { email, password: password ? '***' : 'empty' });
       logger.api.request('POST', '/login', { email });
       const user = await login({ email, password });
-      if (!user || !user.id) throw new Error('로그인에 실패했습니다. (user 정보 없음)');
-      logger.api.response('POST', '/login', { success: true, userId: user.id });
+      if (!user || !user.userId) throw new Error('로그인에 실패했습니다. (user 정보 없음)');
+      logger.api.response('POST', '/login', { success: true, userId: user.userId });
       await setUser(user);
       if (Platform.OS === 'android') {
         ToastAndroid.show(TOAST_MESSAGES.LOGIN_SUCCESS, ToastAndroid.SHORT);
       } else {
         Alert.alert(TOAST_MESSAGES.LOGIN_SUCCESS);
       }
-      if (!user.hasProfile) {
-        navigation.navigate(NAVIGATION_ROUTES.PROFILE_EDIT);
-      } else if (!user.hasPreferences) {
-        navigation.navigate(NAVIGATION_ROUTES.PREFERENCE_EDIT);
-      } else {
-        navigation.navigate(NAVIGATION_ROUTES.MAIN, { screen: NAVIGATION_ROUTES.MAIN });
-      }
+      // 프로필/선호정보 여부 분기 로직은 실제 구현에 맞게 수정 필요
+      navigation.navigate(NAVIGATION_ROUTES.MAIN, { screen: NAVIGATION_ROUTES.MAIN });
     } catch (e) {
       const errorMessage = (e as Error).message;
       logger.error('로그인 실패', { error: errorMessage, email });
@@ -56,44 +51,46 @@ const LoginScreen = () => {
   return (
     <View flex center backgroundColor={colors.background} padding-24>
       <Image source={logo} style={styles.logo} />
-      <TextField
-        style={styles.emailInput}
-        placeholder="이메일"
-        placeholderTextColor={colors.text.disabled}
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-        autoCapitalize="none"
-        enableErrors={false}
-        underlineColor='transparent'
-        floatingPlaceholder={false}
-      />
-      <TextField
-        style={styles.emailInput}
-        placeholder="비밀번호"
-        placeholderTextColor={colors.text.disabled}
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry={!showPassword}
-        autoCapitalize="none"
-        enableErrors={false}
-        underlineColor='transparent'
-        floatingPlaceholder={false}
-      />
+      <View style={styles.inputGroup}>
+        <TextField
+          style={styles.emailInput}
+          placeholder="이메일"
+          placeholderTextColor={colors.text.disabled}
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          enableErrors={false}
+          underlineColor='transparent'
+          floatingPlaceholder={false}
+        />
+        <TextField
+          style={styles.emailInput}
+          placeholder="비밀번호"
+          placeholderTextColor={colors.text.disabled}
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry={!showPassword}
+          autoCapitalize="none"
+          enableErrors={false}
+          underlineColor='transparent'
+          floatingPlaceholder={false}
+        />
+        <Button
+          label={BUTTON_TEXTS.LOGIN}
+          style={[styles.loginBtn, !isLoginEnabled && styles.loginBtnDisabled]}
+          labelStyle={styles.loginBtnLabel}
+          onPress={handleLogin}
+          fullWidth
+          disabled={!isLoginEnabled}
+        />
+      </View>
       <Button
         link
         style={styles.forgotBtn}
         labelStyle={styles.forgotText}
         label="비밀번호를 잊으셨나요?"
         onPress={() => {}}
-      />
-      <Button
-        label={BUTTON_TEXTS.LOGIN}
-        style={[styles.loginBtn, !isLoginEnabled && styles.loginBtnDisabled]}
-        labelStyle={styles.loginBtnLabel}
-        onPress={handleLogin}
-        fullWidth
-        disabled={!isLoginEnabled}
       />
       <View row centerV style={styles.signupRow}>
         <Text style={styles.signupText}>계정이 없으신가요?</Text>
@@ -110,15 +107,14 @@ const LoginScreen = () => {
 
 const styles = StyleSheet.create({
   logo: {
-    width: 220,
-    height: 80,
+    width: 180,
+    height: 180,
     resizeMode: 'contain',
-    marginBottom: 32,
+    marginBottom: 50,
   },
   emailInput: {
-    width: 320,
-    maxWidth: '100%',
-    marginBottom: 12,
+    width: '100%',
+    marginBottom: 10,
     ...typography.body,
     backgroundColor: colors.surface,
     borderWidth: 1,
@@ -131,7 +127,7 @@ const styles = StyleSheet.create({
   passwordInput: {
     width: 320,
     maxWidth: '100%',
-    marginBottom: 16,
+    marginBottom: 0,
     ...typography.body,
     backgroundColor: '#FAFAFA',
     borderWidth: 0,
@@ -146,19 +142,19 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   forgotText: {
-    ...typography.bodySmall,
+    ...typography.caption,
     color: colors.primary,
   },
   loginBtn: {
-    width: 320,
-    maxWidth: '100%',
+    width: '100%',
     height: 48,
     borderRadius: 8,
-    backgroundColor: colors.primary,
-    marginBottom: 20,
+    backgroundColor: '#000',
+    marginTop: 20,  
+    marginBottom: 28,
   },
   loginBtnDisabled: {
-    backgroundColor: colors.disableColor,
+    backgroundColor: colors.disabled,
   },
   loginBtnLabel: {
     color: colors.surface,
@@ -169,14 +165,19 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   signupText: {
-    ...typography.bodySmall,
+    ...typography.caption,
     color: colors.text.disabled,
     marginRight: 4,
   },
   signupLink: {
-    ...typography.bodySmall,
+    ...typography.caption,
     color: colors.primary,
     fontWeight: 'bold',
+  },
+  inputGroup: {
+    width: 320,
+    maxWidth: '100%',
+    alignSelf: 'center',
   },
 });
 

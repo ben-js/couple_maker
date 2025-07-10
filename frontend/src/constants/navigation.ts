@@ -5,6 +5,7 @@ export const NAVIGATION_ROUTES = {
   LOGIN: 'Login',
   SIGNUP: 'Signup',
   MAIN: 'Main',
+  POINT_CHARGE: 'PointCharge',
   
   // 프로필 관련
   PROFILE_EDIT: 'ProfileEdit',

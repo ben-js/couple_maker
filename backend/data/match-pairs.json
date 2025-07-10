@@ -8,55 +8,10 @@
       "locations": ["강남역", "홍대역", "잠실역"]
     },
     "user_b_choices": {
-      "dates": ["2024-01-15", "2024-01-18", "2024-01-19"],
-      "locations": ["강남역", "신촌역", "잠실역"]
+      "dates": [],
+      "locations": []
     },
-    "final_date": "2024-01-15",
-    "final_location": "강남역"
-  },
-  {
-    "match_id": "match-2",
-    "user_a_id": "user-1",
-    "user_b_id": "user-3",
-    "user_a_choices": {
-      "dates": ["2024-02-01"],
-      "locations": ["성남시청"]
-    },
-    "user_b_choices": {
-      "dates": ["2024-02-01"],
-      "locations": ["성남시청"]
-    },
-    "final_date": "2024-02-01",
-    "final_location": "성남시청"
-  },
-  {
-    "match_id": "match-3",
-    "user_a_id": "user-1",
-    "user_b_id": "user-4",
-    "user_a_choices": {
-      "dates": ["2024-03-10"],
-      "locations": ["광화문"]
-    },
-    "user_b_choices": {
-      "dates": ["2024-03-10"],
-      "locations": ["광화문"]
-    },
-    "final_date": "2024-03-10",
-    "final_location": "광화문"
-  },
-  {
-    "match_id": "match-4",
-    "user_a_id": "user-1",
-    "user_b_id": "user-5",
-    "user_a_choices": {
-      "dates": ["2024-04-20"],
-      "locations": ["해운대"]
-    },
-    "user_b_choices": {
-      "dates": ["2024-04-20"],
-      "locations": ["해운대"]
-    },
-    "final_date": "2024-04-20",
-    "final_location": "해운대"
+    "final_date": null,
+    "final_location": null
   }
-] 
+]

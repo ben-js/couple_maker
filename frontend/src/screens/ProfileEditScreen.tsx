@@ -31,6 +31,7 @@ const options = optionsRaw as Options;
 // @ts-ignore: expo-image-cropper 타입 선언 없음을 무시
 declare module 'expo-image-cropper';
 
+
 // yup 스키마 동적 생성
 const schemaFields: any = {};
 formTemplate.forEach(field => {
@@ -84,14 +85,6 @@ formTemplate.forEach(field => {
 });
 const schema = yup.object().shape(schemaFields);
 
-const API_BASE_URL = 'http://localhost:3000'; // 실제 배포시 환경변수로 대체
-function getImageUri(photoUrl: string) {
-  if (!photoUrl) return undefined;
-  if (photoUrl.startsWith('/files/')) {
-    return API_BASE_URL + photoUrl;
-  }
-  return photoUrl;
-}
 
 const ProfileEditScreen = () => {
   // 사진 관련 상태만 유지 (UI 전용)
@@ -320,7 +313,7 @@ const ProfileEditScreen = () => {
             style={{ width: 160, height: 160, backgroundColor: '#eee', borderRadius: 12, justifyContent: 'center', alignItems: 'center' }}
           >
             {photos[0] ? (
-              <Image source={{ uri: getImageUri(photos[0]) }} style={{ width: '100%', height: '100%', borderRadius: 12 }} resizeMode="cover" />
+              <Image source={{ uri: photos[0] }} style={{ width: '100%', height: '100%', borderRadius: 12 }} resizeMode="cover" />
             ) : (
               <Avatar
                 size={64}
@@ -351,7 +344,7 @@ const ProfileEditScreen = () => {
               style={{ width: 120, height: 120, backgroundColor: '#eee', borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: 16, position: 'relative' }}
             >
               {photos[0] ? (
-                <Image source={{ uri: getImageUri(photos[0]) }} style={{ width: '101%', height: '100%', borderRadius: 12 }} resizeMode="cover" />
+                <Image source={{ uri: photos[0] }} style={{ width: '101%', height: '100%', borderRadius: 12 }} resizeMode="cover" />
               ) : (
                 <Avatar
                   size={48}
@@ -376,7 +369,7 @@ const ProfileEditScreen = () => {
                   style={{ width: 56, height: 56, backgroundColor: '#eee', borderRadius: 8, marginHorizontal: 6, justifyContent: 'center', alignItems: 'center' }}
                 >
                   {photos[i] ? (
-                    <Image source={{ uri: getImageUri(photos[i]) }} style={{ width: '100%', height: '100%', borderRadius: 8 }} resizeMode="cover" />
+                    <Image source={{ uri: photos[i] }} style={{ width: '100%', height: '100%', borderRadius: 8 }} resizeMode="cover" />
                   ) : (
                     <Avatar
                       size={28}
@@ -545,8 +538,8 @@ const ProfileEditScreen = () => {
                     </TouchableOpacity>
                     <Modal visible={activeChipsModalField === field.name} transparent={false} animationType="slide">
                       <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', height: 56, borderBottomWidth: 0, paddingHorizontal: 8, justifyContent: 'space-between' }}>
-                          <TouchableOpacity onPress={async () => { setActiveChipsModalField(null); await trigger(field.name); }} style={{ width: 40, height: 40, justifyContent: 'center', alignItems: 'center' }} hitSlop={{top:10, bottom:10, left:10, right:10}}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', height: 56, borderBottomWidth: 0, paddingHorizontal: 8, justifyContent: 'center', position: 'relative' }}>
+                          <TouchableOpacity onPress={async () => { setActiveChipsModalField(null); await trigger(field.name); }} style={{ position: 'absolute', right: 8, top: 8, width: 40, height: 40, justifyContent: 'center', alignItems: 'center' }} hitSlop={{top:10, bottom:10, left:10, right:10}}>
                             <Feather name="x" size={26} color="#bbb" />
                           </TouchableOpacity>
                           <Text style={{ flex: 1, textAlign: 'center', fontSize: 18, fontWeight: 'bold', color: '#222' }}>{field.label}</Text>
