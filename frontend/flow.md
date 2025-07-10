@@ -364,24 +364,45 @@
 * Attributes:
 
   * requester_id: (string)
-  * status: waiting | proposed | confirmed | failed | done
-  * created_at: (ISO)
-  * photo_visible_at: (ISO, optional)
-  * is_manual: (boolean) // 매니저 수동 매칭 여부
+  * status: waiting | propose | matched | confirmed | scheduled | failed
+  * created_at: (ISO8601 string)
+  * updated_at: (ISO8601 string)
+  * photo_visible_at: (ISO8601 string|null)
+  * is_manual: (boolean)
+  * date_choices: { dates: [string], locations: [string] }
 
 ---
 
 ## 📄 MatchPairs Table
 
-* `PK`: match_id (string)
+* `PK`: match_pair_id (string)
 * Attributes:
 
-  * user_a_id: (string)
-  * user_b_id: (string)
+  * match_a_id: (string) // 매칭을 신청한 쪽
+  * match_b_id: (string) // 매칭된 상대방
+  * is_manual: (boolean)
+  * is_proposed: (boolean) // 매니저가 제안한 매칭 여부
+  * confirm_proposed: (boolean) // 제안 수락 여부
   * user_a_choices: { dates: [string], locations: [string] }
   * user_b_choices: { dates: [string], locations: [string] }
-  * final_date: (string)
-  * final_location: (string)
+  * schedule_date: (string|null) // 최종 확정 일정
+  * date_location: (string|null) // 최종 확정 장소
+  * created_at: (ISO8601 string)
+  * updated_at: (ISO8601 string)
+
+---
+
+## 📄 Propose Table
+
+* `PK`: propose_id (string)
+* Attributes:
+
+  * proposer_id: (string) // 제안한 매니저 id
+  * target_id: (string) // 제안 받은 유저 id
+  * match_pair_id: (string) // 연결된 match-pairs id
+  * status: propose | refuse
+  * created_at: (ISO8601 string)
+  * updated_at: (ISO8601 string)
 
 ---
 

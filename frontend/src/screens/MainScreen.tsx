@@ -6,7 +6,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../store/AuthContext';
 import { NAVIGATION_ROUTES, colors, typography, spacing } from '@/constants';
 import { useUserProfile } from '../hooks/useUserProfile';
-import { apiGet } from '@/utils/apiUtils';
+import { apiGet, apiPost } from '@/utils/apiUtils';
 import PrimaryButton from '../components/PrimaryButton';
 import StepProgressBar from '../components/StepProgressBar';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -39,7 +39,6 @@ const MainScreen = () => {
   // 장소 추천 리스트(profile 기반)
   const region = typeof user?.region === 'string' ? user?.region : user?.region?.region || '';
   const district = user?.region?.district || '';
-  const locationOptions = [district, region, '강남역', '홍대입구역', '잠실역', '신촌역'].filter(Boolean);
   const [showDateDuplicateModal, setShowDateDuplicateModal] = useState(false);
 
   useEffect(() => {
@@ -101,19 +100,37 @@ const MainScreen = () => {
 
   const matchingStepDescriptions: Record<string, string> = {
     waiting: '신청이 완료되었어요.\n매칭 소식을 곧 알려드릴게요!',
-    matching: '매칭이 진행 중이에요.\n잠시만 기다려주세요!',
-    matched: '매칭 성공!\n일정 조율 중이에요.',
-    confirmed: '매칭 확정!\n상대방과 일정이 확정됐어요.',
+    matched: '매칭 성공!\n일정을 선택 해주세요.',
+    confirmed: '매칭 확정!\n일정 조율 중이에요.',
     scheduled: '소개팅 일정이 확정됐어요!\n당일 오전 9시에 프로필이 공개됩니다.',
   };
 
   const statusSteps = ['waiting', 'matched', 'confirmed', 'scheduled'];
   const currentStep = statusSteps.indexOf(status ?? '');
 
+  const handleRefreshStatus = () => {
+    setLoadingStatus(true);
+    apiGet('/matching-status', { userId: user?.userId })
+      .then(res => {
+        setStatus(res.status);
+        setMatchedUser(res.matchedUser || null);
+        setMatchId(res.matchId || null);
+        setMyChoices(res.myChoices || null);
+        setOtherChoices(res.otherChoices || null);
+        if (res.status === 'failed') setShowFailedModal(true);
+      })
+      .finally(() => setLoadingStatus(false));
+  };
+
   const renderMatchingProgress = () => {
     return (
       <View style={styles.matchingProgressContainer}>
-        <Text style={styles.matchingProgressTitle}>매칭 진행 상황</Text>
+        <TouchableOpacity onPress={handleRefreshStatus} style={{ position: 'absolute', top: 12, right: 16, zIndex: 1, padding: 2 }}>
+          <Feather name="refresh-ccw" size={16} color={colors.text.primary} />
+        </TouchableOpacity>
+        <View style={{ alignItems: 'center', width: '100%' }}>
+          <Text style={styles.matchingProgressTitle}>매칭 진행 상황</Text>
+        </View>
         <Text style={styles.matchingProgressDesc}>
           {matchingStepDescriptions[status ?? ''] || '상태를 불러올 수 없습니다.'}
         </Text>
@@ -157,8 +174,12 @@ const MainScreen = () => {
 
   // 일정/장소 바텀시트 확인
   const handleConfirmSchedule = async () => {
+    console.log('handleConfirmSchedule', dateSelections, locationSelection, matchId, user?.userId
+      
+    );
     if (!dateSelections.every(d => d) || locationSelection.length === 0) return;
-    await apiGet('/submit-choices', {
+    if (!matchId) return; // matchId가 없으면 호출하지 않음
+    await apiPost('/matching-choices', {
       match_id: matchId,
       user_id: user?.userId,
       dates: dateSelections,
@@ -230,7 +251,7 @@ const MainScreen = () => {
         {/* 장소 chips 선택 모달: showRegionModal이 true일 때만 Modal로 렌더링 */}
         {(
           <FormRegionChoiceModal
-            label="장소"
+            label="장소 선택"
             value={locationSelection.map(loc => {
               const [region, district] = loc.split(' ');
               return { region, district: district || '' };
@@ -245,13 +266,14 @@ const MainScreen = () => {
             minSelect={1}
             maxSelect={3}
             error={undefined}
+            type="same-line"
           />
         )}
       </View>
       {/* 하단 고정 버튼 */}
       <View style={{ paddingTop: 12 }}>
         <TouchableOpacity
-          style={{ backgroundColor: dateSelections.every(d => d) && locationSelection.length > 0 ? '#3B82F6' : '#eee', borderRadius: 12, paddingVertical: 14, alignItems: 'center' }}
+          style={{ backgroundColor: dateSelections.every(d => d) && locationSelection.length > 0 ? colors.primary : '#eee', borderRadius: 12, paddingVertical: 14, alignItems: 'center' }}
           disabled={!dateSelections.every(d => d) || locationSelection.length === 0}
           onPress={handleConfirmSchedule}
         >
@@ -324,7 +346,7 @@ const MainScreen = () => {
       {!showCtaCard && renderMatchingProgress()}
 
       {/* 매칭 상대 카드 도착 시 카드 UI 노출 */}
-      {!showCtaCard && (status === 'confirmed' || status === 'scheduled') && matchedUser && renderProfileCard()}
+      {!showCtaCard && (status === 'scheduled') && matchedUser && renderProfileCard()}
 
       {/* 일정 선택 UI: status가 matched일 때 */}
       {!showCtaCard && status === 'matched' && renderScheduleChoice()}
@@ -350,7 +372,9 @@ const MainScreen = () => {
         </Modal>
       )}
 
+
       {/* 매칭 상대 카드 도착 모달 */}
+      {/* 
       {cardModalVisible && (
         <Modal
           visible={cardModalVisible}
@@ -370,6 +394,7 @@ const MainScreen = () => {
           </View>
         </Modal>
       )}
+      */}
 
       {/* 장소 선택 모달 */}
       {/* 이미 선택된 날짜 안내 모달 */}
@@ -648,7 +673,7 @@ const styles = StyleSheet.create({
     marginVertical: 16,
     alignItems: 'center',
     marginHorizontal: 24, // profileCard와 동일하게 좌우 마진 적용
-    minHeight: 180,
+    minHeight: 190,
   },
   matchingProgressTitle: {
     fontSize: 20,
@@ -656,6 +681,7 @@ const styles = StyleSheet.create({
     color: '#222',
     marginBottom: 4,
     textAlign: 'center',
+    marginTop: 20,
   },
   matchingProgressDesc: {
     fontSize: 15,

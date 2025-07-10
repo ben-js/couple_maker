@@ -1,17 +1,16 @@
 [
   {
-    "match_id": "match-1",
-    "user_a_id": "user-1",
-    "user_b_id": "user-2",
-    "user_a_choices": {
-      "dates": ["2024-01-15", "2024-01-16", "2024-01-17"],
-      "locations": ["강남역", "홍대역", "잠실역"]
-    },
-    "user_b_choices": {
-      "dates": [],
-      "locations": []
-    },
-    "final_date": null,
-    "final_location": null
+    "match_pair_id": "match-pair-1",
+    "match_a_id": "match-1",
+    "match_b_id": "match-2",
+    "is_manual": true,
+    "is_proposed": true,
+    "confirm_proposed": false,
+    "user_a_choices": { "dates": [], "locations": [] },
+    "user_b_choices": { "dates": [], "locations": [] },
+    "schedule_date": null,
+    "date_location": null,
+    "created_at": "2024-07-17T00:00:00.000Z",
+    "updated_at": "2024-07-17T00:00:00.000Z"
   }
 ]

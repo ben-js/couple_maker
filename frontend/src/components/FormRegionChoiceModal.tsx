@@ -11,9 +11,10 @@ interface FormRegionChoiceModalProps {
   placeholder?: string;
   minSelect?: number;
   maxSelect?: number;
+  type?: 'default' | 'same-line'; // type prop 추가
 }
 
-const FormRegionChoiceModal: React.FC<FormRegionChoiceModalProps> = ({ label, value = [], onChange, regionData, error, placeholder, minSelect = 1, maxSelect = 5 }) => {
+const FormRegionChoiceModal: React.FC<FormRegionChoiceModalProps> = ({ label, value = [], onChange, regionData, error, placeholder, minSelect = 1, maxSelect = 5, type = 'default' }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
   const [selectedDistricts, setSelectedDistricts] = useState<Array<{ region: string; district: string }>>(value);
@@ -116,19 +117,37 @@ const FormRegionChoiceModal: React.FC<FormRegionChoiceModalProps> = ({ label, va
 
   return (
     <View style={{ marginBottom: 12 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-        <Text style={{ fontWeight: '700', color: '#222', fontSize: 16 }}>{label}</Text>
-        {error && <Text style={{ color: 'red', marginLeft: 8, fontSize: 13 }}>{error}</Text>}
-      </View>
-      <TouchableOpacity
-        onPress={handleOpen}
-        activeOpacity={0.8}
-        style={{ backgroundColor: '#fff', minHeight: 48, justifyContent: 'center', paddingHorizontal: 0, paddingVertical: 12 }}
-      >
-        <Text style={{ color: value.length ? '#222' : '#bbb', fontSize: 16 }}>
-          {value.length ? value.map(sel => sel.district === sel.region ? sel.region : sel.district).join(', ') : (placeholder || '지역 선택')}
-        </Text>
-      </TouchableOpacity>
+      {type === 'same-line' ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+          <Text style={{ fontWeight: '700', color: '#222', fontSize: 16, marginRight: 8 }}>{label}</Text>
+          <TouchableOpacity
+            onPress={handleOpen}
+            activeOpacity={0.8}
+            style={{ backgroundColor: '#fff', minHeight: 48, justifyContent: 'center', paddingHorizontal: 0, paddingVertical: 12, flex: 1 }}
+          >
+            <Text style={{ color: value.length ? '#222' : '#bbb', fontSize: 16 }}>
+              {value.length ? value.map(sel => sel.district === sel.region ? sel.region : sel.district).join(', ') : (placeholder || '지역 선택')}
+            </Text>
+          </TouchableOpacity>
+          {error && <Text style={{ color: 'red', marginLeft: 8, fontSize: 13 }}>{error}</Text>}
+        </View>
+      ) : (
+        <>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+            <Text style={{ fontWeight: '700', color: '#222', fontSize: 16 }}>{label}</Text>
+            {error && <Text style={{ color: 'red', marginLeft: 8, fontSize: 13 }}>{error}</Text>}
+          </View>
+          <TouchableOpacity
+            onPress={handleOpen}
+            activeOpacity={0.8}
+            style={{ backgroundColor: '#fff', minHeight: 48, justifyContent: 'center', paddingHorizontal: 0, paddingVertical: 12 }}
+          >
+            <Text style={{ color: value.length ? '#222' : '#bbb', fontSize: 16 }}>
+              {value.length ? value.map(sel => sel.district === sel.region ? sel.region : sel.district).join(', ') : (placeholder || '지역 선택')}
+            </Text>
+          </TouchableOpacity>
+        </>
+      )}
       <Modal visible={modalVisible} transparent={false} animationType="slide">
         <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', height: 56, borderBottomWidth: 0, paddingHorizontal: 8, justifyContent: 'space-between' }}>

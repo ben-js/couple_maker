@@ -1,6 +1,6 @@
 export const colors = {
   // ✅ 기본 색상 (Flat UI)
-  primary: '#ccc',       // 메인 텍스트 및 강조 (Instagram의 기본 텍스트 색)
+  primary: '#222',       // 메인 텍스트 및 강조 (Instagram의 기본 텍스트 색)
   secondary: '#8E8E8E',     // 서브 텍스트 (보조 정보, 설명)
 
   // ✅ 배경 색상

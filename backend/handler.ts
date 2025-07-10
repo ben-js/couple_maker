@@ -735,40 +735,73 @@ export const submitChoices = async (event: any) => {
 
   const matchPairsPath = path.join(__dirname, 'data/match-pairs.json');
   const matchPairs = fs.existsSync(matchPairsPath) ? readJson(matchPairsPath) : [];
-  const matchIndex = matchPairs.findIndex((match: any) => match.match_id === match_id);
+  const matchIndex = matchPairs.findIndex((match: any) => match.match_id === match_id || match.match_a_id === match_id || match.match_b_id === match_id);
+
+  const now = new Date().toISOString();
 
   if (matchIndex >= 0) {
     const match = matchPairs[matchIndex];
     // 일정 제출
+    let changed = false;
     if (match.user_a_id === user_id) {
       match.user_a_choices = { dates, locations };
+      changed = true;
     } else if (match.user_b_id === user_id) {
       match.user_b_choices = { dates, locations };
+      changed = true;
     }
     // 양쪽 모두 제출했는지 확인
-    if (match.user_a_choices.dates.length && match.user_b_choices.dates.length) {
+    if (match.user_a_choices?.dates?.length && match.user_b_choices?.dates?.length) {
       // 겹치는 날짜/장소 찾기
       const commonDates = match.user_a_choices.dates.filter((d: string) => match.user_b_choices.dates.includes(d));
       const commonLocations = match.user_a_choices.locations.filter((l: string) => match.user_b_choices.locations.includes(l));
       if (commonDates.length && commonLocations.length) {
         // 일정 확정
-        match.final_date = commonDates[0];
-        match.final_location = commonLocations[0];
+        match.schedule_date = commonDates[0];
+        match.date_location = commonLocations[0];
         match.status = 'scheduled';
+        changed = true;
       } else {
         // 일정 조율 실패
         match.status = 'failed';
+        changed = true;
       }
     }
     // 상대방 일정에 맞추기(acceptOtherSchedule)
     if (acceptOtherSchedule) {
       // 상대방이 먼저 제출한 일정으로 확정
       const otherChoices = match.user_a_id === user_id ? match.user_b_choices : match.user_a_choices;
-      match.final_date = otherChoices.dates[0];
-      match.final_location = otherChoices.locations[0];
+      match.schedule_date = otherChoices.dates[0];
+      match.date_location = otherChoices.locations[0];
       match.status = 'scheduled';
+      changed = true;
+    }
+    if (changed) {
+      match.updated_at = now;
     }
     writeJson(matchPairsPath, matchPairs);
+
+    // matching-requests 상태도 같이 변경
+    const matchingRequestsPath = path.join(__dirname, 'data/matching-requests.json');
+    const matchingRequests = fs.existsSync(matchingRequestsPath) ? readJson(matchingRequestsPath) : [];
+    // match_a_id, match_b_id로 각각 찾아서 상태 변경
+    [match.match_a_id, match.match_b_id].forEach((mid: string) => {
+      const reqIdx = matchingRequests.findIndex((req: any) => req.match_id === mid);
+      if (reqIdx >= 0) {
+        // 일정 제출한 쪽은 confirm, 최종 확정 시 scheduled
+        if (match.status === 'scheduled') {
+          matchingRequests[reqIdx].status = 'scheduled';
+        } else if (user_id && mid === match_id) {
+          matchingRequests[reqIdx].status = 'confirmed';
+        }
+        // date_choices 저장 (일정 제출한 쪽만)
+        if (user_id && mid === match_id) {
+          matchingRequests[reqIdx].date_choices = { dates, locations };
+        }
+        matchingRequests[reqIdx].updated_at = now;
+      }
+    });
+    writeJson(matchingRequestsPath, matchingRequests);
   }
   await appendLog({
     type: 'choices_submitted',
@@ -1593,28 +1626,43 @@ export const getMatchingStatus = async (event: any) => {
   const matchingRequests = fs.existsSync(matchingRequestsPath) ? readJson(matchingRequestsPath) : [];
   const myRequest = matchingRequests.find((req: any) => req.requester_id === userId);
   let status = null;
+  let matchId = null;
   let matchedUser = null;
   if (myRequest) {
     status = myRequest.status;
+    matchId = myRequest.match_id;
   }
   // match-pairs에서 내 userId가 포함된 쌍 찾기 (신청자가 아니더라도)
   const matchPairs = readJson(path.join(__dirname, 'data/match-pairs.json'));
   const profiles = readJson(path.join(__dirname, 'data/profiles.json'));
-  const myMatch = matchPairs.find((m: any) => m.user_a_id === userId || m.user_b_id === userId);
+  const myMatch = matchPairs.find((m: any) => {
+    // matching-requests에서 내 userId가 포함된 match_id를 찾기 위해
+    const matchA = matchingRequests.find((r: any) => r.match_id === m.match_a_id);
+    const matchB = matchingRequests.find((r: any) => r.match_id === m.match_b_id);
+    return (matchA && matchA.requester_id === userId) || (matchB && matchB.requester_id === userId);
+  });
   if (myMatch) {
-    const otherUserId = myMatch.user_a_id === userId ? myMatch.user_b_id : myMatch.user_a_id;
-    const profile = profiles.find((p: any) => p.user_id === otherUserId);
-    if (profile) {
-      matchedUser = {
-        userId: profile.user_id,
-        name: profile.name || '',
-        job: profile.job || '',
-        region: profile.region?.region || '',
-        photoUrl: profile.photos?.[0] || null,
-        // 필요시 추가 필드
-      };
-      // matching-requests에 신청 기록이 없고, 매칭이 성사된 경우 status를 'confirmed'로 간주
-      if (!status) status = 'confirmed';
+    const matchA = matchingRequests.find((r: any) => r.match_id === myMatch.match_a_id);
+    const matchB = matchingRequests.find((r: any) => r.match_id === myMatch.match_b_id);
+    let otherUserId = null;
+    if (matchA && matchA.requester_id === userId && matchB) {
+      otherUserId = matchB.requester_id;
+    } else if (matchB && matchB.requester_id === userId && matchA) {
+      otherUserId = matchA.requester_id;
+    }
+
+    console.log('=================>otherUserId', otherUserId);
+    if (otherUserId) {
+      const profile = profiles.find((p: any) => p.user_id === otherUserId);
+      if (profile) {
+        matchedUser = {
+          userId: profile.user_id,
+          name: profile.name || '',
+          job: profile.job || '',
+          region: profile.region?.region || '',
+          photoUrl: profile.photos?.[0] || null,
+        };
+      }
     }
   }
   await appendLog({ 
@@ -1626,5 +1674,5 @@ export const getMatchingStatus = async (event: any) => {
     screen: 'MainScreen',
     component: 'matching_status'
   });
-  return { statusCode: 200, body: JSON.stringify(matchedUser ? { status, matchedUser } : { status }) };
+  return { statusCode: 200, body: JSON.stringify(matchedUser ? { status, matchedUser, matchId } : { status, matchId }) };
 }; 
