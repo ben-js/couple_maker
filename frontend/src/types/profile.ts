@@ -2,6 +2,7 @@
 export interface UserProfile {
   userId: string;
   name: string;
+  email?: string;
   birthDate: {
     year: number;
     month: number;
@@ -28,4 +29,6 @@ export interface UserProfile {
   introduction: string;
   photos: string[];
   points: number;
+  hasPreferences?: boolean;
+  hasProfile?: boolean;
 } 

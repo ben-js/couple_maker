@@ -20,6 +20,7 @@ import { UserPreferences } from '../types';
 import { logger } from '@/utils/logger';
 import { TOAST_MESSAGES, NAVIGATION_ROUTES } from '@/constants';
 import { apiPost } from '@/utils/apiUtils';
+import { useUserStatus, useUserInfo } from '../hooks/useUserStatus';
 
 const options = optionsRaw as Record<string, any>;
 
@@ -65,6 +66,8 @@ const PreferenceSetupScreen = () => {
   const isEditMode = route?.params?.isEditMode ?? false;
   const mode = route?.params?.mode ?? 'edit';
   const { user, updateUser } = useAuth();
+  const { refetch: refetchStatus } = useUserStatus(user?.userId);
+  const { refetch: refetchUser } = useUserInfo(user?.userId);
   const [activeChipsModalField, setActiveChipsModalField] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { control, handleSubmit, formState: { errors, isValid }, setValue, trigger } = useForm({
@@ -167,12 +170,14 @@ const PreferenceSetupScreen = () => {
       await updateUser({ hasPreferences: true });
       logger.success('사용자 상태 업데이트 완료');
 
-      // 성공 메시지 표시
-      logger.info('성공 메시지 표시');
-      if (Platform.OS === 'android') {
-        ToastAndroid.show(TOAST_MESSAGES.PREFERENCES_SAVED, ToastAndroid.SHORT);
-      } else {
-        Alert.alert(TOAST_MESSAGES.PREFERENCES_SAVED);
+      // 성공 메시지 표시 (신청 모드가 아닐 때만)
+      if (mode !== 'apply') {
+        logger.info('성공 메시지 표시');
+        if (Platform.OS === 'android') {
+          ToastAndroid.show(TOAST_MESSAGES.PREFERENCES_SAVED, ToastAndroid.SHORT);
+        } else {
+          Alert.alert(TOAST_MESSAGES.PREFERENCES_SAVED);
+        }
       }
 
       // 홈으로 이동
@@ -220,10 +225,22 @@ const PreferenceSetupScreen = () => {
     }
     setIsSubmitting(true);
     try {
-      // 이상형 정보 저장
+      // 이상형 정보 저장 (토스트 메시지 없이)
       await handleSubmit(onSubmit, onInvalid)();
       // 소개팅 신청 API 호출
-      await apiPost('/matching-request', { userId: user.userId });
+      await apiPost('/matching-requests', { userId: user.userId });
+      
+      console.log('소개팅 신청 전 user points:', user.points);
+      
+      // 서버에서 최신 사용자 정보 가져오기
+      const { data: refetchUserData } = await refetchUser();
+      if (refetchUserData) {
+        // AuthContext 업데이트
+        await updateUser(refetchUserData);
+        console.log('소개팅 신청 후 서버에서 가져온 사용자 정보:', refetchUserData);
+      }
+      
+      await refetchStatus();
       if (Platform.OS === 'android') {
         ToastAndroid.show('소개팅 신청이 완료되었습니다!', ToastAndroid.SHORT);
       } else {
@@ -231,6 +248,7 @@ const PreferenceSetupScreen = () => {
       }
       navigation.navigate(NAVIGATION_ROUTES.MAIN);
     } catch (error) {
+      console.error('소개팅 신청 실패:', error);
       if (Platform.OS === 'android') {
         ToastAndroid.show('소개팅 신청에 실패했습니다.', ToastAndroid.SHORT);
       } else {
@@ -272,29 +290,29 @@ const PreferenceSetupScreen = () => {
                 name={field.name}
                 render={({ field: { onChange, value }, fieldState: { error } }) => (
                   <>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                      <Text style={{ ...typography.h3, color: colors.text.primary }}>{field.label}</Text>
-                      {error?.message && <Text style={{ color: colors.error, marginLeft: 8, fontSize: 13 }}>{error.message}</Text>}
+                    <View style={styles.labelRow}>
+                      <Text style={styles.labelText}>{field.label}</Text>
+                      {error?.message && <Text style={styles.errorText}>{error.message}</Text>}
                     </View>
                     <TouchableOpacity
                       onPress={() => setActiveChipsModalField(field.name)}
                       activeOpacity={0.8}
-                      style={{ borderWidth: 0, borderRadius: 0, backgroundColor: 'transparent', paddingHorizontal: 0, minHeight: 40, justifyContent: 'center', marginBottom: 12 }}
+                      style={styles.chipsContainer}
                     >
-                      <Text style={{ color: value && value.length ? '#222' : '#aaa', fontSize: 16 }}>
+                      <Text style={value && value.length ? styles.chipsValueText : styles.chipsPlaceholderText}>
                         {value && value.length ? value.join(', ') : field.placeholder}
                       </Text>
                     </TouchableOpacity>
                     <Modal visible={activeChipsModalField === field.name} transparent={false} animationType="slide">
-                      <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', height: 56, borderBottomWidth: 0, paddingHorizontal: 8, justifyContent: 'center', position: 'relative' }}>
-                          <Text style={{ flex: 1, textAlign: 'center', fontSize: 18, fontWeight: 'bold', color: '#222' }}>{field.label}</Text>
-                          <TouchableOpacity onPress={async () => { setActiveChipsModalField(null); await trigger(field.name); }} style={{ position: 'absolute', right: 8, top: 8, width: 40, height: 40, justifyContent: 'center', alignItems: 'center' }} hitSlop={{top:10, bottom:10, left:10, right:10}}>
+                      <SafeAreaView style={styles.modalSafeArea}>
+                        <View style={styles.modalHeader}>
+                          <Text style={styles.modalTitle}>{field.label}</Text>
+                          <TouchableOpacity onPress={async () => { setActiveChipsModalField(null); await trigger(field.name); }} style={styles.modalCloseButton}>
                             <Feather name="x" size={26} color="#bbb" />
                           </TouchableOpacity>
                         </View>
-                        <View style={{ flex: 1, justifyContent: 'flex-start', alignItems: 'stretch', padding: 24 }}>
-                          <Text style={{ fontSize: 16, color: '#222', textAlign: 'center', marginBottom: 16 }}>{field.label}을 {field.minSelect}개 선택하세요</Text>
+                        <View style={styles.modalContent}>
+                          <Text style={styles.modalSelectText}>{field.label}을 {field.minSelect}개 선택하세요</Text>
                           <FormChips
                             label={field.label}
                             options={field.optionsKey ? (options[field.optionsKey] as string[] ?? []) : []}
@@ -305,9 +323,9 @@ const PreferenceSetupScreen = () => {
                             error={undefined}
                           />
                         </View>
-                        <View style={{ padding: 24, paddingTop: 0 }}>
+                        <View style={styles.modalFooter}>
                           <TouchableOpacity
-                            style={{ backgroundColor: value.length < (field.minSelect || 1) ? '#eee' : '#3B82F6', borderRadius: 12, paddingVertical: 14, alignItems: 'center' }}
+                            style={value.length < (field.minSelect || 1) ? styles.modalConfirmButtonDisabled : styles.modalConfirmButton}
                             disabled={value.length < (field.minSelect || 1)}
                             onPress={async () => {
                               setValue(field.name, value);
@@ -315,7 +333,7 @@ const PreferenceSetupScreen = () => {
                               await trigger(field.name);
                             }}
                           >
-                            <Text style={{ color: value.length < (field.minSelect || 1) ? '#bbb' : '#fff', fontWeight: 'bold', fontSize: 16 }}>확인</Text>
+                            <Text style={value.length < (field.minSelect || 1) ? styles.modalConfirmButtonTextDisabled : styles.modalConfirmButtonText}>확인</Text>
                           </TouchableOpacity>
                         </View>
                       </SafeAreaView>
@@ -359,6 +377,7 @@ const PreferenceSetupScreen = () => {
                     regionData={regionData}
                     error={error?.message}
                     placeholder={field.placeholder}
+                    type="same-line"
                   />
                 )}
               />
@@ -397,6 +416,100 @@ const PreferenceSetupScreen = () => {
 };
 
 const styles = StyleSheet.create({
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  labelText: {
+    color: '#222',
+    fontWeight: '700',
+    fontSize: 16,
+  },
+  errorText: {
+    color: colors.error,
+    marginLeft: 8,
+    fontSize: 13,
+  },
+  chipsContainer: {
+    borderWidth: 0,
+    borderRadius: 0,
+    backgroundColor: 'transparent',
+    paddingHorizontal: 0,
+    minHeight: 40,
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  chipsValueText: {
+    color: '#222',
+    fontSize: 16,
+  },
+  chipsPlaceholderText: {
+    color: '#aaa',
+    fontSize: 16,
+  },
+  modalSafeArea: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 56,
+    borderBottomWidth: 0,
+    paddingHorizontal: 8,
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  modalTitle: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#222',
+  },
+  modalCloseButton: {
+    position: 'absolute',
+    right: 8,
+    top: 8,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    flex: 1,
+    justifyContent: 'flex-start',
+    alignItems: 'stretch',
+    padding: 24,
+  },
+  modalSelectText: {
+    fontSize: 16,
+    color: '#222',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  modalConfirmButton: {
+    backgroundColor: '#3B82F6',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  modalConfirmButtonDisabled: {
+    backgroundColor: '#bbb',
+  },
+  modalConfirmButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  modalConfirmButtonTextDisabled: {
+    color: '#bbb',
+  },
+  modalFooter: {
+    padding: 24,
+    paddingTop: 0,
+  },
   footerButtonWrap: {
     position: 'absolute',
     left: 0,

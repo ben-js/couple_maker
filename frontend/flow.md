@@ -383,8 +383,6 @@
   * is_manual: (boolean)
   * is_proposed: (boolean) // 매니저가 제안한 매칭 여부
   * confirm_proposed: (boolean) // 제안 수락 여부
-  * user_a_choices: { dates: [string], locations: [string] }
-  * user_b_choices: { dates: [string], locations: [string] }
   * schedule_date: (string|null) // 최종 확정 일정
   * date_location: (string|null) // 최종 확정 장소
   * created_at: (ISO8601 string)
@@ -478,3 +476,80 @@
    - 이상형 정보 확인(필요시 수정) 후, matching-request API 호출
    - 신청 성공 시 매칭 상태(currentStep) 0(신청완료)로 변경
    - “신청이 완료되었습니다” 안내 및 매칭 진행 바 노출
+
+---
+
+### 🔹 성향 테스트 → 인사이트 카드 연동 **초간단 핵심 플로우**
+
+---
+
+### 🟦 1. 성향 테스트 진행  
+→ **test_questions**에서 문항 불러오기
+
+### 🟩 2. 유저 응답 저장  
+→ **user_test_answers**에 저장  
+  예:  
+  `user_id: 1, question_id: 3, answer: "A"`
+
+### 🟨 3. AI/룰 기반 분석  
+→ **user_insight_profiles**에 성향/점수 저장  
+  예:  
+  `{ user_id: 1, emotion: 80, initiative: 60 }`
+
+### 🟧 4. 인사이트 카드 생성  
+→ 조건 만족 시 **insight_cards**에서 템플릿 선택  
+→ **user_insight_cards**에 노출 이력 저장
+
+### 🟪 5. 인사이트 탭에서 카드 노출  
+→ **user_insight_cards** 조회하여 화면에 표시
+
+### 🟥 6. 매칭 알고리즘에 성향 반영  
+→ **user_insight_profiles**의 데이터 활용
+
+---
+
+## 📊 **테이블 구조 요약**
+
+| 테이블명                  | 주요 필드/설명                                      |
+|--------------------------|----------------------------------------------------|
+| **test_questions**       | id, question_text, type, options, dimension, sort_order |
+| **user_test_answers**    | id, user_id, question_id, answer, created_at       |
+| **user_insight_profiles**| user_id, personality_type, summary, matched_type, score_data, source, created_at |
+| **insight_cards**        | id, title, content, trigger_type, min_score_conditions, image_url, visible_to_user |
+| **user_insight_cards**   | user_id, card_id, is_read, created_at              |
+
+---
+
+## 📝 **실제 데이터 예시**
+
+- **test_questions.options**
+    ```json
+    [
+      { "value": "A", "label": "대화를 이끈다" },
+      { "value": "B", "label": "상대가 시작하면 반응" }
+    ]
+    ```
+- **user_insight_profiles.score_data**
+    ```json
+    {
+      "emotion": 80,
+      "initiative": 60,
+      "openness": 40
+    }
+    ```
+
+---
+
+## 🚀 **확장 가능성**
+
+- **실제 피드백 연동:**  
+  user_matching_feedback 테이블 추가 → 실시간 성향 업데이트  
+- **재응답 허용:**  
+  user_test_answer_logs로 응답 히스토리 관리
+
+---
+
+### 💡 **진짜 한눈에!**
+
+- **테스트 → 응답 저장 → 분석 → 카드 생성/노출 → 매칭 반영**  
+- **모든 데이터는 위 5개 테이블에 저장/활용**

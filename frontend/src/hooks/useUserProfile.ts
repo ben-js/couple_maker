@@ -1,16 +1,17 @@
 import { useState, useEffect } from 'react';
 import { getUserProfile } from '../services/userService';
 import { useAuth } from '../store/AuthContext';
+import { UserProfile } from '../types/profile';
 
 export const useUserProfile = () => {
-  const { user } = useAuth();
-  const [userProfile, setUserProfile] = useState<any>(null);
+  const { user, setUser } = useAuth();
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadUserProfile = async () => {
-      if (!user?.id) {
+      if (!user?.userId) {
         setUserProfile(null);
         return;
       }
@@ -19,8 +20,9 @@ export const useUserProfile = () => {
       setError(null);
       
       try {
-        const profile = await getUserProfile(user.id);
+        const profile = await getUserProfile(user.userId);
         setUserProfile(profile);
+        // AuthContext는 덮어쓰지 않음 (포인트 정보가 덮어써질 수 있음)
       } catch (err) {
         console.error('프로필 로드 실패:', err);
         setError('프로필을 불러오는데 실패했습니다.');
@@ -30,7 +32,7 @@ export const useUserProfile = () => {
     };
 
     loadUserProfile();
-  }, [user?.id]);
+  }, [user?.userId, user?.photos]); // photos 배열이 변경될 때도 리프레시
 
   // 프로필 사진 가져오기
   const getProfilePhoto = () => {

@@ -24,10 +24,10 @@ export default function StepProgressBar({ total, current, labels }: StepProgress
             <View
               style={[
                 styles.circle,
-                idx <= current ? styles.circleActive : styles.circleInactive,
+                current >= 0 && idx <= current ? styles.circleActive : styles.circleInactive,
               ]}
             >
-              {idx <= current && (
+              {current >= 0 && idx <= current && (
                 <Feather name="check" size={12} color="#fff" />
               )}
             </View>
@@ -37,7 +37,7 @@ export default function StepProgressBar({ total, current, labels }: StepProgress
             <View
               style={[
                 styles.line,
-                idx < current ? styles.lineActive : styles.lineInactive,
+                current >= 0 && idx < current ? styles.lineActive : styles.lineInactive,
                 idx === total - 1 && { opacity: 0 },
               ]}
             />

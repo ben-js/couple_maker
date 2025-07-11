@@ -7,8 +7,6 @@ import { apiGet } from '@/utils/apiUtils';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { RouteProp } from '@react-navigation/native';
 import { useAuth } from '../store/AuthContext';
-import { ProfileData } from '@/types/profile';
-import { PreferenceData } from '@/types/preference';
 import { MatchDetailData } from '@/types/match';
 
 interface RouteParams {
@@ -30,18 +28,18 @@ const UserDetailScreen: React.FC = () => {
 
   // 매칭 상세 정보 가져오기
   const fetchMatchDetail = useCallback(async () => {
-    if (!matchId || !user?.id) return;
+    if (!matchId || !user?.userId) return;
     setLoading(true);
     setError(null);
     try {
-      const response = await apiGet<MatchDetailData>(`/match-detail/${matchId}?userId=${user.id}`);
+      const response = await apiGet<MatchDetailData>(`/match-detail/${matchId}?userId=${user.userId}`);
       setMatchDetail(response);
     } catch (e: any) {
       setError(e.message || '프로필 정보를 불러오지 못했습니다.');
     } finally {
       setLoading(false);
     }
-  }, [matchId, user?.id]);
+  }, [matchId, user?.userId]);
 
   useEffect(() => { fetchMatchDetail(); }, [fetchMatchDetail]);
 
@@ -103,117 +101,150 @@ const UserDetailScreen: React.FC = () => {
   const interestChips = (profile.interests || []).filter(Boolean);
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* 프로필 사진 슬라이드 */}
-      {photoList.length > 1 ? (
-        <RNView style={styles.photoSliderWrap}>
-          <FlatList
-            data={photoList}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            keyExtractor={(_, idx) => idx.toString()}
-            renderItem={({ item }) => (
-              <Image
-                source={{ uri: item }}
-                style={{
-                  width: GALLERY_CARD_WIDTH,
-                  height: 320,
-                  borderRadius: 24,
-                  marginHorizontal: 0,
-                  backgroundColor: '#eee',
-                }}
-                resizeMode="cover"
-              />
-            )}
-            ItemSeparatorComponent={() => <RNView style={{ width: GALLERY_CARD_SPACING }} />}
-            contentContainerStyle={{
-              paddingHorizontal: (screenWidth - GALLERY_CARD_WIDTH) / 2,
-              alignItems: 'center',
-            }}
-            snapToInterval={GALLERY_CARD_WIDTH + GALLERY_CARD_SPACING}
-            decelerationRate="fast"
-            snapToAlignment="start"
-            pagingEnabled={false}
-            onViewableItemsChanged={onViewableItemsChanged.current}
-            viewabilityConfig={viewConfigRef.current}
-          />
-          {/* 인디케이터 */}
-          <RNView style={styles.photoIndicatorRow}>
-            {photoList.map((_, idx) => (
-              <RNView key={idx} style={[styles.photoDot, photoIndex === idx && styles.photoDotActive]} />
-            ))}
-          </RNView>
-        </RNView>
-      ) : (
-        photoList.length === 1 && (
-          <Image source={{ uri: photoList[0] }} style={styles.profilePhotoWide} resizeMode="cover" />
-        )
-      )}
-
-      {/* introduction(자기소개) */}
-      {profile.introduction && (
-        <View style={styles.introductionBubble}>
-          <Text style={styles.introductionBubbleText}>{profile.introduction}</Text>
-        </View>
-      )}
-
-      {/* 기본 정보 */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>기본 정보</Text>
-        <View style={styles.chipRow}>
-          {basicChips.map((chip, idx) => (
-            <Chip key={idx} label={chip as string} containerStyle={styles.chip} labelStyle={styles.chipLabel} />
-          ))}
-        </View>
+    <>
+      {/* 고정 헤더 */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+          hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+        >
+          <Feather name="arrow-left" size={28} color={colors.text.primary} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>프로필</Text>
+        <View style={styles.headerSpacer} />
       </View>
+      
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        {/* 프로필 사진 슬라이드 */}
+        {photoList.length > 1 ? (
+          <RNView style={styles.photoSliderWrap}>
+            <FlatList
+              data={photoList}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(_: string, idx: number) => idx.toString()}
+              renderItem={({ item }: { item: string }) => (
+                <Image
+                  source={{ uri: item }}
+                  style={{
+                    width: GALLERY_CARD_WIDTH,
+                    height: 320,
+                    borderRadius: 24,
+                    marginHorizontal: 0,
+                    backgroundColor: '#eee',
+                  }}
+                  resizeMode="cover"
+                />
+              )}
+              ItemSeparatorComponent={() => <RNView style={{ width: GALLERY_CARD_SPACING }} />}
+              contentContainerStyle={{
+                paddingHorizontal: (screenWidth - GALLERY_CARD_WIDTH) / 2,
+                alignItems: 'center',
+              }}
+              snapToInterval={GALLERY_CARD_WIDTH + GALLERY_CARD_SPACING}
+              decelerationRate="fast"
+              snapToAlignment="start"
+              pagingEnabled={false}
+              onViewableItemsChanged={onViewableItemsChanged.current}
+              viewabilityConfig={viewConfigRef.current}
+            />
+          </RNView>
+        ) : (
+          photoList.length === 1 && (
+            <Image source={{ uri: photoList[0] }} style={styles.profilePhotoWide} resizeMode="cover" />
+          )
+        )}
 
-      {/* 상세 정보 */}
-      {(detailChips.length > 0) && (
+        {/* introduction(자기소개) */}
+        {profile.introduction && (
+          <View style={styles.introductionBubble}>
+            <Text style={styles.introductionBubbleText}>{profile.introduction}</Text>
+          </View>
+        )}
+
+        {/* 기본 정보 */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>나는 이런 사람!</Text>
+          <Text style={styles.sectionTitle}>기본 정보</Text>
           <View style={styles.chipRow}>
-            {detailChips.map((chip, idx) => (
+            {basicChips.map((chip, idx) => (
               <Chip key={idx} label={chip as string} containerStyle={styles.chip} labelStyle={styles.chipLabel} />
             ))}
           </View>
-
         </View>
-      )}
 
-      {/* 관심사 */}
-      {interestChips.length > 0 && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>요즘 관심있는 것은</Text>
-          <View style={styles.chipRow}>
-            {interestChips.map((chip, idx) => (
-              <Chip key={idx} label={chip as string} containerStyle={styles.chip} labelStyle={styles.chipLabel} />
-            ))}
-          </View>
-        </View>
-      )}
-
-      {/* 이상형 정보 */}
-      {(profile.idealType || preference) && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>이상형</Text>
-          {profile.idealType && <Text style={styles.introductionText}>{profile.idealType}</Text>}
-          {preference && (
+        {/* 상세 정보 */}
+        {(detailChips.length > 0) && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>나는 이런 사람!</Text>
             <View style={styles.chipRow}>
-              {preference.ageRange && <Chip label={`나이: ${preference.ageRange.min}~${preference.ageRange.max}세`} containerStyle={styles.chip} labelStyle={styles.chipLabel} />}
-              {preference.heightRange && <Chip label={`키: ${preference.heightRange.min}~${preference.heightRange.max}cm`} containerStyle={styles.chip} labelStyle={styles.chipLabel} />}
-              {preference.regions && preference.regions.length > 0 && <Chip label={`지역: ${preference.regions.join(', ')}`} containerStyle={styles.chip} labelStyle={styles.chipLabel} />}
-              {preference.jobs && preference.jobs.length > 0 && <Chip label={`직업: ${preference.jobs.join(', ')}`} containerStyle={styles.chip} labelStyle={styles.chipLabel} />}
+              {detailChips.map((chip, idx) => (
+                <Chip key={idx} label={chip as string} containerStyle={styles.chip} labelStyle={styles.chipLabel} />
+              ))}
             </View>
-          )}
-        </View>
-      )}
-      <View style={{ height: 80 }} />
-    </ScrollView>
+
+          </View>
+        )}
+
+        {/* 관심사 */}
+        {interestChips.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>요즘 관심있는 것은</Text>
+            <View style={styles.chipRow}>
+              {interestChips.map((chip: string, idx: number) => (
+                <Chip key={idx} label={chip as string} containerStyle={styles.chip} labelStyle={styles.chipLabel} />
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* 이상형 정보 */}
+        {(profile.idealType || preference) && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>이상형</Text>
+            {profile.idealType && <Text style={styles.introductionText}>{profile.idealType}</Text>}
+            {preference && (
+              <View style={styles.chipRow}>
+                {preference.ageRange && <Chip label={`나이: ${preference.ageRange.min}~${preference.ageRange.max}세`} containerStyle={styles.chip} labelStyle={styles.chipLabel} />}
+                {preference.heightRange && <Chip label={`키: ${preference.heightRange.min}~${preference.heightRange.max}cm`} containerStyle={styles.chip} labelStyle={styles.chipLabel} />}
+                {preference.regions && preference.regions.length > 0 && <Chip label={`지역: ${preference.regions.join(', ')}`} containerStyle={styles.chip} labelStyle={styles.chipLabel} />}
+                {preference.jobs && preference.jobs.length > 0 && <Chip label={`직업: ${preference.jobs.join(', ')}`} containerStyle={styles.chip} labelStyle={styles.chipLabel} />}
+              </View>
+            )}
+          </View>
+        )}
+        <View style={{ height: 80 }} />
+      </ScrollView>
+    </>
   );
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 32,
+    paddingBottom: 10,
+    borderBottomWidth: 0.2,
+    borderBottomColor: '#efefef',
+    backgroundColor: colors.background,
+  },
+  headerTitle: {
+    fontFamily: 'Pretendard-Bold',
+    fontSize: 24,
+    color: colors.text.primary,
+    flex: 1,
+    textAlign: 'center',
+  },
+  headerSpacer: { width: 48 }, // 뒤로가기 버튼과 제목 사이 간격
+  backButton: {
+    backgroundColor: colors.background,
+    borderRadius: 20,
+    padding: 6,
+  },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
   loadingText: { ...typography.body, color: colors.text.disabled, marginTop: 16 },
   errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background, padding: 24 },
@@ -223,7 +254,7 @@ const styles = StyleSheet.create({
   photoSliderWrap: {
     width: '100%',
     alignItems: 'center',
-    marginTop: 50,
+    marginTop: 0,
     marginBottom: 16,
   },
   profilePhotoWide: {
@@ -254,7 +285,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   section: { backgroundColor: colors.surface, marginTop: 16, paddingHorizontal: 24, paddingVertical: 20, borderRadius: 16 },
-  sectionTitle: { ...typography.h3, color: colors.text.primary, marginBottom: 16 },
+  sectionTitle: { ...typography.headingMedium, color: colors.text.primary, marginBottom: 16 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
   chip: { marginRight: 8, marginBottom: 8, backgroundColor: '#f3f3f3', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 0 },
   chipLabel: { color: colors.text.disabled, fontSize: 15 },

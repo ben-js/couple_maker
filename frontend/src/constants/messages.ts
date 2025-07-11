@@ -28,7 +28,7 @@ export const SCREEN_TITLES = {
   CHAT: '채팅',
   FILTER: '필터',
   SETTINGS: '설정',
-  HOME: '홈',
+  MAIN: '메인',
   PROFILE: '마이페이지',
 } as const;
 
@@ -41,5 +41,5 @@ export const BUTTON_TEXTS = {
   LOGIN: '로그인',
   LOGOUT: '로그아웃',
   EDIT_PROFILE: '프로필 수정',
-  GO_HOME: '홈으로',
+  GO_MAIN: '메인으로',
 } as const; 

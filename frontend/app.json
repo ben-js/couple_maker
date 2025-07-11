@@ -8,6 +8,8 @@
     }
   },
   "owner": "imsihyeong",
+  "name": "date-sense",
+  "displayName": "Date Sense",
   "android": {
     "package": "com.imsihyeong.couplemakerfrontend"
   }

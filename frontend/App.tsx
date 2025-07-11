@@ -62,6 +62,10 @@ ThemeManager.setComponentTheme('Card', {
   elevation: 3
 });
 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+const queryClient = new QueryClient();
+
 export default function App() {
   const [isReady, setIsReady] = useState(false);
 
@@ -88,15 +92,17 @@ export default function App() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <AuthProvider>
-          <NavigationContainer>
-            <StatusBar style="auto" />
-            <RootNavigator />
-          </NavigationContainer>
-        </AuthProvider>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+    <QueryClientProvider client={queryClient}>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaProvider>
+          <AuthProvider>
+            <NavigationContainer>
+              <StatusBar style="auto" />
+              <RootNavigator />
+            </NavigationContainer>
+          </AuthProvider>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    </QueryClientProvider>
   );
 } 

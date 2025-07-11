@@ -14,7 +14,7 @@ export const spacing = {
 
 // 앱 전체 설정
 export const APP_CONFIG = {
-  NAME: 'Couple Maker',
+  NAME: 'Date Sense',
   VERSION: '1.0.0',
   BUILD_NUMBER: '1',
   SUPPORT_EMAIL: 'support@couplemaker.com',

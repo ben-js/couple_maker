@@ -16,9 +16,9 @@ const FormChips: React.FC<FormChipsProps> = ({ options, value, onChange, min, ma
   // 옵션이 없을 때 안내
   if (!options || options.length === 0) {
     return (
-      <View style={{ marginBottom: 16 }}>
+      <View style={styles.emptyWrap}>
         {label && <Text style={styles.label}>{label}</Text>}
-        <Text style={{ color: '#bbb', fontSize: 15, marginVertical: 12 }}>옵션이 없습니다</Text>
+        <Text style={styles.emptyText}>옵션이 없습니다</Text>
       </View>
     );
   }
@@ -35,9 +35,9 @@ const FormChips: React.FC<FormChipsProps> = ({ options, value, onChange, min, ma
   };
 
   return (
-    <View style={{ marginBottom: 16 }}>
+    <View style={styles.container}>
       {label && (
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+        <View style={styles.labelRow}>
           <Text style={styles.label}>{label}</Text>
           {error && <Text style={styles.error}>{error}</Text>}
         </View>
@@ -60,7 +60,7 @@ const FormChips: React.FC<FormChipsProps> = ({ options, value, onChange, min, ma
         ))}
       </View>
       {typeof max === 'number' && (
-        <View style={{ marginTop: 4, flexDirection: 'row', justifyContent: 'flex-end' }}>
+        <View style={styles.maxInfoWrap}>
           <Text style={styles.info}>최대 {max}개 선택</Text>
         </View>
       )}
@@ -69,6 +69,22 @@ const FormChips: React.FC<FormChipsProps> = ({ options, value, onChange, min, ma
 };
 
 const styles = StyleSheet.create({
+  container: {
+    marginBottom: 16,
+  },
+  emptyWrap: {
+    marginBottom: 16,
+  },
+  emptyText: {
+    color: '#bbb',
+    fontSize: 15,
+    marginVertical: 12,
+  },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
   chipWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -117,6 +133,11 @@ const styles = StyleSheet.create({
   info: {
     color: '#bbb',
     fontSize: 13,
+  },
+  maxInfoWrap: {
+    marginTop: 4,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
   },
 });
 

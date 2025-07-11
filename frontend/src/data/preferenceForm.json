@@ -120,7 +120,7 @@
     "type": "picker",
     "label": "딩크족 희망",
     "placeholder": "딩크족 희망 여부 선택",
-    "optionsKey": "dinkDesire",
+    "optionsKey": "childrenDesire",
     "required": true,
     "errorMessage": "딩크족 희망 여부를 선택해 주세요"
   },

@@ -101,6 +101,7 @@ const ProfileEditScreen = () => {
   const { user, setUser } = useAuth();
   const route = useRoute<any>();
   const isEditMode = route?.params?.isEditMode ?? false;
+  const fromMenu = route?.params?.fromMenu;
   
   const { control, handleSubmit, formState: { errors }, setValue, trigger, reset } = useForm({
     mode: 'onChange',
@@ -118,15 +119,15 @@ const ProfileEditScreen = () => {
   // 기존 프로필 데이터 로딩 (수정 모드일 때)
   React.useEffect(() => {
     const loadExistingProfile = async () => {
-      if (!user?.id || !isEditMode) {
+      if (!user?.userId || !isEditMode) {
         setIsLoading(false);
         return;
       }
 
       
       try {
-        console.log('프로필 로딩 시작:', { userId: user.id, isEditMode });
-        const existingProfile = await getUserProfile(user.id);
+        console.log('프로필 로딩 시작:', { userId: user.userId, isEditMode });
+        const existingProfile = await getUserProfile(user.userId);
         console.log('API 응답:', existingProfile);
         
         if (existingProfile) {
@@ -156,20 +157,20 @@ const ProfileEditScreen = () => {
             setPhotos(photoArray.slice(0, 5));
           }
           
-          logger.info('기존 프로필 로드 성공', { userId: user.id, profileData: existingProfile });
+          logger.info('기존 프로필 로드 성공', { userId: user.userId, profileData: existingProfile });
         } else {
           console.log('프로필 데이터가 없음');
         }
       } catch (error) {
         console.error('프로필 로드 에러:', error);
-        logger.error('기존 프로필 로드 실패', { error, userId: user.id });
+        logger.error('기존 프로필 로드 실패', { error, userId: user.userId });
       } finally {
         setIsLoading(false);
       }
     };
 
     loadExistingProfile();
-  }, [user?.id, isEditMode, setValue]);
+  }, [user?.userId, isEditMode, setValue]);
 
   // 사진 관련 핸들러들
   const handleCamera = async (idx: number|null) => {
@@ -248,7 +249,10 @@ const ProfileEditScreen = () => {
   };
 
   const onSubmit = async (data: any) => {
-    if (!user) return;
+    if (!user?.userId) {
+      Alert.alert('오류', '로그인 정보가 올바르지 않습니다. 다시 로그인 해주세요.');
+      return;
+    }
     
     const filteredPhotos = photos.filter(p => !!p);
     if (filteredPhotos.length < 1) {
@@ -261,7 +265,7 @@ const ProfileEditScreen = () => {
     }
     
     const profile = {
-      id: user.id,
+      id: user.userId,
       ...data,
       photos: filteredPhotos,
     };
@@ -271,8 +275,10 @@ const ProfileEditScreen = () => {
       
       if (success) {
         // 프로필 저장 성공 시 최신 프로필 fetch 후 setUser로 갱신
-        const latestProfile = await getUserProfile(user.id);
-        if (latestProfile) setUser(latestProfile);
+        const latestProfile = await getUserProfile(user.userId);
+        if (latestProfile) {
+          setUser(latestProfile);
+        }
       }
       
       if (Platform.OS === 'android') {
@@ -281,7 +287,10 @@ const ProfileEditScreen = () => {
         Alert.alert(TOAST_MESSAGES.PROFILE_SAVED);
       }
       
-      if (!user.hasPreferences) {
+      if (fromMenu) {
+        // 메뉴에서 왔을 때는 메인 탭으로 이동 (Menu 탭이 활성화됨)
+        navigation.navigate(NAVIGATION_ROUTES.MAIN, { screen: 'Menu' });
+      } else if (!user.hasProfile) {
         logger.navigation.navigate('ProfileEditScreen', NAVIGATION_ROUTES.PREFERENCE_EDIT);
         navigation.navigate(NAVIGATION_ROUTES.PREFERENCE_EDIT);
       } else {
@@ -303,24 +312,24 @@ const ProfileEditScreen = () => {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#fff' }}>
-      <ScrollView style={{ flex: 1, padding: 24 }} contentContainerStyle={{ paddingBottom: 100 }}>
+    <View style={styles.container}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         {/* 대표 이미지 */}
-        <View style={{ alignItems: 'center', marginBottom: 24 }}>
+        <View style={styles.profileImageWrap}>
           <TouchableOpacity
             onPress={() => setShowPhotoPopup(true)}
             activeOpacity={0.8}
-            style={{ width: 160, height: 160, backgroundColor: '#eee', borderRadius: 12, justifyContent: 'center', alignItems: 'center' }}
+            style={styles.profileImageTouchable}
           >
             {photos[0] ? (
-              <Image source={{ uri: photos[0] }} style={{ width: '100%', height: '100%', borderRadius: 12 }} resizeMode="cover" />
+              <Image source={{ uri: photos[0] }} style={styles.profileImage} resizeMode="cover" />
             ) : (
               <Avatar
                 size={64}
                 label="?"
                 backgroundColor="#e5e6fa"
                 labelColor="#bbb"
-                containerStyle={{ alignSelf: 'center' }}
+                containerStyle={styles.avatar}
               />
             )}
           </TouchableOpacity>
@@ -330,59 +339,59 @@ const ProfileEditScreen = () => {
         <Dialog
           visible={showPhotoPopup}
           onDismiss={() => setShowPhotoPopup(false)}
-          containerStyle={{ justifyContent: 'center', alignItems: 'center' }}
+          containerStyle={styles.photoPopupDialog}
           width={340}
           panDirection={null}
         >
-          <View style={{ backgroundColor: colors.surface, borderRadius: 20, paddingVertical: 24, width: 340, alignItems: 'center' }}>
-            <Text style={{ fontSize: 18, fontWeight: 'bold', textAlign: 'center', marginBottom: 16 }}>사진 관리</Text>
+          <View style={styles.photoPopupWrap}>
+            <Text style={styles.photoPopupTitle}>사진 관리</Text>
             
             {/* 대표 이미지 */}
             <TouchableOpacity
               onPress={() => setPhotoActionIndex(0)}
               activeOpacity={0.8}
-              style={{ width: 120, height: 120, backgroundColor: '#eee', borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: 16, position: 'relative' }}
+              style={styles.photoMainTouchable}
             >
               {photos[0] ? (
-                <Image source={{ uri: photos[0] }} style={{ width: '101%', height: '100%', borderRadius: 12 }} resizeMode="cover" />
+                <Image source={{ uri: photos[0] }} style={styles.photoMainImage} resizeMode="cover" />
               ) : (
                 <Avatar
                   size={48}
                   label="?"
                   backgroundColor="#e5e6fa"
                   labelColor="#bbb"
-                  containerStyle={{ alignSelf: 'center' }}
+                  containerStyle={styles.avatar}
                 />
               )}
-              <View style={{ position: 'absolute', top: 0, right: 0, backgroundColor: '#6C6FC5', borderTopRightRadius: 12, borderBottomLeftRadius: 12, paddingHorizontal: 10, paddingVertical: 4 }}>
-                <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 14 }}>대표</Text>
+              <View style={styles.photoMainLabel}>
+                <Text style={styles.photoMainLabelText}>대표</Text>
               </View>
             </TouchableOpacity>
             
             {/* 나머지 이미지들 */}
-            <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 12 }}>
+            <View style={styles.photoThumbRow}>
               {[1,2,3,4].map(i => (
                 <TouchableOpacity
                   key={i}
                   onPress={() => setPhotoActionIndex(i)}
                   activeOpacity={0.8}
-                  style={{ width: 56, height: 56, backgroundColor: '#eee', borderRadius: 8, marginHorizontal: 6, justifyContent: 'center', alignItems: 'center' }}
+                  style={styles.photoThumbTouchable}
                 >
                   {photos[i] ? (
-                    <Image source={{ uri: photos[i] }} style={{ width: '100%', height: '100%', borderRadius: 8 }} resizeMode="cover" />
+                    <Image source={{ uri: photos[i] }} style={styles.photoThumbImage} resizeMode="cover" />
                   ) : (
                     <Avatar
                       size={28}
                       label="?"
                       backgroundColor="#e5e6fa"
                       labelColor="#bbb"
-                      containerStyle={{ alignSelf: 'center' }}
+                      containerStyle={styles.avatar}
                     />
                   )}
                 </TouchableOpacity>
               ))}
             </View>
-            <Button label="닫기" onPress={() => setShowPhotoPopup(false)} style={{ marginTop: 8 }} />
+            <Button label="닫기" onPress={() => setShowPhotoPopup(false)} style={styles.closeButton} />
           </View>
           
           {/* 사진 액션 다이얼로그 */}
@@ -392,26 +401,26 @@ const ProfileEditScreen = () => {
             width={260}
             panDirection={null}
           >
-            <View style={{ backgroundColor: colors.surface, borderRadius: 16, paddingVertical: 12, width: 260 }}>
-              <View style={{ alignItems: 'flex-start', paddingHorizontal: 20 }}>
-                <TouchableOpacity style={{ paddingVertical: 14, width: '100%' }} onPress={() => handleCamera(photoActionIndex)}>
-                  <Text style={{ fontSize: 16, color: '#222' }}>카메라</Text>
+            <View style={styles.photoActionDialog}>
+              <View style={styles.photoActionList}>
+                <TouchableOpacity style={styles.photoActionTouchable} onPress={() => handleCamera(photoActionIndex)}>
+                  <Text style={styles.photoActionText}>카메라</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={{ paddingVertical: 14, width: '100%' }} onPress={() => handleGallery(photoActionIndex)}>
-                  <Text style={{ fontSize: 16, color: '#222' }}>갤러리</Text>
+                <TouchableOpacity style={styles.photoActionTouchable} onPress={() => handleGallery(photoActionIndex)}>
+                  <Text style={styles.photoActionText}>갤러리</Text>
                 </TouchableOpacity>
                 {photoActionIndex !== 0 && photos[photoActionIndex ?? 0] && (
-                  <TouchableOpacity style={{ paddingVertical: 14, width: '100%' }} onPress={() => handleSetMain(photoActionIndex!)}>
-                    <Text style={{ fontSize: 16, color: '#222' }}>대표 이미지 설정</Text>
+                  <TouchableOpacity style={styles.photoActionTouchable} onPress={() => handleSetMain(photoActionIndex!)}>
+                    <Text style={styles.photoActionText}>대표 이미지 설정</Text>
                   </TouchableOpacity>
                 )}
                 {photos[photoActionIndex ?? 0] && (
-                  <TouchableOpacity style={{ paddingVertical: 14, width: '100%' }} onPress={() => handleDelete(photoActionIndex!)}>
-                    <Text style={{ fontSize: 16, color: '#222' }}>사진 삭제</Text>
+                  <TouchableOpacity style={styles.photoActionTouchable} onPress={() => handleDelete(photoActionIndex!)}>
+                    <Text style={styles.photoActionText}>사진 삭제</Text>
                   </TouchableOpacity>
                 )}
-                <TouchableOpacity style={{ paddingVertical: 14, width: '100%' }} onPress={() => setPhotoActionIndex(null)}>
-                  <Text style={{ fontSize: 16, color: '#888' }}>닫기</Text>
+                <TouchableOpacity style={styles.photoActionTouchable} onPress={() => setPhotoActionIndex(null)}>
+                  <Text style={styles.photoActionTextClose}>닫기</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -523,7 +532,7 @@ const ProfileEditScreen = () => {
                 name={field.name}
                 render={({ field: { onChange, value }, fieldState: { error } }) => (
                   <>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                    <View style={styles.labelRow}>
                       <Text style={{ fontWeight: '700', color: '#222', fontSize: 16 }}>{field.label}</Text>
                       {error?.message && <Text style={{ color: 'red', marginLeft: 8, fontSize: 13 }}>{error.message}</Text>}
                     </View>
@@ -532,7 +541,7 @@ const ProfileEditScreen = () => {
                       activeOpacity={0.8}
                       style={{ borderWidth: 0, borderRadius: 0, backgroundColor: 'transparent', paddingHorizontal: 0, minHeight: 40, justifyContent: 'center', marginBottom: 12 }}
                     >
-                      <Text style={{ color: value && value.length ? '#222' : '#aaa', fontSize: 16 }}>
+                      <Text style={value && value.length ? styles.chipsValueText : styles.chipsPlaceholderText}>
                         {value && value.length ? value.join(', ') : field.placeholder}
                       </Text>
                     </TouchableOpacity>
@@ -632,6 +641,135 @@ const ProfileEditScreen = () => {
 };
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  scrollView: {
+    flex: 1,
+    padding: 24,
+  },
+  scrollContent: {
+    paddingBottom: 100,
+  },
+  profileImageWrap: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  profileImageTouchable: {
+    width: 160,
+    height: 160,
+    backgroundColor: '#eee',
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 12,
+  },
+  avatar: {
+    alignSelf: 'center',
+  },
+  photoPopupDialog: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  photoPopupWrap: {
+    backgroundColor: '#f8f8f8',
+    borderRadius: 20,
+    paddingVertical: 24,
+    width: 340,
+    alignItems: 'center',
+  },
+  photoPopupTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  photoMainTouchable: {
+    width: 120,
+    height: 120,
+    backgroundColor: '#eee',
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    position: 'relative',
+  },
+  photoMainImage: {
+    width: '101%',
+    height: '100%',
+    borderRadius: 12,
+  },
+  photoMainLabel: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    backgroundColor: '#6C6FC5',
+    borderTopRightRadius: 12,
+    borderBottomLeftRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  photoMainLabelText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  photoThumbRow: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  photoThumbTouchable: {
+    width: 56,
+    height: 56,
+    backgroundColor: '#eee',
+    borderRadius: 8,
+    marginHorizontal: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  photoThumbImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 8,
+  },
+  photoThumbAvatar: {
+    alignSelf: 'center',
+  },
+  closeButton: {
+    marginTop: 8,
+  },
+  photoActionDialog: {
+    backgroundColor: '#f8f8f8',
+    borderRadius: 16,
+    paddingVertical: 12,
+    width: 260,
+  },
+  photoActionList: {
+    alignItems: 'flex-start',
+    paddingHorizontal: 20,
+  },
+  photoActionTouchable: {
+    paddingVertical: 14,
+    width: '100%',
+  },
+  photoActionText: {
+    fontSize: 16,
+    color: '#222',
+  },
+  photoActionTextClose: {
+    fontSize: 16,
+    color: '#888',
+  },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
   footerButtonWrap: {
     position: 'absolute',
     left: 0,
@@ -652,6 +790,14 @@ const styles = StyleSheet.create({
     color: colors.surface,
     fontWeight: 'bold',
     fontSize: 18,
+  },
+  chipsValueText: {
+    color: '#222',
+    fontSize: 16,
+  },
+  chipsPlaceholderText: {
+    color: '#aaa',
+    fontSize: 16,
   },
 });
 

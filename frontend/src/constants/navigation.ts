@@ -16,6 +16,7 @@ export const NAVIGATION_ROUTES = {
   CHAT: 'Chat',
   FILTER: 'Filter',
   SETTINGS: 'Settings',
+  MENU: 'Menu',
 } as const;
 
 // 탭 네비게이션 상수

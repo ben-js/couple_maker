@@ -9,4 +9,11 @@ export interface MatchPair {
   photoVisibleAt?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface MatchDetailData {
+  profile?: any;      // 실제 구조에 맞게 추후 상세 타입 지정
+  preference?: any;
+  status?: string;
+  [key: string]: any;
 } 

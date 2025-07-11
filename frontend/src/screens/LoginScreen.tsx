@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
     width: 180,
     height: 180,
     resizeMode: 'contain',
-    marginBottom: 50,
+    marginBottom: 0,
   },
   emailInput: {
     width: '100%',

@@ -2,9 +2,9 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Feather, FontAwesome5 } from '@expo/vector-icons';
 import MainScreen from '../screens/MainScreen';
-import TipsScreen from '../screens/TipsScreen';
-import CardsScreen from '../screens/CardsScreen';
-import ReviewsScreen from '../screens/ReviewsScreen';
+import InsightScreen from '../screens/InsightScreen';
+import HistoryScreen from '../screens/HistoryScreen';
+import RewardScreen from '../screens/RewardScreen';
 import MenuScreen from '../screens/MenuScreen';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -14,7 +14,7 @@ const MainTabNavigator = () => {
   const insets = useSafeAreaInsets();
   return (
     <Tab.Navigator
-      initialRouteName="Home"
+      initialRouteName="Main"
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarShowLabel: false, // 라벨 숨김
@@ -33,21 +33,20 @@ const MainTabNavigator = () => {
           justifyContent: 'center',
         },
         tabBarIcon: ({ color, size, focused }) => {
-          let iconName: 'home' | 'star' | 'mail' | 'file-text' | 'menu' = 'home';
+          let iconName: string = 'home';
           let useFontAwesome = false;
           switch (route.name) {
-            case 'Home':
+            case 'Main':
               iconName = 'home';
               break;
-            case 'Tips':
-              iconName = 'star';
+            case 'Insight':
+              iconName = 'bar-chart-2';
               break;
-            case 'Cards':
-              iconName = 'mail';
+            case 'History':
+              iconName = 'clock';
               break;
-            case 'Reviews':
-              iconName = 'file-text';
-              useFontAwesome = true;
+            case 'Reward':
+              iconName = 'gift';
               break;
             case 'Menu':
               iconName = 'menu';
@@ -55,17 +54,14 @@ const MainTabNavigator = () => {
             default:
               iconName = 'home';
           }
-          if (useFontAwesome) {
-            return <FontAwesome5 name="history" size={26} color={color} />;
-          }
-          return <Feather name={iconName} size={26} color={color} />;
+          return <Feather name={iconName as any} size={26} color={color} />;
         },
       })}
     >
-      <Tab.Screen name="Home" component={MainScreen} options={{ title: '홈' }} />
-      <Tab.Screen name="Tips" component={TipsScreen} options={{ title: '소개팅팁' }} />
-      <Tab.Screen name="Cards" component={CardsScreen} options={{ title: '카드함' }} />
-      <Tab.Screen name="Reviews" component={ReviewsScreen} options={{ title: '후기' }} />
+      <Tab.Screen name="Main" component={MainScreen} options={{ title: '메인인' }} />
+      <Tab.Screen name="Insight" component={InsightScreen} options={{ title: '인사이트' }} />
+      <Tab.Screen name="History" component={HistoryScreen} options={{ title: '히스토리' }} />
+      <Tab.Screen name="Reward" component={RewardScreen} options={{ title: '리워드' }} />
       <Tab.Screen name="Menu" component={MenuScreen} options={{ title: '메뉴' }} />
     </Tab.Navigator>
   );

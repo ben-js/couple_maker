@@ -1,17 +1,28 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import { StyleSheet, ScrollView, Alert, Platform, ToastAndroid, Image } from 'react-native';
 import { View, Card, Text, Avatar, TouchableOpacity } from 'react-native-ui-lib';
 import { Feather, FontAwesome5, MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { useUserInfo } from '../hooks/useUserStatus';
 import { useAuth } from '../store/AuthContext';
 import { colors, typography } from '@/constants';
 import { TOAST_MESSAGES, NAVIGATION_ROUTES, BUTTON_TEXTS } from '@/constants';
-import { useUserProfile } from '../hooks/useUserProfile';
+import HeaderLayout from '../components/HeaderLayout';
 
 const MenuScreen = () => {
   const navigation = useNavigation<any>();
   const auth = useAuth();
-  const { getProfilePhoto, getUserDisplayName, getUserInitial } = useUserProfile();
+  const { user } = auth;
+  const { data: userInfo, refetch } = useUserInfo(user?.userId);
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refetch();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetch]);
   
   // 로그아웃 처리 함수
   const handleLogout = () => {
@@ -89,7 +100,7 @@ const MenuScreen = () => {
       title: '프로필 수정',
       subtitle: '내 프로필 수정하기',
       icon: 'user',
-      action: () => navigation.navigate(NAVIGATION_ROUTES.PROFILE_EDIT, { isEditMode: true })
+      action: () => navigation.navigate(NAVIGATION_ROUTES.PROFILE_EDIT, { isEditMode: true, fromMenu: true })
     },
     {
       id: 2,
@@ -101,7 +112,7 @@ const MenuScreen = () => {
     {
       id: 3,
       title: '포인트 충전',
-      subtitle: `현재 보유: ${typeof auth.user?.points === 'number' ? auth.user.points : 0}P`,
+      subtitle: `현재 보유: ${typeof userInfo?.points === 'number' ? userInfo.points : 0}P`,
       icon: 'credit-card',
       action: () => console.log('포인트 충전')
     },
@@ -143,41 +154,7 @@ const MenuScreen = () => {
   ];
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* 사용자 정보 카드 */}
-      <Card enableShadow style={styles.userCard}>
-        <View style={styles.userInfo}>
-          {getProfilePhoto() ? (
-            <Image 
-              source={{ uri: getProfilePhoto() }} 
-              style={styles.profileImage}
-              resizeMode="cover"
-            />
-          ) : (
-            <Avatar 
-              size={60} 
-              label={getUserInitial()} 
-              backgroundColor={colors.primary} 
-              labelColor={colors.surface}
-            />
-          )}
-          <View style={styles.userDetails}>
-            <View style={styles.profileCardHeader}>
-              <Text style={[styles.userName, { flex: 1, textAlign: 'center' }]}> 
-                {getUserDisplayName()}
-              </Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', minWidth: 60 }}>
-                <Text style={styles.pointsText}>{typeof auth.user?.points === 'number' ? auth.user.points : 0}P</Text>
-                <Feather name="star" size={20} color="#FFD700" style={{ marginLeft: 4 }} />
-              </View>
-            </View>
-            <Text style={styles.userEmail}>
-              {auth.user ? auth.user.userId : 'user@example.com'}
-            </Text>
-          </View>
-        </View>
-      </Card>
-
+    <HeaderLayout onRefresh={handleRefresh} refreshing={refreshing}>
       {/* 메뉴 아이템들 */}
       {menuItems.map(item => {
         let iconComponent;
@@ -210,7 +187,7 @@ const MenuScreen = () => {
       })}
       
       <View style={{ height: 100 }} />
-    </ScrollView>
+    </HeaderLayout>
   );
 };
 
@@ -232,11 +209,13 @@ const styles = StyleSheet.create({
   },
   userDetails: {
     flex: 1,
-    marginLeft: 16,
+    marginLeft: 12,
   },
   userName: {
-    ...typography.title,
-    marginBottom: 4,
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#222',
+    marginBottom: 2,
   },
   userEmail: {
     ...typography.caption,
@@ -248,10 +227,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   pointsText: {
-    ...typography.caption,
-    color: colors.primary,
-    fontWeight: '600',
-    marginLeft: 4,
+    fontSize: 12,
+    color: '#8E8E8E',
+    marginLeft: 0,
   },
   menuCard: {
     marginBottom: 8,
@@ -285,9 +263,10 @@ const styles = StyleSheet.create({
     ...typography.caption,
   },
   profileImage: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    marginRight: 12,
   },
   statsCard: {
     marginTop: 24,

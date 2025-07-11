@@ -1,161 +1,84 @@
-import React, { useEffect, useState } from 'react';
-import { StyleSheet, ScrollView, Image, ActivityIndicator, ToastAndroid, Alert, Platform, Modal, Dimensions, SafeAreaView } from 'react-native';
-import { View, Card, Text, Button, Avatar, TouchableOpacity } from 'react-native-ui-lib';
-import { Feather } from '@expo/vector-icons';
+import React, { useEffect, useState, useCallback } from 'react';
+import { StyleSheet, Alert, Modal } from 'react-native';
+import HeaderLayout from '../components/HeaderLayout';
+import { View, Text, TouchableOpacity } from 'react-native-ui-lib';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../store/AuthContext';
 import { NAVIGATION_ROUTES, colors, typography, spacing } from '@/constants';
-import { useUserProfile } from '../hooks/useUserProfile';
 import { apiGet, apiPost } from '@/utils/apiUtils';
-import PrimaryButton from '../components/PrimaryButton';
 import StepProgressBar from '../components/StepProgressBar';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import regionData from '../data/regions.json';
-import FormRegionChoiceModal from '../components/FormRegionChoiceModal';
-import FormModalSelector from '../components/FormModalSelector';
+import CardProfile from '../components/CardProfile';
+import CardCTA from '../components/CardCTA';
+import CardScheduleChoice from '../components/CardScheduleChoice';
+import { useUserStatus, useUserInfo } from '../hooks/useUserStatus';
 
 const MainScreen = () => {
   const navigation = useNavigation<any>();
-  const { user } = useAuth();
-  const { getProfilePhoto, getUserDisplayName, getUserInitial } = useUserProfile();
-
-  // mainCard 상태 및 setMainCard, renderProfileCard 등 제거
-  // matchingStatus만으로 UI 처리
-  const [matchingStatus, setMatchingStatus] = useState<{ status?: string; steps: string[] }>({ status: undefined, steps: ['신청완료', '매칭 중', '일정 조율', '소개팅 예정'] });
-  const [loadingStatus, setLoadingStatus] = useState(true);
-  const [cardError, setCardError] = useState<string | null>(null);
-  const [status, setStatus] = useState<string | undefined>(undefined);
+  const { user, updateUser } = useAuth();
+  const { data: statusData, refetch: refetchStatus } = useUserStatus(user?.userId);
+  const { data: userInfo, refetch: refetchUser } = useUserInfo(user?.userId);
   const [matchedUser, setMatchedUser] = useState<any>(null);
-  const [showCardModal, setShowCardModal] = useState(false);
   const [matchId, setMatchId] = useState<string | null>(null);
-  const [myChoices, setMyChoices] = useState<{ dates: string[]; locations: string[] } | null>(null);
   const [otherChoices, setOtherChoices] = useState<{ dates: string[]; locations: string[] } | null>(null);
-  const [showFailedModal, setShowFailedModal] = useState(false);
-  // 일정 선택 상태
-  const [showBottomSheet, setShowBottomSheet] = useState(false);
   const [dateSelections, setDateSelections] = useState<(string|null)[]>([null, null, null]);
   const [showDatePickerIdx, setShowDatePickerIdx] = useState<number|null>(null);
   const [locationSelection, setLocationSelection] = useState<string[]>([]);
-  // 장소 추천 리스트(profile 기반)
-  const region = typeof user?.region === 'string' ? user?.region : user?.region?.region || '';
-  const district = user?.region?.district || '';
   const [showDateDuplicateModal, setShowDateDuplicateModal] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        refetchStatus(),
+        refetchUser(),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetchStatus, refetchUser]);
+
+  // statusData에서 matchId 추출하여 세팅
   useEffect(() => {
-    if (!user?.userId) return;
-    setLoadingStatus(true);
-    apiGet('/matching-status', { userId: user.userId })
-      .then(res => {
-        setStatus(res.status);
-        setMatchedUser(res.matchedUser || null);
-        setMatchId(res.matchId || null);
-        setMyChoices(res.myChoices || null);
-        setOtherChoices(res.otherChoices || null);
-        if (res.status === 'failed') setShowFailedModal(true);
-        if (res.matchedUser) setShowCardModal(true);
-      })
-      .catch(e => setCardError(e.message || '매칭 상태를 불러오지 못했습니다.'))
-      .finally(() => setLoadingStatus(false));
-  }, [user?.userId]);
-
-  // renderProfileCard 복원 (matchedUser 기반)
-  const renderProfileCard = () => {
-    if (!matchedUser) return null;
-    return (
-      <Card enableShadow style={styles.profileCard}>
-        <View style={styles.profileCardHeader}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={[styles.profileCardTitle, { textAlign: 'center' }]}>프로필 카드가 도착했어요!</Text>
-            <Feather name="mail" size={24} color={colors.text.primary} style={{ marginLeft: 8, marginTop: 2 }} />
-          </View>
-        </View>
-        <View style={styles.profileCardContent}>
-            <View style={[styles.blurredImage, { justifyContent: 'center', alignItems: 'center' }]}> 
-            <Feather name={'unlock'} size={40} color={colors.accent} />
-            </View>
-          <Text style={styles.profileCardDesc}>{matchedUser.name}님의 프로필이 도착했습니다.</Text>
-          <PrimaryButton
-            title="지금 확인하러 가기"
-            onPress={() => navigation.navigate(NAVIGATION_ROUTES.USER_DETAIL, { userId: matchedUser.userId })}
-            style={{ marginTop: 12, minWidth: 140, height: 40, alignSelf: 'center' }}
-          />
-        </View>
-      </Card>
-    );
-  };
-
-  // 모달: 매칭 상대 카드 도착 안내
-  const [cardModalVisible, setCardModalVisible] = useState(false);
-  useEffect(() => {
-    if (matchedUser) setCardModalVisible(true);
-  }, [matchedUser]);
-
-  const handleCardModalConfirm = () => {
-    setCardModalVisible(false);
-    navigation.navigate(NAVIGATION_ROUTES.USER_DETAIL, { userId: matchedUser.userId });
-  };
+    if (statusData?.matchId) {
+      console.log('[매칭 상태] matchId 세팅:', statusData.matchId);
+      setMatchId(statusData.matchId);
+    } else {
+      console.log('[매칭 상태] matchId 없음:', statusData);
+      setMatchId(null);
+    }
+  }, [statusData]);
 
   // showCtaCard 조건을 status 값만으로 명확하게 처리
-  const showCtaCard = !status;
+  const showCtaCard = !statusData?.status;
 
   const matchingStepDescriptions: Record<string, string> = {
     waiting: '신청이 완료되었어요.\n매칭 소식을 곧 알려드릴게요!',
     matched: '매칭 성공!\n일정을 선택 해주세요.',
     confirmed: '매칭 확정!\n일정 조율 중이에요.',
     scheduled: '소개팅 일정이 확정됐어요!\n당일 오전 9시에 프로필이 공개됩니다.',
+    none: '아직 소개팅 신청을 하지 않았습니다.',
   };
 
   const statusSteps = ['waiting', 'matched', 'confirmed', 'scheduled'];
-  const currentStep = statusSteps.indexOf(status ?? '');
+  const currentStep = statusData?.status ? statusSteps.indexOf(statusData.status) : -1;
 
-  const handleRefreshStatus = () => {
-    setLoadingStatus(true);
-    apiGet('/matching-status', { userId: user?.userId })
-      .then(res => {
-        setStatus(res.status);
-        setMatchedUser(res.matchedUser || null);
-        setMatchId(res.matchId || null);
-        setMyChoices(res.myChoices || null);
-        setOtherChoices(res.otherChoices || null);
-        if (res.status === 'failed') setShowFailedModal(true);
-      })
-      .finally(() => setLoadingStatus(false));
-  };
-
-  const renderMatchingProgress = () => {
-    return (
-      <View style={styles.matchingProgressContainer}>
-        <TouchableOpacity onPress={handleRefreshStatus} style={{ position: 'absolute', top: 12, right: 16, zIndex: 1, padding: 2 }}>
-          <Feather name="refresh-ccw" size={16} color={colors.text.primary} />
-        </TouchableOpacity>
-        <View style={{ alignItems: 'center', width: '100%' }}>
-          <Text style={styles.matchingProgressTitle}>매칭 진행 상황</Text>
-        </View>
-        <Text style={styles.matchingProgressDesc}>
-          {matchingStepDescriptions[status ?? ''] || '상태를 불러올 수 없습니다.'}
-        </Text>
-        <StepProgressBar
-          total={statusSteps.length}
-          current={currentStep >= 0 ? currentStep : 0}
-          labels={['신청완료', '매칭성공', '일정 조율', '소개팅 예정']}
-        />
+  const renderMatchingProgress = () => (
+    <View style={styles.matchingProgressContainer}>
+      <View style={styles.matchingProgressCenter}>
+        <Text style={styles.matchingProgressTitle}>매칭 진행 상황</Text>
       </View>
-    );
-  };
-  
-  const renderCtaCard = () => {
-    return (
-      <TouchableOpacity onPress={handleCtaPress} activeOpacity={0.85} style={{ width: '100%' }}>
-        <Card enableShadow style={[styles.profileCard, { minHeight: 180, justifyContent: 'center', alignItems: 'center' }]}> 
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={[styles.profileCardTitle, { textAlign: 'center', flex: 0 }]}>지금 소개팅 신청하기</Text>
-            <Feather name="edit-3" size={24} color={colors.text.primary} style={{ marginLeft: 8 }} />
-          </View>
-          <Text style={[styles.ctaButtonSubtext, { textAlign: 'center', alignSelf: 'center', marginTop: 8 }]}>AI + 매니저가 어울리는 상대를 찾아드려요!</Text>
-        </Card>
-      </TouchableOpacity>
-    );
-  };
+      <Text style={styles.matchingProgressDesc}>
+        {statusData?.status ? (matchingStepDescriptions[statusData.status] || '') : matchingStepDescriptions.none}
+      </Text>
+      <StepProgressBar
+        total={statusSteps.length}
+        current={currentStep}
+        labels={['신청완료', '매칭성공', '일정 조율', '소개팅 예정']}
+      />
+    </View>
+  );
 
   const handleCtaPress = () => {
     if (!user || typeof user.points !== 'number' || user.points < 100) {
@@ -174,230 +97,70 @@ const MainScreen = () => {
 
   // 일정/장소 바텀시트 확인
   const handleConfirmSchedule = async () => {
-    console.log('handleConfirmSchedule', dateSelections, locationSelection, matchId, user?.userId
-      
-    );
-    if (!dateSelections.every(d => d) || locationSelection.length === 0) return;
-    if (!matchId) return; // matchId가 없으면 호출하지 않음
-    await apiPost('/matching-choices', {
-      match_id: matchId,
-      user_id: user?.userId,
-      dates: dateSelections,
-      locations: locationSelection,
-    });
-    setLoadingStatus(true);
-    apiGet('/matching-status', { userId: user?.userId })
-      .then(res => {
-        setStatus(res.status);
-        setMatchedUser(res.matchedUser || null);
-        setMatchId(res.matchId || null);
-        setMyChoices(res.myChoices || null);
-        setOtherChoices(res.otherChoices || null);
-        if (res.status === 'failed') setShowFailedModal(true);
-      })
-      .finally(() => setLoadingStatus(false));
-  };
-
-  // 일정 선택 UI
-  const renderScheduleChoice = () => (
-    <Card enableShadow style={styles.profileCard}>
-      <Text style={styles.profileCardTitle}>일정/장소를 선택 하세요!</Text>
-      {otherChoices && (
-        <View style={{ marginBottom: 12 }}>
-          <Text style={{ color: colors.text.secondary, marginBottom: 4 }}>상대방이 선택한 일정</Text>
-          <Text style={styles.profileCardDesc}>날짜: {otherChoices.dates.join(', ')}</Text>
-          <Text style={styles.profileCardDesc}>장소: {otherChoices.locations.join(', ')}</Text>
-        </View>
-      )}
-      <View style={{ marginBottom: 24 }} />
-      {/* 1,2,3번 날짜/장소 선택 row를 바로 노출 */}
-      <View style={{ flex: 1, justifyContent: 'flex-start', alignItems: 'stretch', padding: 0 }}>
-        {[0,1,2].map(i => (
-          <View key={i} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-            <Text style={{ fontWeight: 'bold', color: '#222', fontSize: 16, width: 90 }}>{i+1}. 날짜 선택</Text>
-            <TouchableOpacity
-              onPress={() => setShowDatePickerIdx(i)}
-              activeOpacity={0.8}
-              style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 0, minHeight: 44 }}
-            >
-              <Text style={{ color: dateSelections[i] ? '#222' : '#bbb', fontSize: 16 }}>
-                {dateSelections[i] || '날짜를 선택해 주세요'}
-              </Text>
-            </TouchableOpacity>
-            {showDatePickerIdx === i && (
-              <DateTimePicker
-                value={dateSelections[i] ? new Date(dateSelections[i]!) : new Date()}
-                mode="date"
-                display="default"
-                minimumDate={(() => { const d = new Date(); d.setDate(d.getDate() + 1); return d; })()}
-                onChange={(_, date) => {
-                  if (date) {
-                    const d = date;
-                    const formatted = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
-                    if (dateSelections.includes(formatted)) {
-                      setShowDateDuplicateModal(true);
-                    } else {
-                      const newDates = [...dateSelections];
-                      newDates[i] = formatted;
-                      setDateSelections(newDates);
-                    }
-                  }
-                  setShowDatePickerIdx(null);
-                }}
-              />
-            )}
-          </View>
-        ))}
-        {/* 장소 chips 선택 모달: showRegionModal이 true일 때만 Modal로 렌더링 */}
-        {(
-          <FormRegionChoiceModal
-            label="장소 선택"
-            value={locationSelection.map(loc => {
-              const [region, district] = loc.split(' ');
-              return { region, district: district || '' };
-            })}
-            onChange={val => {
-              setLocationSelection(
-                Array.from(new Set(val.map(v => v.region + (v.district ? ' ' + v.district : ''))))
-              );
-            }}
-            regionData={regionData}
-            placeholder="장소를 선택해 주세요"
-            minSelect={1}
-            maxSelect={3}
-            error={undefined}
-            type="same-line"
-          />
-        )}
-      </View>
-      {/* 하단 고정 버튼 */}
-      <View style={{ paddingTop: 12 }}>
-        <TouchableOpacity
-          style={{ backgroundColor: dateSelections.every(d => d) && locationSelection.length > 0 ? colors.primary : '#eee', borderRadius: 12, paddingVertical: 14, alignItems: 'center' }}
-          disabled={!dateSelections.every(d => d) || locationSelection.length === 0}
-          onPress={handleConfirmSchedule}
-        >
-          <Text style={{ color: dateSelections.every(d => d) && locationSelection.length > 0 ? '#fff' : '#bbb', fontWeight: 'bold', fontSize: 16 }}>확인</Text>
-        </TouchableOpacity>
-      </View>
-    </Card>
-  );
-
-  // 일정 조율 실패 모달
-  const handleAcceptOtherSchedule = async () => {
-    await apiGet('/submit-choices', {
-      match_id: matchId,
-      user_id: user?.userId,
-      acceptOtherSchedule: true,
-    });
-    setShowFailedModal(false);
-    setLoadingStatus(true);
-    apiGet('/matching-status', { userId: user?.userId })
-      .then(res => {
-        setStatus(res.status);
-        setMatchedUser(res.matchedUser || null);
-        setMatchId(res.matchId || null);
-        setMyChoices(res.myChoices || null);
-        setOtherChoices(res.otherChoices || null);
-      })
-      .finally(() => setLoadingStatus(false));
+    console.log('[일정/장소 저장] 시도', { dateSelections, locationSelection, matchId, userId: user?.userId });
+    if (!dateSelections.every(d => d) || locationSelection.length === 0) {
+      console.log('[일정/장소 저장] 날짜/장소 미입력');
+      return;
+    }
+    if (!matchId) {
+      console.log('[일정/장소 저장] matchId 없음');
+      return;
+    }
+    try {
+      const res = await apiPost('/matching-choices', {
+        match_id: matchId,
+        user_id: user?.userId,
+        dates: dateSelections,
+        locations: locationSelection,
+      });
+      console.log('[일정/장소 저장] API 응답', res);
+      refetchStatus();
+    } catch (e) {
+      console.log('[일정/장소 저장] API 에러', e);
+      Alert.alert('저장 실패', '일정/장소 저장에 실패했습니다.');
+    }
   };
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* 상단 헤더 */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          {getProfilePhoto() ? (
-            <Image 
-              source={{ uri: getProfilePhoto() }} 
-              style={styles.profileImage}
-              resizeMode="cover"
-            />
-          ) : (
-            <Avatar 
-              size={44} 
-              label={getUserInitial()} 
-              backgroundColor={colors.primary} 
-              labelColor={colors.surface}
-            />
-          )}
-          <View style={styles.welcomeText}>
-            <Text style={styles.welcomeTitle}>{getUserDisplayName()}</Text>
-            <Text style={styles.pointsText}>보유 포인트: {user && typeof user.points === 'number' ? user.points : 0}P</Text>
-          </View>
-        </View>
-        <View style={styles.headerRight}>
-          <PrimaryButton
-            title="충전하기"
-            onPress={() => {/* 충전 로직 또는 네비게이션 */}}
-            style={{ minWidth: 80, height: 36, marginRight: 8, paddingHorizontal: 16, paddingVertical: 0 }}
-          />
-          <TouchableOpacity style={styles.notificationButton}>
-            <Feather name="bell" size={28} color={colors.text.primary} style={{ opacity: 0.9 }} />
-          </TouchableOpacity>
-        </View>
-      </View>
+    <HeaderLayout onRefresh={handleRefresh} refreshing={refreshing}>
+      {renderMatchingProgress()}
 
       {/* 소개팅 신청 CTA: 신청 전(status 없음) */}
-      {showCtaCard && renderCtaCard()}
-
-      {/* 매칭 상태 뷰: 신청 이후(status 있음) */}
-      {!showCtaCard && renderMatchingProgress()}
+      {showCtaCard && (
+        <CardCTA
+          title="지금 소개팅 신청하기"
+          subtitle="AI + 매니저가 어울리는 상대를 찾아드려요!"
+          buttonText="신청하기"
+          onPress={handleCtaPress}
+        />
+      )}
 
       {/* 매칭 상대 카드 도착 시 카드 UI 노출 */}
-      {!showCtaCard && (status === 'scheduled') && matchedUser && renderProfileCard()}
+      {!showCtaCard && (statusData?.status === 'scheduled') && userInfo && (
+        <CardProfile
+          user={userInfo}
+          matchId={matchId || ''}
+          onPress={() => navigation.navigate(NAVIGATION_ROUTES.USER_DETAIL, { userId: userInfo.userId, matchId })}
+        />
+      )}
 
       {/* 일정 선택 UI: status가 matched일 때 */}
-      {!showCtaCard && status === 'matched' && renderScheduleChoice()}
-
-      {/* 일정 조율 실패 모달 */}
-      {showFailedModal && (
-        <Modal visible={showFailedModal} transparent animationType="fade">
-          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' }}>
-            <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 28, alignItems: 'center', width: 300 }}>
-              <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 8, textAlign: 'center' }}>상대방과 일정이 맞지 않습니다. 상대방 일정에 맞추시겠습니까?</Text>
-              <PrimaryButton
-                title="상대방 일정에 맞추기"
-                onPress={handleAcceptOtherSchedule}
-                style={{ marginTop: 16, minWidth: 120, height: 44 }}
-              />
-              <PrimaryButton
-                title="다른 사람과 매칭"
-                onPress={() => {/* 재매칭 로직 구현 필요 */}}
-                style={{ marginTop: 8, minWidth: 120, height: 44, backgroundColor: colors.text.secondary }}
-              />
-            </View>
-          </View>
-        </Modal>
+      {!showCtaCard && statusData?.status === 'matched' && (
+        <CardScheduleChoice
+          otherChoices={otherChoices}
+          dateSelections={dateSelections}
+          setDateSelections={setDateSelections}
+          showDatePickerIdx={showDatePickerIdx}
+          setShowDatePickerIdx={setShowDatePickerIdx}
+          locationSelection={locationSelection}
+          setLocationSelection={setLocationSelection}
+          regionData={regionData}
+          showDateDuplicateModal={showDateDuplicateModal}
+          setShowDateDuplicateModal={setShowDateDuplicateModal}
+          onConfirm={handleConfirmSchedule}
+        />
       )}
 
-
-      {/* 매칭 상대 카드 도착 모달 */}
-      {/* 
-      {cardModalVisible && (
-        <Modal
-          visible={cardModalVisible}
-          transparent
-          animationType="fade"
-        >
-          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' }}>
-            <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 28, alignItems: 'center', width: 300 }}>
-              <Feather name="mail" size={40} color={colors.accent} style={{ marginBottom: 12 }} />
-              <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 8, textAlign: 'center' }}>커플 매니저가 소개팅 카드를 보냈습니다{"\n"}확인하세요</Text>
-              <PrimaryButton
-                title="확인"
-                onPress={handleCardModalConfirm}
-                style={{ marginTop: 16, minWidth: 120, height: 44 }}
-              />
-            </View>
-          </View>
-        </Modal>
-      )}
-      */}
-
-      {/* 장소 선택 모달 */}
-      {/* 이미 선택된 날짜 안내 모달 */}
       <Modal
         visible={showDateDuplicateModal}
         transparent
@@ -418,7 +181,7 @@ const MainScreen = () => {
       </Modal>
 
       <View style={{ height: 20 }} />
-    </ScrollView>
+    </HeaderLayout>
   );
 };
 
@@ -469,7 +232,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    // backgroundColor, border, shadow 등 배경/테두리/그림자 제거
   },
   ctaButton: {
     marginHorizontal: spacing.lg,
@@ -559,11 +321,16 @@ const styles = StyleSheet.create({
     padding: spacing.lg + 4,
     borderRadius: spacing.lg,
     backgroundColor: colors.background, // 완전 흰색 배경
-    minHeight: 180,
+    height: 420,
     textAlign: 'center',
   },
   profileCardHeader: {
     marginBottom: spacing.md,
+  },
+  profileCardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   profileCardTitle: {
     ...typography.title,
@@ -571,8 +338,13 @@ const styles = StyleSheet.create({
   profileCardContent: {
     alignItems: 'center',
   },
-  blurredImage: {
-    marginBottom: spacing.md,
+  profileCardImageCenter: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileCardMailIcon: {
+    marginLeft: 8,
+    marginTop: 2,
   },
   profileCardDesc: {
     ...typography.caption,
@@ -607,11 +379,10 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: 'transparent',
+    elevation: 0,
   },
   tipIcon: {
     marginBottom: 8,
@@ -632,6 +403,10 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: colors.surface,
     minHeight: 180,
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: 'transparent',
+    elevation: 0,
   },
   statsContent: {
     marginTop: 8,
@@ -675,19 +450,38 @@ const styles = StyleSheet.create({
     marginHorizontal: 24, // profileCard와 동일하게 좌우 마진 적용
     minHeight: 190,
   },
+  matchingProgressCenter: {
+    alignItems: 'center',
+    width: '100%',
+  },
   matchingProgressTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#222',
-    marginBottom: 4,
+    marginBottom: 10,
     textAlign: 'center',
-    marginTop: 20,
   },
   matchingProgressDesc: {
     fontSize: 15,
     color: '#888',
     marginBottom: 12,
     textAlign: 'center',
+  },
+  ctaCard: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
+    padding: spacing.lg + 4,
+    borderRadius: spacing.lg,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  refreshButton: {
+    position: 'absolute',
+    top: 12,
+    right: 16,
+    zIndex: 1,
+    padding: 2,
   },
 });
 
