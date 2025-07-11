@@ -1,11 +1,11 @@
-# 💕 Couple Maker - 소개팅 앱
+# 💕 Date Sense - 소개팅 앱
 
 React Native + AWS 서버리스 아키텍처로 구축된 소개팅 앱입니다.
 
 ## 🏗 프로젝트 구조
 
 ```
-couple-maker/
+date-sense/
 ├── frontend/                 # React Native + Expo 앱
 │   ├── src/
 │   │   ├── screens/         # 화면 컴포넌트

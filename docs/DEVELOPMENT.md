@@ -67,7 +67,7 @@ USER_POOL_CLIENT_ID=your-user-pool-client-id
 ## 🏗 프로젝트 구조
 
 ```
-date_sense/
+date-sense/
 ├── frontend/                 # React Native + Expo 앱
 │   ├── src/
 │   │   ├── screens/         # 화면 컴포넌트
