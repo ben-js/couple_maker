@@ -67,22 +67,29 @@ export interface UserPreferences {
 
 // 매칭 요청 타입
 export interface MatchingRequest {
-  id: string;
-  user_id: string;
-  status: 'waiting' | 'matching' | 'confirmed' | 'completed' | 'failed';
+  match_id: string;
+  requester_id: string;
+  status: 'waiting' | 'propose' | 'matched' | 'confirmed' | 'scheduled' | 'failed';
   created_at: string;
   updated_at: string;
+  photo_visible_at?: string | null;
+  is_manual?: boolean;
+  date_choices?: { dates: string[]; locations: string[] };
 }
 
 // 매칭 페어 타입
 export interface MatchPair {
-  id: string;
-  user1_id: string;
-  user2_id: string;
-  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
-  final_date?: string;
-  location?: string;
-  photo_visible_at?: string;
+  match_pair_id: string;
+  match_a_id: string;
+  match_b_id: string;
+  status: 'waiting' | 'propose' | 'matched' | 'confirmed' | 'scheduled' | 'failed';
+  is_manual?: boolean;
+  is_proposed?: boolean;
+  confirm_proposed?: boolean;
+  user_a_choices: { dates: string[]; locations: string[] };
+  user_b_choices: { dates: string[]; locations: string[] };
+  schedule_date: string | null;
+  date_location: string | null;
   created_at: string;
   updated_at: string;
 }

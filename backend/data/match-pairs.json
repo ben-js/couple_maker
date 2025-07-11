@@ -3,6 +3,7 @@
     "match_pair_id": "match-pair-1",
     "match_a_id": "match-1",
     "match_b_id": "match-2",
+    "status": "matched",
     "is_manual": true,
     "is_proposed": true,
     "confirm_proposed": false,

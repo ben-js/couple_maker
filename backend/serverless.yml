@@ -38,6 +38,9 @@ functions:
       - httpApi:
           path: /users/{id}
           method: get
+      - httpApi:
+          path: /user/{userId}
+          method: get
 
   getUserPreferences:
     handler: handler.getUserPreferences
@@ -205,6 +208,27 @@ functions:
     events:
       - httpApi:
           path: matching-status
+          method: get
+
+  getInsight:
+    handler: handler.getInsight
+    events:
+      - httpApi:
+          path: /insight/{userId}
+          method: get
+
+  getHistory:
+    handler: handler.getHistory
+    events:
+      - httpApi:
+          path: /history/{userId}
+          method: get
+
+  getReward:
+    handler: handler.getReward
+    events:
+      - httpApi:
+          path: /reward/{userId}
           method: get
 
 plugins:

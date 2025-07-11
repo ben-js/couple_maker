@@ -578,12 +578,15 @@ export const getProfile = async (event: any) => {
   const { userId } = event.pathParameters || {};
   console.log('프로필 조회 요청:', { userId, path: event.requestContext?.http?.path });
   const profiles: UserProfile[] = readJson(profilesPath);
+  const users: User[] = readJson(usersPath);
   const profile = profiles.find(p => p.user_id === userId);
+  const user = users.find(u => u.user_id === userId);
   if (profile) {
     const baseUrl = getBaseUrl(event);
     // photos의 각 경로 앞에 baseUrl 붙이기
     const transformedProfile = snakeToCamelCase({
       ...profile,
+      points: user?.points ?? 0,
       photos: (profile.photos || []).map((url: string) =>
         url && url.startsWith('/files/') ? `${baseUrl}${url}` : url
       ),
@@ -660,7 +663,10 @@ export const requestMatching = async (event: any) => {
     requester_id: userId,
     status: 'waiting',
     created_at: new Date().toISOString(),
-    is_manual: false
+    updated_at: new Date().toISOString(),
+    is_manual: false,
+    date_choices: { dates: [], locations: [] },
+    photo_visible_at: null
   };
   
   matchingRequests.push(newRequest);
@@ -961,28 +967,13 @@ export const updateUserStatus = async (event: any) => {
 
 // 사용자 정보 조회
 export const getUser = async (event: any) => {
-  const userId = event.pathParameters?.id;
-  if (!userId) {
-    return { statusCode: 400, body: JSON.stringify({ error: 'User ID is required' }) };
-  }
+  const { userId } = event.pathParameters || {};
   const users: User[] = readJson(usersPath);
   const user = users.find(u => u.user_id === userId);
-  if (!user) {
-    return { statusCode: 404, body: JSON.stringify({ error: 'User not found' }) };
+  if (user) {
+    return { statusCode: 200, body: JSON.stringify(snakeToCamelCase(user)) };
   }
-  await appendLog({
-    type: 'user_retrieved',
-    userId,
-    result: 'success',
-    detail: { user_id: userId },
-    action: '사용자 정보 조회',
-    screen: 'UserDetailScreen',
-    component: 'user_info'
-  });
-  return {
-    statusCode: 200,
-    body: JSON.stringify(snakeToCamelCase(user))
-  };
+  return { statusCode: 404, body: JSON.stringify({ error: 'User not found', userId }) };
 };
 
 // 카드(소개팅 상대) 목록 조회
@@ -1554,7 +1545,8 @@ export const getMatchDetail = async (event: any) => {
   const profiles = readJson(profilesPath);
   const preferences = readJson(preferencesPath);
   
-  const match = matchPairs.find((m: any) => m.match_id === matchId);
+  // 기존: const match = matchPairs.find((m: any) => m.match_id === matchId);
+  const match = matchPairs.find((m: any) => m.match_a_id === matchId || m.match_b_id === matchId);
   if (!match) {
     await appendLog({
       type: 'get_match_detail',
@@ -1570,13 +1562,22 @@ export const getMatchDetail = async (event: any) => {
   }
   
   // 요청한 사용자가 매칭에 포함되어 있는지 확인
-  if (match.user_a_id !== requestUserId && match.user_b_id !== requestUserId) {
+  const matchingRequests = readJson(matchingRequestsPath);
+  const matchA = matchingRequests.find((r: any) => r.match_id === match.match_a_id);
+  const matchB = matchingRequests.find((r: any) => r.match_id === match.match_b_id);
+
+  if (
+    (matchA && matchA.requester_id === requestUserId) ||
+    (matchB && matchB.requester_id === requestUserId)
+  ) {
+    // OK, 계속 진행
+  } else {
     await appendLog({
       type: 'get_match_detail',
       userId: requestUserId,
       result: 'fail',
       message: 'User not in match',
-      detail: { requestedMatchId: matchId, userA: match.user_a_id, userB: match.user_b_id },
+      detail: { requestedMatchId: matchId, userA: matchA?.requester_id, userB: matchB?.requester_id },
       action: '매칭 상세 조회',
       screen: 'UserDetailScreen',
       component: 'match_detail'
@@ -1585,7 +1586,13 @@ export const getMatchDetail = async (event: any) => {
   }
   
   // 매칭된 상대방의 userId 찾기
-  const otherUserId = match.user_a_id === requestUserId ? match.user_b_id : match.user_a_id;
+  let otherUserId = null;
+  if (matchA && matchA.requester_id === requestUserId && matchB) {
+    otherUserId = matchB.requester_id;
+  } else if (matchB && matchB.requester_id === requestUserId && matchA) {
+    otherUserId = matchA.requester_id;
+  }
+  
   const profile = profiles.find((p: any) => p.user_id === otherUserId);
   const preference = preferences.find((p: any) => p.user_id === otherUserId);
   
@@ -1616,6 +1623,7 @@ export const getMatchDetail = async (event: any) => {
   return { statusCode: 200, body: JSON.stringify(snakeToCamelCase(result)) };
 }; 
 
+// 매칭 상태 조회: 항상 matchId, matchedUser를 응답에 포함 (없으면 null)
 export const getMatchingStatus = async (event: any) => {
   const userId = event.queryStringParameters?.userId || event.headers?.userid;
   if (!userId) {
@@ -1629,7 +1637,7 @@ export const getMatchingStatus = async (event: any) => {
   let matchId = null;
   let matchedUser = null;
   if (myRequest) {
-    status = myRequest.status;
+    status = myRequest.status; // waiting, propose, matched, confirmed, scheduled, failed
     matchId = myRequest.match_id;
   }
   // match-pairs에서 내 userId가 포함된 쌍 찾기 (신청자가 아니더라도)
@@ -1650,8 +1658,6 @@ export const getMatchingStatus = async (event: any) => {
     } else if (matchB && matchB.requester_id === userId && matchA) {
       otherUserId = matchA.requester_id;
     }
-
-    console.log('=================>otherUserId', otherUserId);
     if (otherUserId) {
       const profile = profiles.find((p: any) => p.user_id === otherUserId);
       if (profile) {
@@ -1665,6 +1671,7 @@ export const getMatchingStatus = async (event: any) => {
       }
     }
   }
+  // 항상 matchId, matchedUser 포함 (없으면 null)
   await appendLog({ 
     type: 'get_matching_status', 
     userId, 
@@ -1674,5 +1681,209 @@ export const getMatchingStatus = async (event: any) => {
     screen: 'MainScreen',
     component: 'matching_status'
   });
-  return { statusCode: 200, body: JSON.stringify(matchedUser ? { status, matchedUser, matchId } : { status, matchId }) };
+  return { statusCode: 200, body: JSON.stringify({ status, matchId, matchedUser }) };
+}; 
+
+// [신규] 인사이트 API (더미)
+export const getInsight = async (event: any) => {
+  const { userId } = event.pathParameters || {};
+  // 실제 구현 전까지 더미 데이터 반환
+  if (!userId) {
+    return { statusCode: 400, body: JSON.stringify({ error: 'userId required' }) };
+  }
+  // 예시: 매칭 횟수, 성공률, 최근 활동 등
+  const dummy = {
+    userId,
+    totalMatches: 5,
+    successfulMatches: 2,
+    lastActive: new Date().toISOString(),
+    favoriteRegion: '서울',
+    pointsUsed: 300,
+    reviewScore: 4.2,
+    // ... 기타 통계
+  };
+  return { statusCode: 200, body: JSON.stringify(dummy) };
+}; 
+
+// 히스토리 조회
+export const getHistory = async (event: any) => {
+  try {
+    const userId = event.pathParameters?.userId;
+    
+    if (!userId) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: 'userId is required' })
+      };
+    }
+
+    // 매칭 요청 히스토리
+    const matchingRequests = readJson(matchingRequestsPath);
+    const userMatchingRequests = matchingRequests.filter((req: any) => req.requester_id === userId);
+
+    // 매칭 성사 히스토리
+    const matchPairs = readJson(matchPairsPath);
+    const userMatchPairs = matchPairs.filter((pair: any) => {
+      const matchA = matchingRequests.find((req: any) => req.match_id === pair.match_a_id);
+      const matchB = matchingRequests.find((req: any) => req.match_id === pair.match_b_id);
+      return (matchA && matchA.requester_id === userId) || (matchB && matchB.requester_id === userId);
+    });
+
+    // 포인트 히스토리
+    const pointsHistory = readJson(pointsHistoryPath);
+    const userPointsHistory = pointsHistory.filter((history: any) => history.user_id === userId);
+
+    // 상태 변경 히스토리
+    const statusHistory = readJson(userStatusHistoryPath);
+    const userStatusHistory = statusHistory.filter((history: any) => history.user_id === userId);
+
+    const history = {
+      matchingRequests: userMatchingRequests,
+      matchPairs: userMatchPairs,
+      pointsHistory: userPointsHistory,
+      statusHistory: userStatusHistory
+    };
+
+    await appendLog({
+      type: 'get_history',
+      userId: userId,
+      result: 'success',
+      message: '히스토리 조회 성공',
+      detail: { 
+        matchingRequestsCount: userMatchingRequests.length,
+        matchPairsCount: userMatchPairs.length,
+        pointsHistoryCount: userPointsHistory.length,
+        statusHistoryCount: userStatusHistory.length
+      },
+      action: '히스토리 조회',
+      screen: 'HistoryScreen',
+      component: 'history'
+    });
+
+    return {
+      statusCode: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      },
+      body: JSON.stringify(history)
+    };
+
+  } catch (error: any) {
+    console.error('getHistory error:', error);
+    
+    await appendLog({
+      type: 'get_history',
+      userId: event.pathParameters?.userId,
+      result: 'fail',
+      message: '히스토리 조회 실패',
+      detail: { error: error.message },
+      action: '히스토리 조회',
+      screen: 'HistoryScreen',
+      component: 'history'
+    });
+
+    return {
+      statusCode: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      },
+      body: JSON.stringify({ error: 'Internal server error' })
+    };
+  }
+}; 
+
+// 리워드 조회
+export const getReward = async (event: any) => {
+  try {
+    const userId = event.pathParameters?.userId;
+    
+    if (!userId) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: 'userId is required' })
+      };
+    }
+
+    // 사용자 정보에서 현재 포인트 조회
+    const users = readJson(usersPath);
+    const user = users.find((u: any) => u.user_id === userId);
+    
+    if (!user) {
+      return {
+        statusCode: 404,
+        body: JSON.stringify({ error: 'User not found' })
+      };
+    }
+
+    // 포인트 히스토리 조회
+    const pointsHistory = readJson(pointsHistoryPath);
+    const userPointsHistory = pointsHistory.filter((history: any) => history.user_id === userId);
+
+    // 리워드 정보 구성
+    const reward = {
+      currentPoints: user.points || 0,
+      totalEarned: userPointsHistory
+        .filter((h: any) => h.type === 'earn')
+        .reduce((sum: number, h: any) => sum + (h.points || 0), 0),
+      totalSpent: userPointsHistory
+        .filter((h: any) => h.type === 'spend')
+        .reduce((sum: number, h: any) => sum + (h.points || 0), 0),
+      pointsHistory: userPointsHistory.slice(-10), // 최근 10개 기록
+      availableRewards: [
+        { id: 'reward-1', name: '프리미엄 매칭', points: 100, description: '더 정확한 매칭을 위한 프리미엄 서비스' },
+        { id: 'reward-2', name: '프로필 부스터', points: 50, description: '프로필을 상단에 노출시키는 서비스' },
+        { id: 'reward-3', name: '추가 소개팅', points: 200, description: '추가 소개팅 기회 제공' }
+      ]
+    };
+
+    await appendLog({
+      type: 'get_reward',
+      userId: userId,
+      result: 'success',
+      message: '리워드 조회 성공',
+      detail: { 
+        currentPoints: reward.currentPoints,
+        totalEarned: reward.totalEarned,
+        totalSpent: reward.totalSpent,
+        historyCount: userPointsHistory.length
+      },
+      action: '리워드 조회',
+      screen: 'RewardScreen',
+      component: 'reward'
+    });
+
+    return {
+      statusCode: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      },
+      body: JSON.stringify(reward)
+    };
+
+  } catch (error: any) {
+    console.error('getReward error:', error);
+    
+    await appendLog({
+      type: 'get_reward',
+      userId: event.pathParameters?.userId,
+      result: 'fail',
+      message: '리워드 조회 실패',
+      detail: { error: error.message },
+      action: '리워드 조회',
+      screen: 'RewardScreen',
+      component: 'reward'
+    });
+
+    return {
+      statusCode: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      },
+      body: JSON.stringify({ error: 'Internal server error' })
+    };
+  }
 }; 
