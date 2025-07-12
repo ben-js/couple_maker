@@ -7,7 +7,7 @@ import { useUserInfo } from '../hooks/useUserStatus';
 import { useAuth } from '../store/AuthContext';
 import { colors, typography } from '@/constants';
 import { TOAST_MESSAGES, NAVIGATION_ROUTES, BUTTON_TEXTS } from '@/constants';
-import HeaderLayout from '../components/HeaderLayout';
+import MainLayout from '../components/MainLayout';
 
 const MenuScreen = () => {
   const navigation = useNavigation<any>();
@@ -114,7 +114,7 @@ const MenuScreen = () => {
       title: '포인트 충전',
       subtitle: `현재 보유: ${typeof userInfo?.points === 'number' ? userInfo.points : 0}P`,
       icon: 'credit-card',
-      action: () => console.log('포인트 충전')
+      action: () => navigation.navigate(NAVIGATION_ROUTES.POINT_CHARGE)
     },
     {
       id: 4,
@@ -154,7 +154,7 @@ const MenuScreen = () => {
   ];
 
   return (
-    <HeaderLayout onRefresh={handleRefresh} refreshing={refreshing}>
+    <MainLayout onRefresh={handleRefresh} refreshing={refreshing}>
       {/* 메뉴 아이템들 */}
       {menuItems.map(item => {
         let iconComponent;
@@ -187,7 +187,7 @@ const MenuScreen = () => {
       })}
       
       <View style={{ height: 100 }} />
-    </HeaderLayout>
+    </MainLayout>
   );
 };
 

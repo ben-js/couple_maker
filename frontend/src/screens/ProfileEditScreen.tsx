@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Modal, TouchableOpacity, Platform, Image, SafeAreaView, ToastAndroid, Alert } from 'react-native';
+import { ScrollView, StyleSheet, Modal, TouchableOpacity, Platform, Image, SafeAreaView, ToastAndroid, Alert, KeyboardAvoidingView } from 'react-native';
 import { View, Button, Avatar, Dialog, Text } from 'react-native-ui-lib';
 import { colors, typography } from '@/constants';
 import regionData from '../data/regions.json';
@@ -24,6 +24,8 @@ import { Feather } from '@expo/vector-icons';
 import { logger } from '@/utils/logger';
 import { TOAST_MESSAGES, NAVIGATION_ROUTES } from '@/constants';
 import * as FileSystem from 'expo-file-system';
+import PageLayout from '../components/PageLayout';
+import { SafeAreaView as SafeAreaViewRN } from 'react-native-safe-area-context';
 
 
 const options = optionsRaw as Options;
@@ -85,6 +87,7 @@ formTemplate.forEach(field => {
 });
 const schema = yup.object().shape(schemaFields);
 
+const BUTTON_HEIGHT = 64;
 
 const ProfileEditScreen = () => {
   // 사진 관련 상태만 유지 (UI 전용)
@@ -101,7 +104,6 @@ const ProfileEditScreen = () => {
   const { user, setUser } = useAuth();
   const route = useRoute<any>();
   const isEditMode = route?.params?.isEditMode ?? false;
-  const fromMenu = route?.params?.fromMenu;
   
   const { control, handleSubmit, formState: { errors }, setValue, trigger, reset } = useForm({
     mode: 'onChange',
@@ -287,15 +289,18 @@ const ProfileEditScreen = () => {
         Alert.alert(TOAST_MESSAGES.PROFILE_SAVED);
       }
       
-      if (fromMenu) {
-        // 메뉴에서 왔을 때는 메인 탭으로 이동 (Menu 탭이 활성화됨)
-        navigation.navigate(NAVIGATION_ROUTES.MAIN, { screen: 'Menu' });
-      } else if (!user.hasProfile) {
+      if (!user.hasProfile && !isEditMode) {
         logger.navigation.navigate('ProfileEditScreen', NAVIGATION_ROUTES.PREFERENCE_EDIT);
-        navigation.navigate(NAVIGATION_ROUTES.PREFERENCE_EDIT);
+        navigation.navigate(NAVIGATION_ROUTES.PREFERENCE_EDIT, { isEditMode: false });
       } else {
-        logger.navigation.navigate('ProfileSetupScreen', NAVIGATION_ROUTES.MAIN);
-        navigation.navigate(NAVIGATION_ROUTES.MAIN, { screen: NAVIGATION_ROUTES.MAIN });
+        // 메뉴에서 온 경우 메뉴로 돌아가기
+        if (route?.params?.fromMenu) {
+          logger.navigation.navigate('ProfileEditScreen', NAVIGATION_ROUTES.MENU);
+          navigation.navigate(NAVIGATION_ROUTES.MENU);
+        } else {
+          logger.navigation.navigate('ProfileSetupScreen', NAVIGATION_ROUTES.MAIN);
+          navigation.navigate(NAVIGATION_ROUTES.MAIN, { screen: NAVIGATION_ROUTES.MAIN });
+        }
       }
     } catch (e) {
       logger.error('프로필 저장 실패', { error: (e as Error).message });
@@ -312,76 +317,25 @@ const ProfileEditScreen = () => {
   }
 
   return (
-    <View style={styles.container}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        {/* 대표 이미지 */}
-        <View style={styles.profileImageWrap}>
-          <TouchableOpacity
-            onPress={() => setShowPhotoPopup(true)}
-            activeOpacity={0.8}
-            style={styles.profileImageTouchable}
+    <View style={{ flex: 1, position: 'relative' }}>
+      <PageLayout title={isEditMode ? "프로필 수정" : "프로필 등록"}>
+        <View style={{ flex: 1 }}>
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={{ paddingBottom: BUTTON_HEIGHT + 32 }}
           >
-            {photos[0] ? (
-              <Image source={{ uri: photos[0] }} style={styles.profileImage} resizeMode="cover" />
-            ) : (
-              <Avatar
-                size={64}
-                label="?"
-                backgroundColor="#e5e6fa"
-                labelColor="#bbb"
-                containerStyle={styles.avatar}
-              />
-            )}
-          </TouchableOpacity>
-        </View>
-
-        {/* 사진 관리 다이얼로그 */}
-        <Dialog
-          visible={showPhotoPopup}
-          onDismiss={() => setShowPhotoPopup(false)}
-          containerStyle={styles.photoPopupDialog}
-          width={340}
-          panDirection={null}
-        >
-          <View style={styles.photoPopupWrap}>
-            <Text style={styles.photoPopupTitle}>사진 관리</Text>
-            
-            {/* 대표 이미지 */}
-            <TouchableOpacity
-              onPress={() => setPhotoActionIndex(0)}
-              activeOpacity={0.8}
-              style={styles.photoMainTouchable}
-            >
-              {photos[0] ? (
-                <Image source={{ uri: photos[0] }} style={styles.photoMainImage} resizeMode="cover" />
-              ) : (
-                <Avatar
-                  size={48}
-                  label="?"
-                  backgroundColor="#e5e6fa"
-                  labelColor="#bbb"
-                  containerStyle={styles.avatar}
-                />
-              )}
-              <View style={styles.photoMainLabel}>
-                <Text style={styles.photoMainLabelText}>대표</Text>
-              </View>
-            </TouchableOpacity>
-            
-            {/* 나머지 이미지들 */}
-            <View style={styles.photoThumbRow}>
-              {[1,2,3,4].map(i => (
+              {/* 대표 이미지 */}
+              <View style={styles.profileImageWrap}>
                 <TouchableOpacity
-                  key={i}
-                  onPress={() => setPhotoActionIndex(i)}
+                  onPress={() => setShowPhotoPopup(true)}
                   activeOpacity={0.8}
-                  style={styles.photoThumbTouchable}
+                  style={styles.profileImageTouchable}
                 >
-                  {photos[i] ? (
-                    <Image source={{ uri: photos[i] }} style={styles.photoThumbImage} resizeMode="cover" />
+                  {photos[0] ? (
+                    <Image source={{ uri: photos[0] }} style={styles.profileImage} resizeMode="cover" />
                   ) : (
                     <Avatar
-                      size={28}
+                      size={64}
                       label="?"
                       backgroundColor="#e5e6fa"
                       labelColor="#bbb"
@@ -389,266 +343,337 @@ const ProfileEditScreen = () => {
                     />
                   )}
                 </TouchableOpacity>
-              ))}
-            </View>
-            <Button label="닫기" onPress={() => setShowPhotoPopup(false)} style={styles.closeButton} />
-          </View>
-          
-          {/* 사진 액션 다이얼로그 */}
-          <Dialog
-            visible={photoActionIndex !== null}
-            onDismiss={() => setPhotoActionIndex(null)}
-            width={260}
-            panDirection={null}
-          >
-            <View style={styles.photoActionDialog}>
-              <View style={styles.photoActionList}>
-                <TouchableOpacity style={styles.photoActionTouchable} onPress={() => handleCamera(photoActionIndex)}>
-                  <Text style={styles.photoActionText}>카메라</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.photoActionTouchable} onPress={() => handleGallery(photoActionIndex)}>
-                  <Text style={styles.photoActionText}>갤러리</Text>
-                </TouchableOpacity>
-                {photoActionIndex !== 0 && photos[photoActionIndex ?? 0] && (
-                  <TouchableOpacity style={styles.photoActionTouchable} onPress={() => handleSetMain(photoActionIndex!)}>
-                    <Text style={styles.photoActionText}>대표 이미지 설정</Text>
-                  </TouchableOpacity>
-                )}
-                {photos[photoActionIndex ?? 0] && (
-                  <TouchableOpacity style={styles.photoActionTouchable} onPress={() => handleDelete(photoActionIndex!)}>
-                    <Text style={styles.photoActionText}>사진 삭제</Text>
-                  </TouchableOpacity>
-                )}
-                <TouchableOpacity style={styles.photoActionTouchable} onPress={() => setPhotoActionIndex(null)}>
-                  <Text style={styles.photoActionTextClose}>닫기</Text>
-                </TouchableOpacity>
               </View>
-            </View>
-          </Dialog>
-        </Dialog>
 
-        {/* 동적 폼 렌더링 */}
-        {formTemplate.map(field => {
-          if (field.type === 'input') {
-            return (
-              <Controller
-                key={field.name}
-                control={control}
-                name={field.name}
-                render={({ field: { onChange, onBlur, value }, fieldState: { error } }) => (
-                  <FormInput
-                    label={field.label}
-                    placeholder={field.placeholder}
-                    value={value}
-                    onChangeText={onChange}
-                    error={error?.message}
-                    multiline={field.multiline}
-                    maxLength={field.maxLength}
-                  />
-                )}
-              />
-            );
-          }
-          if (field.type === 'picker') {
-            return (
-              <Controller
-                key={field.name}
-                control={control}
-                name={field.name}
-                render={({ field: { onChange, value }, fieldState: { error } }) => (
-                  <FormPicker
-                    label={field.label}
-                    options={field.optionsKey ? (options[field.optionsKey] as string[] ?? []) : []}
-                    value={value}
-                    onChange={onChange}
-                    error={error?.message}
-                    placeholder={field.placeholder}
-                  />
-                )}
-              />
-            );
-          }
-          if (field.type === 'slider') {
-            return (
-              <Controller
-                key={field.name}
-                control={control}
-                name={field.name}
-                render={({ field: { onChange, value }, fieldState: { error } }) => (
-                  <FormSlider
-                    label={field.label}
-                    value={typeof value === 'number' ? value : (field.min ?? 140)}
-                    onChange={onChange}
-                    min={field.min ?? 140}
-                    max={field.max ?? 200}
-                    error={error?.message}
-                    placeholder={field.placeholder}
-                  />
-                )}
-              />
-            );
-          }
-          if (field.type === 'date') {
-            return (
-              <Controller
-                key={field.name}
-                control={control}
-                name={field.name}
-                render={({ field: { onChange, onBlur, value }, fieldState: { error } }) => (
-                  <FormDate
-                    label={field.label}
-                    value={value || { year: 2000, month: 1, day: 1 }}
-                    onChange={val => { onChange(val); onBlur(); }}
-                    error={error?.message}
-                    placeholder={field.placeholder}
-                  />
-                )}
-              />
-            );
-          }
-          if (field.type === 'region') {
-            return (
-              <Controller
-                key={field.name}
-                control={control}
-                name={field.name}
-                render={({ field: { onChange, value }, fieldState: { error } }) => (
-                  <FormRegionModal
-                    label={field.label}
-                    value={value || { region: '', district: '' }}
-                    onChange={onChange}
-                    regionData={regionData}
-                    error={error?.message}
-                  />
-                )}
-              />
-            );
-          }
-          if (field.type === 'chips') {
-            return (
-              <Controller
-                key={field.name}
-                control={control}
-                name={field.name}
-                render={({ field: { onChange, value }, fieldState: { error } }) => (
-                  <>
-                    <View style={styles.labelRow}>
-                      <Text style={{ fontWeight: '700', color: '#222', fontSize: 16 }}>{field.label}</Text>
-                      {error?.message && <Text style={{ color: 'red', marginLeft: 8, fontSize: 13 }}>{error.message}</Text>}
+              {/* 사진 관리 다이얼로그 */}
+              <Dialog
+                visible={showPhotoPopup}
+                onDismiss={() => setShowPhotoPopup(false)}
+                containerStyle={styles.photoPopupDialog}
+                width={340}
+                panDirection={null}
+              >
+                <View style={styles.photoPopupWrap}>
+                  <Text style={styles.photoPopupTitle}>사진 관리</Text>
+                  
+                  {/* 대표 이미지 */}
+                  <TouchableOpacity
+                    onPress={() => setPhotoActionIndex(0)}
+                    activeOpacity={0.8}
+                    style={styles.photoMainTouchable}
+                  >
+                    {photos[0] ? (
+                      <Image source={{ uri: photos[0] }} style={styles.photoMainImage} resizeMode="cover" />
+                    ) : (
+                      <Avatar
+                        size={48}
+                        label="?"
+                        backgroundColor="#e5e6fa"
+                        labelColor="#bbb"
+                        containerStyle={styles.avatar}
+                      />
+                    )}
+                    <View style={styles.photoMainLabel}>
+                      <Text style={styles.photoMainLabelText}>대표</Text>
                     </View>
-                    <TouchableOpacity
-                      onPress={() => setActiveChipsModalField(field.name)}
-                      activeOpacity={0.8}
-                      style={{ borderWidth: 0, borderRadius: 0, backgroundColor: 'transparent', paddingHorizontal: 0, minHeight: 40, justifyContent: 'center', marginBottom: 12 }}
-                    >
-                      <Text style={value && value.length ? styles.chipsValueText : styles.chipsPlaceholderText}>
-                        {value && value.length ? value.join(', ') : field.placeholder}
-                      </Text>
-                    </TouchableOpacity>
-                    <Modal visible={activeChipsModalField === field.name} transparent={false} animationType="slide">
-                      <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', height: 56, borderBottomWidth: 0, paddingHorizontal: 8, justifyContent: 'center', position: 'relative' }}>
-                          <TouchableOpacity onPress={async () => { setActiveChipsModalField(null); await trigger(field.name); }} style={{ position: 'absolute', right: 8, top: 8, width: 40, height: 40, justifyContent: 'center', alignItems: 'center' }} hitSlop={{top:10, bottom:10, left:10, right:10}}>
-                            <Feather name="x" size={26} color="#bbb" />
-                          </TouchableOpacity>
-                          <Text style={{ flex: 1, textAlign: 'center', fontSize: 18, fontWeight: 'bold', color: '#222' }}>{field.label}</Text>
-                          <View style={{ width: 40 }} />
-                        </View>
-                        <View style={{ flex: 1, justifyContent: 'flex-start', alignItems: 'stretch', padding: 24 }}>
-                          <Text style={{ fontSize: 16, color: '#222', textAlign: 'center', marginBottom: 16 }}>{field.label}을 {field.minSelect}개 선택하세요</Text>
-                          <FormChips
-                            label={field.label}
-                            options={field.optionsKey ? (options[field.optionsKey] as string[] ?? []) : []}
-                            value={value || []}
-                            onChange={onChange}
-                            min={field.minSelect}
-                            max={field.maxSelect}
-                            error={undefined}
+                  </TouchableOpacity>
+                  
+                  {/* 나머지 이미지들 */}
+                  <View style={styles.photoThumbRow}>
+                    {[1,2,3,4].map(i => (
+                      <TouchableOpacity
+                        key={i}
+                        onPress={() => setPhotoActionIndex(i)}
+                        activeOpacity={0.8}
+                        style={styles.photoThumbTouchable}
+                      >
+                        {photos[i] ? (
+                          <Image source={{ uri: photos[i] }} style={styles.photoThumbImage} resizeMode="cover" />
+                        ) : (
+                          <Avatar
+                            size={28}
+                            label="?"
+                            backgroundColor="#e5e6fa"
+                            labelColor="#bbb"
+                            containerStyle={styles.avatar}
                           />
-                        </View>
-                        <View style={{ padding: 24, paddingTop: 0 }}>
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  <Button label="닫기" onPress={() => setShowPhotoPopup(false)} style={styles.closeButton} />
+                </View>
+                
+                {/* 사진 액션 다이얼로그 */}
+                <Dialog
+                  visible={photoActionIndex !== null}
+                  onDismiss={() => setPhotoActionIndex(null)}
+                  width={260}
+                  panDirection={null}
+                >
+                  <View style={styles.photoActionDialog}>
+                    <View style={styles.photoActionList}>
+                      <TouchableOpacity style={styles.photoActionTouchable} onPress={() => handleCamera(photoActionIndex)}>
+                        <Text style={styles.photoActionText}>카메라</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.photoActionTouchable} onPress={() => handleGallery(photoActionIndex)}>
+                        <Text style={styles.photoActionText}>갤러리</Text>
+                      </TouchableOpacity>
+                      {photoActionIndex !== 0 && photos[photoActionIndex ?? 0] && (
+                        <TouchableOpacity style={styles.photoActionTouchable} onPress={() => handleSetMain(photoActionIndex!)}>
+                          <Text style={styles.photoActionText}>대표 이미지 설정</Text>
+                        </TouchableOpacity>
+                      )}
+                      {photos[photoActionIndex ?? 0] && (
+                        <TouchableOpacity style={styles.photoActionTouchable} onPress={() => handleDelete(photoActionIndex!)}>
+                          <Text style={styles.photoActionText}>사진 삭제</Text>
+                        </TouchableOpacity>
+                      )}
+                      <TouchableOpacity style={styles.photoActionTouchable} onPress={() => setPhotoActionIndex(null)}>
+                        <Text style={styles.photoActionTextClose}>닫기</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </Dialog>
+              </Dialog>
+
+              {/* 동적 폼 렌더링 */}
+              {formTemplate.map(field => {
+                if (field.type === 'input') {
+                  return (
+                    <Controller
+                      key={field.name}
+                      control={control}
+                      name={field.name}
+                      render={({ field: { onChange, onBlur, value }, fieldState: { error } }) => (
+                        <FormInput
+                          label={field.label}
+                          placeholder={field.placeholder}
+                          value={value}
+                          onChangeText={onChange}
+                          error={error?.message}
+                          multiline={field.multiline}
+                          maxLength={field.maxLength}
+                        />
+                      )}
+                    />
+                  );
+                }
+                if (field.type === 'picker') {
+                  return (
+                    <Controller
+                      key={field.name}
+                      control={control}
+                      name={field.name}
+                      render={({ field: { onChange, value }, fieldState: { error } }) => (
+                        <FormPicker
+                          label={field.label}
+                          options={field.optionsKey ? (options[field.optionsKey] as string[] ?? []) : []}
+                          value={value}
+                          onChange={onChange}
+                          error={error?.message}
+                          placeholder={field.placeholder}
+                        />
+                      )}
+                    />
+                  );
+                }
+                if (field.type === 'slider') {
+                  return (
+                    <Controller
+                      key={field.name}
+                      control={control}
+                      name={field.name}
+                      render={({ field: { onChange, value }, fieldState: { error } }) => (
+                        <FormSlider
+                          label={field.label}
+                          value={typeof value === 'number' ? value : (field.min ?? 140)}
+                          onChange={onChange}
+                          min={field.min ?? 140}
+                          max={field.max ?? 200}
+                          error={error?.message}
+                          placeholder={field.placeholder}
+                        />
+                      )}
+                    />
+                  );
+                }
+                if (field.type === 'date') {
+                  return (
+                    <Controller
+                      key={field.name}
+                      control={control}
+                      name={field.name}
+                      render={({ field: { onChange, onBlur, value }, fieldState: { error } }) => (
+                        <FormDate
+                          label={field.label}
+                          value={value || { year: 2000, month: 1, day: 1 }}
+                          onChange={val => { onChange(val); onBlur(); }}
+                          error={error?.message}
+                          placeholder={field.placeholder}
+                        />
+                      )}
+                    />
+                  );
+                }
+                if (field.type === 'region') {
+                  return (
+                    <Controller
+                      key={field.name}
+                      control={control}
+                      name={field.name}
+                      render={({ field: { onChange, value }, fieldState: { error } }) => (
+                        <FormRegionModal
+                          label={field.label}
+                          value={value || { region: '', district: '' }}
+                          onChange={onChange}
+                          regionData={regionData}
+                          error={error?.message}
+                        />
+                      )}
+                    />
+                  );
+                }
+                if (field.type === 'chips') {
+                  return (
+                    <Controller
+                      key={field.name}
+                      control={control}
+                      name={field.name}
+                      render={({ field: { onChange, value }, fieldState: { error } }) => (
+                        <>
+                          <View style={styles.labelRow}>
+                            <Text style={{ fontWeight: '700', color: '#222', fontSize: 16 }}>{field.label}</Text>
+                            {error?.message && <Text style={{ color: 'red', marginLeft: 8, fontSize: 13 }}>{error.message}</Text>}
+                          </View>
                           <TouchableOpacity
-                            style={{ backgroundColor: value.length < (field.minSelect || 1) ? '#eee' : '#3B82F6', borderRadius: 12, paddingVertical: 14, alignItems: 'center' }}
-                            disabled={value.length < (field.minSelect || 1)}
-                            onPress={async () => {
-                              setValue(field.name, value);
-                              setActiveChipsModalField(null);
-                              await trigger(field.name);
-                            }}
+                            onPress={() => setActiveChipsModalField(field.name)}
+                            activeOpacity={0.8}
+                            style={{ borderWidth: 0, borderRadius: 0, backgroundColor: 'transparent', paddingHorizontal: 0, minHeight: 40, justifyContent: 'center', marginBottom: 12 }}
                           >
-                            <Text style={{ color: value.length < (field.minSelect || 1) ? '#bbb' : '#fff', fontWeight: 'bold', fontSize: 16 }}>확인</Text>
+                            <Text style={value && value.length ? styles.chipsValueText : styles.chipsPlaceholderText}>
+                              {value && value.length ? value.join(', ') : field.placeholder}
+                            </Text>
                           </TouchableOpacity>
-                        </View>
-                      </SafeAreaView>
-                    </Modal>
-                  </>
-                )}
-              />
-            );
-          }
-          return null;
-        })}
-      </ScrollView>
-      <View style={styles.footerButtonWrap}>
-        <TouchableOpacity style={styles.saveButton} onPress={handleSubmit(
-          (data) => onSubmit(data),
-          (formErrors) => {
-            if (Object.keys(formErrors).length > 0) {
-              if (Platform.OS === 'android') {
-                ToastAndroid.show('프로필 작성을 해주세요', ToastAndroid.SHORT);
-              } else {
-                Alert.alert('알림', '프로필 작성을 해주세요');
+                          <Modal visible={activeChipsModalField === field.name} transparent={false} animationType="slide">
+                            <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', height: 56, borderBottomWidth: 0, paddingHorizontal: 8, justifyContent: 'center', position: 'relative' }}>
+                                <TouchableOpacity onPress={async () => { setActiveChipsModalField(null); await trigger(field.name); }} style={{ position: 'absolute', right: 8, top: 8, width: 40, height: 40, justifyContent: 'center', alignItems: 'center' }} hitSlop={{top:10, bottom:10, left:10, right:10}}>
+                                  <Feather name="x" size={26} color="#bbb" />
+                                </TouchableOpacity>
+                                <Text style={{ flex: 1, textAlign: 'center', fontSize: 18, fontWeight: 'bold', color: '#222' }}>{field.label}</Text>
+                                <View style={{ width: 40 }} />
+                              </View>
+                              <View style={{ flex: 1, justifyContent: 'flex-start', alignItems: 'stretch', padding: 24 }}>
+                                <Text style={{ fontSize: 16, color: '#222', textAlign: 'center', marginBottom: 16 }}>{field.label}을 {field.minSelect}개 선택하세요</Text>
+                                <FormChips
+                                  label={field.label}
+                                  options={field.optionsKey ? (options[field.optionsKey] as string[] ?? []) : []}
+                                  value={value || []}
+                                  onChange={onChange}
+                                  min={field.minSelect}
+                                  max={field.maxSelect}
+                                  error={undefined}
+                                />
+                              </View>
+                              <View style={{ padding: 24, paddingTop: 0 }}>
+                                <TouchableOpacity
+                                  style={{ backgroundColor: value.length < (field.minSelect || 1) ? '#eee' : '#3B82F6', borderRadius: 12, paddingVertical: 14, alignItems: 'center' }}
+                                  disabled={value.length < (field.minSelect || 1)}
+                                  onPress={async () => {
+                                    setValue(field.name, value);
+                                    setActiveChipsModalField(null);
+                                    await trigger(field.name);
+                                  }}
+                                >
+                                  <Text style={{ color: value.length < (field.minSelect || 1) ? '#bbb' : '#fff', fontWeight: 'bold', fontSize: 16 }}>확인</Text>
+                                </TouchableOpacity>
+                              </View>
+                            </SafeAreaView>
+                          </Modal>
+                        </>
+                      )}
+                    />
+                  );
+                }
+                return null;
+              })}
+            </ScrollView>
+          </View>
+
+          {/* 이미지 크롭 미리보기 */}
+          {showPreview && previewUri && (
+            <Dialog
+              visible={showPreview}
+              onDismiss={() => { setShowPreview(false); setPreviewUri(null); setPreviewTargetIdx(null); }}
+              width={320}
+              panDirection={null}
+            >
+              <View style={{ backgroundColor: colors.surface, borderRadius: 16, padding: 16, alignItems: 'center' }}>
+                <Text style={{ fontSize: 16, marginBottom: 12 }}>이미지를 정사각형으로 자릅니다. 미리보기 확인 후 저장하세요.</Text>
+                <Image source={{ uri: previewUri }} style={{ width: 240, height: 240, borderRadius: 8, marginBottom: 16 }} resizeMode="cover" />
+                <View style={{ flexDirection: 'row', justifyContent: 'center' }}>
+                  <Button
+                    label="닫기"
+                    outline
+                    outlineColor="#888"
+                    backgroundColor="#fff"
+                    onPress={() => { setShowPreview(false); setPreviewUri(null); setPreviewTargetIdx(null); }}
+                    style={{ minWidth: 80, marginRight: 12 }}
+                    labelStyle={{ color: '#888', fontWeight: 'bold', fontSize: 16 }}
+                  />
+                  <Button
+                    label="저장"
+                    onPress={handleSaveCrop}
+                    style={{ minWidth: 80 }}
+                  />
+                </View>
+              </View>
+            </Dialog>
+          )}
+        </PageLayout>
+        
+        {/* 저장 버튼 - PageLayout 바깥에 고정 */}
+        <View style={{
+          position: 'absolute',
+          left: 0, right: 0, bottom: 0,
+          alignItems: 'center',
+          zIndex: 100,
+          paddingBottom: 24,
+          backgroundColor: colors.background,
+          width: '100%',
+        }}>
+          <TouchableOpacity style={{
+            width: '90%',
+            backgroundColor: colors.primary,
+            borderRadius: 20,
+            paddingVertical: 18,
+            alignItems: 'center',
+            height: BUTTON_HEIGHT,
+          }} onPress={handleSubmit(
+            (data) => onSubmit(data),
+            (formErrors) => {
+              if (Object.keys(formErrors).length > 0) {
+                if (Platform.OS === 'android') {
+                  ToastAndroid.show('프로필 작성을 해주세요', ToastAndroid.SHORT);
+                } else {
+                  Alert.alert('알림', '프로필 작성을 해주세요');
+                }
               }
             }
-          }
-        )}>
-          <Text style={styles.saveButtonText}>저장</Text>
-        </TouchableOpacity>
+          )}>
+            <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 18 }}>저장</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-
-      {/* 이미지 크롭 미리보기 */}
-      {showPreview && previewUri && (
-        <Dialog
-          visible={showPreview}
-          onDismiss={() => { setShowPreview(false); setPreviewUri(null); setPreviewTargetIdx(null); }}
-          width={320}
-          panDirection={null}
-        >
-          <View style={{ backgroundColor: colors.surface, borderRadius: 16, padding: 16, alignItems: 'center' }}>
-            <Text style={{ fontSize: 16, marginBottom: 12 }}>이미지를 정사각형으로 자릅니다. 미리보기 확인 후 저장하세요.</Text>
-            <Image source={{ uri: previewUri }} style={{ width: 240, height: 240, borderRadius: 8, marginBottom: 16 }} resizeMode="cover" />
-            <View style={{ flexDirection: 'row', justifyContent: 'center' }}>
-              <Button
-                label="닫기"
-                outline
-                outlineColor="#888"
-                backgroundColor="#fff"
-                onPress={() => { setShowPreview(false); setPreviewUri(null); setPreviewTargetIdx(null); }}
-                style={{ minWidth: 80, marginRight: 12 }}
-                labelStyle={{ color: '#888', fontWeight: 'bold', fontSize: 16 }}
-              />
-              <Button
-                label="저장"
-                onPress={handleSaveCrop}
-                style={{ minWidth: 80 }}
-              />
-            </View>
-          </View>
-        </Dialog>
-      )}
-    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
   scrollView: {
     flex: 1,
-    padding: 24,
   },
+
   scrollContent: {
     paddingBottom: 100,
   },
@@ -700,7 +725,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   photoMainImage: {
-    width: '101%',
+    width: '100%',
     height: '100%',
     borderRadius: 12,
   },
@@ -775,10 +800,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: colors.surface,
     padding: 16,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
   },
   saveButton: {
     backgroundColor: colors.primary,

@@ -4,10 +4,11 @@ import { View, Text, Card } from 'react-native-ui-lib';
 import { Feather } from '@expo/vector-icons';
 import PrimaryButton from '../components/PrimaryButton';
 import { colors, typography, spacing } from '@/constants';
+import PageLayout from '../components/PageLayout';
 
 const PointChargeScreen = () => {
   return (
-    <View style={styles.container}>
+    <PageLayout title="포인트 충전">
       <Card style={styles.card} enableShadow>
         <View style={styles.header}>
           <Feather name="credit-card" size={32} color={colors.accent} />
@@ -23,24 +24,19 @@ const PointChargeScreen = () => {
         />
         <Text style={styles.caption}>* 실제 결제 연동은 아직 구현되지 않았습니다.</Text>
       </Card>
-    </View>
+    </PageLayout>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   card: {
-    width: '90%',
     padding: spacing.lg + 4,
     borderRadius: spacing.lg,
     backgroundColor: colors.surface,
     alignItems: 'center',
+    marginTop: 20,
   },
+
   header: {
     flexDirection: 'row',
     alignItems: 'center',

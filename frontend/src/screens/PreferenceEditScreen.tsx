@@ -21,6 +21,7 @@ import { logger } from '@/utils/logger';
 import { TOAST_MESSAGES, NAVIGATION_ROUTES } from '@/constants';
 import { apiPost } from '@/utils/apiUtils';
 import { useUserStatus, useUserInfo } from '../hooks/useUserStatus';
+import PageLayout from '../components/PageLayout';
 
 const options = optionsRaw as Record<string, any>;
 
@@ -260,8 +261,13 @@ const PreferenceSetupScreen = () => {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView style={{ flex: 1, padding: 24 }} contentContainerStyle={{ paddingBottom: 100 }}>
+    <View style={{ flex: 1, position: 'relative' }}>
+      <PageLayout title={isEditMode ? "이상형 수정" : "이상형 등록"}>
+        <View style={{ flex: 1 }}>
+          <ScrollView 
+            style={{ flex: 1 }} 
+            contentContainerStyle={{ paddingBottom: 100 }}
+          >
         {preferenceForm.map(field => {
           if (field.type === 'picker') {
             return (
@@ -385,27 +391,63 @@ const PreferenceSetupScreen = () => {
           }
           return null;
         })}
-      </ScrollView>
+          </ScrollView>
+        </View>
+      </PageLayout>
+      
+      {/* 저장 버튼 - PageLayout 바깥에 고정 */}
       {mode === 'apply' ? (
-        <View style={styles.footerButtonWrap}>
+        <View style={{
+          position: 'absolute',
+          left: 0, right: 0, bottom: 0,
+          alignItems: 'center',
+          zIndex: 100,
+          paddingBottom: 24,
+          backgroundColor: colors.background,
+          width: '100%',
+        }}>
           <TouchableOpacity
-            style={[styles.saveButton, isSubmitting && styles.saveButtonDisabled]}
+            style={{
+              width: '90%',
+              backgroundColor: colors.primary,
+              borderRadius: 20,
+              paddingVertical: 18,
+            alignItems: 'center',
+            height: 64,
+              opacity: 1,
+            }}
             onPress={handleMatchingRequest}
             disabled={isSubmitting}
           >
-            <Text style={styles.saveButtonText}>
+            <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 18 }}>
               {isSubmitting ? '저장 중...' : '소개팅 신청하기'}
             </Text>
           </TouchableOpacity>
         </View>
       ) : (
-        <View style={styles.footerButtonWrap}>
+        <View style={{
+          position: 'absolute',
+          left: 0, right: 0, bottom: 0,
+          alignItems: 'center',
+          zIndex: 100,
+          paddingBottom: 24,
+          backgroundColor: colors.background,
+          width: '100%',
+        }}>
           <TouchableOpacity
-            style={[styles.saveButton, isSubmitting && styles.saveButtonDisabled]}
+            style={{
+              width: '90%',
+              backgroundColor: colors.primary,
+              borderRadius: 20,
+              paddingVertical: 18,
+            alignItems: 'center',
+            height: 64,
+              opacity: 1,
+            }}
             onPress={handleSubmit(onSubmit, onInvalid)}
             disabled={isSubmitting}
           >
-            <Text style={styles.saveButtonText}>
+            <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 18 }}>
               {isSubmitting ? '저장 중...' : '저장'}
             </Text>
           </TouchableOpacity>

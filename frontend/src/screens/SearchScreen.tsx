@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, ScrollView, Image } from 'react-native';
+import { View, Text, TextInput, Button, Image } from 'react-native';
 import { ProgressBar } from 'react-native-ui-lib';
 import { colors } from '../styles/colors';
 import { styles } from '../styles/styles';
+import CommonLayout from '../components/CommonLayout';
 
 const SearchScreen = () => {
   const [query, setQuery] = useState('');

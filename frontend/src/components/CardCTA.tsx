@@ -26,7 +26,6 @@ const CardCTA: React.FC<CardCTAProps> = ({ title, subtitle, buttonText, onPress 
 
 const styles = StyleSheet.create({
   ctaCard: {
-    marginHorizontal: spacing.lg,
     padding: spacing.lg + 4,
     borderRadius: spacing.lg,
     backgroundColor: colors.surface,

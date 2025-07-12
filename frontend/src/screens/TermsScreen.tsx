@@ -3,6 +3,7 @@ import { ScrollView, ActivityIndicator } from 'react-native';
 import { View, Text } from 'react-native-ui-lib';
 import { colors } from '@/constants';
 import { useRoute } from '@react-navigation/native';
+import PageLayout from '../components/PageLayout';
 
 const API_BASE_URL = 'http://192.168.219.100:3000/';
 
@@ -44,8 +45,7 @@ const TermsScreen = () => {
   }, [type]);
 
   return (
-    <View flex backgroundColor={colors.background} padding-24>
-      <Text text60M marginB-16>{data?.title || DEFAULT_TITLE[type]}</Text>
+    <PageLayout title={data?.title || DEFAULT_TITLE[type]}>
       {loading ? (
         <ActivityIndicator size="large" color={colors.primary} />
       ) : error ? (
@@ -55,7 +55,7 @@ const TermsScreen = () => {
           <Text>{data?.content}</Text>
         </ScrollView>
       )}
-    </View>
+    </PageLayout>
   );
 };
 

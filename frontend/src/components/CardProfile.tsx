@@ -35,7 +35,6 @@ const CardProfile: React.FC<CardProfileProps> = ({ user, matchId, onPress }) => 
 
 const styles = StyleSheet.create({
   profileCard: {
-    marginHorizontal: 24,
     padding: 28,
     borderRadius: 24,
     backgroundColor: colors.background,

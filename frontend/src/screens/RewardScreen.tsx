@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text } from 'react-native';
-import HeaderLayout from '../components/HeaderLayout';
+import MainLayout from '../components/MainLayout';
 import { useQuery } from '@tanstack/react-query';
 import { apiGet } from '@/utils/apiUtils';
 import { useAuth } from '../store/AuthContext';
@@ -27,12 +27,12 @@ const RewardScreen = () => {
   }, [refetch]);
 
   return (
-    <HeaderLayout onRefresh={handleRefresh} refreshing={refreshing}>
+    <MainLayout onRefresh={handleRefresh} refreshing={refreshing}>
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
         <Text style={{ fontSize: 20, fontWeight: 'bold' }}>리워드</Text>
         <Text style={{ marginTop: 12, color: '#888', fontSize: 16 }}>출석 보상, 후기 참여 포인트, VIP 조건 등</Text>
-      </View>
-    </HeaderLayout>
+              </View>
+    </MainLayout>
   );
 };
 

@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import HeaderLayout from '../components/HeaderLayout';
+import MainLayout from '../components/MainLayout';
 import { useQuery } from '@tanstack/react-query';
 import { apiGet } from '@/utils/apiUtils';
 import { useAuth } from '../store/AuthContext';
@@ -27,12 +27,12 @@ const HistoryScreen = () => {
   }, [refetch]);
 
   return (
-    <HeaderLayout onRefresh={handleRefresh} refreshing={refreshing}>
+    <MainLayout onRefresh={handleRefresh} refreshing={refreshing}>
       {/* 기존 코드 ... */}
       <View>
         {/* historyData 등 기존 화면 내용 렌더링 */}
-      </View>
-    </HeaderLayout>
+              </View>
+    </MainLayout>
   );
 }
 

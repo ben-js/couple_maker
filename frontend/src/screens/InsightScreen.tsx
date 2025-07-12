@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 import { View, Text } from 'react-native-ui-lib';
 import LockedCard from '../components/LockedCard';
-import HeaderLayout from '../components/HeaderLayout';
+import MainLayout from '../components/MainLayout';
 import { useQuery } from '@tanstack/react-query';
 import { apiGet } from '@/utils/apiUtils';
 import { useAuth } from '../store/AuthContext';
@@ -29,9 +29,9 @@ const InsightScreen: React.FC = () => {
   }, [refetch]);
 
   return (
-    <HeaderLayout onRefresh={handleRefresh} refreshing={refreshing}>
+    <MainLayout onRefresh={handleRefresh} refreshing={refreshing}>
       <ScrollView>
-        <View padding-24>
+        <View>
           <Text text60B marginB-8>AI 인사이트</Text>
           <Text text80 color="#8E8E8E" marginB-16>
             아직 충분한 소개팅 데이터가 없습니다. 매칭을 시작하면 아래 정보를 AI가 분석해드립니다.
@@ -64,8 +64,8 @@ const InsightScreen: React.FC = () => {
             <Text text90 color="#8E8E8E">3문항만 답하면 AI가 당신의 연애 성향을 예측해드립니다</Text>
           </View>
         </View>
-      </ScrollView>
-    </HeaderLayout>
+              </ScrollView>
+    </MainLayout>
   );
 };
 

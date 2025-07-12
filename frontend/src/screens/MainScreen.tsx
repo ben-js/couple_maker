@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { StyleSheet, Alert, Modal } from 'react-native';
-import HeaderLayout from '../components/HeaderLayout';
+import MainLayout from '../components/MainLayout';
 import { View, Text, TouchableOpacity } from 'react-native-ui-lib';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../store/AuthContext';
@@ -122,7 +122,7 @@ const MainScreen = () => {
   };
 
   return (
-    <HeaderLayout onRefresh={handleRefresh} refreshing={refreshing}>
+    <MainLayout onRefresh={handleRefresh} refreshing={refreshing}>
       {renderMatchingProgress()}
 
       {/* 소개팅 신청 CTA: 신청 전(status 없음) */}
@@ -181,7 +181,7 @@ const MainScreen = () => {
       </Modal>
 
       <View style={{ height: 20 }} />
-    </HeaderLayout>
+    </MainLayout>
   );
 };
 
@@ -234,7 +234,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   ctaButton: {
-    marginHorizontal: spacing.lg,
     marginBottom: spacing.lg,
     padding: spacing.lg + 4,
     borderRadius: spacing.lg,
@@ -255,7 +254,6 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   progressContainer: {
-    marginHorizontal: 24,
     marginBottom: 24,
   },
   progressTitle: {
@@ -317,7 +315,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   profileCard: {
-    marginHorizontal: spacing.lg,
     padding: spacing.lg + 4,
     borderRadius: spacing.lg,
     backgroundColor: colors.background, // 완전 흰색 배경
@@ -364,7 +361,6 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     ...typography.title,
-    marginHorizontal: 24,
     marginBottom: 16,
   },
   tipsScroll: {
@@ -397,7 +393,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   statsCard: {
-    marginHorizontal: spacing.lg,
     marginBottom: spacing.lg,
     padding: spacing.lg + 4,
     borderRadius: 16,
@@ -447,7 +442,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginVertical: 16,
     alignItems: 'center',
-    marginHorizontal: 24, // profileCard와 동일하게 좌우 마진 적용
     minHeight: 190,
   },
   matchingProgressCenter: {
@@ -468,7 +462,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   ctaCard: {
-    marginHorizontal: spacing.lg,
     marginBottom: spacing.lg,
     padding: spacing.lg + 4,
     borderRadius: spacing.lg,

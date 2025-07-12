@@ -70,11 +70,11 @@ const RootNavigator: React.FC = () => {
       </Stack.Screen>
       <Stack.Screen name={NAVIGATION_ROUTES.LOGIN} component={LoginScreen} />
       <Stack.Screen name={NAVIGATION_ROUTES.MAIN} component={MainTabNavigator} />
-      <Stack.Screen name={NAVIGATION_ROUTES.PROFILE_EDIT} component={ProfileEditScreen} options={NAVIGATION_OPTIONS.PROFILE_EDIT} />
-      <Stack.Screen name={NAVIGATION_ROUTES.PREFERENCE_EDIT} component={PreferenceEditScreen} options={NAVIGATION_OPTIONS.PREFERENCE_EDIT} />
-      <Stack.Screen name={NAVIGATION_ROUTES.USER_DETAIL} component={UserDetailScreen} options={NAVIGATION_OPTIONS.USER_DETAIL} />
-      <Stack.Screen name={NAVIGATION_ROUTES.POINT_CHARGE} component={PointChargeScreen} options={{ headerShown: true, title: '포인트 충전' }} />
-      <Stack.Screen name="Terms" component={TermsScreen} options={{ headerShown: true, title: '' }} />
+      <Stack.Screen name={NAVIGATION_ROUTES.PROFILE_EDIT} component={ProfileEditScreen} />
+      <Stack.Screen name={NAVIGATION_ROUTES.PREFERENCE_EDIT} component={PreferenceEditScreen} />
+      <Stack.Screen name={NAVIGATION_ROUTES.USER_DETAIL} component={UserDetailScreen} />
+      <Stack.Screen name={NAVIGATION_ROUTES.POINT_CHARGE} component={PointChargeScreen} />
+      <Stack.Screen name="Terms" component={TermsScreen} />
     </Stack.Navigator>
   );
 };

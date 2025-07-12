@@ -128,7 +128,6 @@ const CardScheduleChoice: React.FC<CardScheduleChoiceProps> = ({
 
 const cardScheduleChoiceStyles = StyleSheet.create({
   card: {
-    marginHorizontal: 24,
     padding: 20,
     borderRadius: 20,
     backgroundColor: colors.background,

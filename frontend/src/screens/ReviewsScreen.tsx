@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { View, Card, Text, Icon, Avatar } from 'react-native-ui-lib';
 import { colors, typography } from '@/constants';
 import { apiGet } from '@/utils/apiUtils';
 import { useAuth } from '../store/AuthContext';
+import MainLayout from '../components/MainLayout';
 
 const ReviewsScreen = () => {
   const { user } = useAuth();
@@ -43,8 +44,26 @@ const ReviewsScreen = () => {
     return <View flex center><Text>{error}</Text></View>;
   }
 
+  const [refreshing, setRefreshing] = useState(false);
+  
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      // 리뷰 데이터 새로고침
+      if (user?.userId) {
+        const reviews = await apiGet('/reviews', { userId: user.userId });
+        setReviews(reviews);
+      }
+    } catch (e: any) {
+      setError(e.message || '후기 목록을 불러오지 못했습니다.');
+    } finally {
+      setRefreshing(false);
+    }
+  }, [user?.userId]);
+
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <MainLayout onRefresh={handleRefresh} refreshing={refreshing}>
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <Text style={styles.headerTitle}>후기</Text>
       <Text style={styles.headerSubtitle}>소개팅 상대가 남긴 후기</Text>
       {reviews.length === 0 && (
@@ -112,7 +131,8 @@ const ReviewsScreen = () => {
         </Card>
       ))}
       <View style={{ height: 100 }} />
-    </ScrollView>
+      </ScrollView>
+    </MainLayout>
   );
 };
 
