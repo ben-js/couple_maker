@@ -4,7 +4,7 @@ import { useAuth } from '@/store/AuthContext';
 import { RootStackParamList } from '@/types/navigation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
-import { NAVIGATION_ROUTES, NAVIGATION_OPTIONS } from '@/constants';
+import { NAVIGATION_ROUTES } from '@/constants';
 import { ActivityIndicator } from 'react-native';
 
 // 화면 컴포넌트들
@@ -16,6 +16,7 @@ import PreferenceEditScreen from '@/screens/PreferenceEditScreen';
 import UserDetailScreen from '@/screens/UserDetailScreen';
 import TermsScreen from '../screens/TermsScreen';
 import PointChargeScreen from '@/screens/PointChargeScreen';
+import ReviewWriteScreen from '@/screens/ReviewWriteScreen';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -74,6 +75,7 @@ const RootNavigator: React.FC = () => {
       <Stack.Screen name={NAVIGATION_ROUTES.PREFERENCE_EDIT} component={PreferenceEditScreen} />
       <Stack.Screen name={NAVIGATION_ROUTES.USER_DETAIL} component={UserDetailScreen} />
       <Stack.Screen name={NAVIGATION_ROUTES.POINT_CHARGE} component={PointChargeScreen} />
+      <Stack.Screen name={NAVIGATION_ROUTES.REVIEW_WRITE} component={ReviewWriteScreen} />
       <Stack.Screen name="Terms" component={TermsScreen} />
     </Stack.Navigator>
   );

@@ -1,0 +1,58 @@
+[
+  {
+    "user_id": "user-1",
+    "timestamp": "2024-06-15T18:00:00.000Z",
+    "match_pair_id": "pair-2",
+    "partner_id": "user-3",
+    "status": "completed",
+    "schedule_date": "2024-06-15",
+    "date_location": "강남역 스타벅스",
+    "contact_shared": true,
+    "both_interested": true,
+    "review_submitted": true,
+    "points_used": 100,
+    "points_refunded": 0
+  },
+  {
+    "user_id": "user-3",
+    "timestamp": "2024-06-15T18:00:00.000Z",
+    "match_pair_id": "pair-2",
+    "partner_id": "user-1",
+    "status": "completed",
+    "schedule_date": "2024-06-15",
+    "date_location": "강남역 스타벅스",
+    "contact_shared": true,
+    "both_interested": true,
+    "review_submitted": true,
+    "points_used": 100,
+    "points_refunded": 0
+  },
+  {
+    "user_id": "user-1",
+    "timestamp": "2024-05-20T19:00:00.000Z",
+    "match_pair_id": "pair-3",
+    "partner_id": "user-5",
+    "status": "completed",
+    "schedule_date": "2024-05-20",
+    "date_location": "홍대입구 카페",
+    "contact_shared": false,
+    "both_interested": false,
+    "review_submitted": true,
+    "points_used": 100,
+    "points_refunded": 0
+  },
+  {
+    "user_id": "user-5",
+    "timestamp": "2024-05-20T19:00:00.000Z",
+    "match_pair_id": "pair-3",
+    "partner_id": "user-1",
+    "status": "completed",
+    "schedule_date": "2024-05-20",
+    "date_location": "홍대입구 카페",
+    "contact_shared": false,
+    "both_interested": false,
+    "review_submitted": true,
+    "points_used": 100,
+    "points_refunded": 0
+  }
+] 

@@ -14,4 +14,5 @@ export type RootStackParamList = {
   Terms: { type?: 'terms' | 'privacy' | 'customer' } | undefined;
   Auth?: undefined;
   PointCharge: undefined;
+  ReviewWrite: { userId: string; matchId: string };
 }; 

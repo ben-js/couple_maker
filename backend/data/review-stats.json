@@ -3,9 +3,27 @@
     "user_id": "user-1",
     "avg_appearance": 4.0,
     "avg_conversation": 4.5,
-    "avg_manners": 4.2,
-    "avg_honesty": 4.8,
+    "avg_manners": 4.5,
+    "avg_honesty": 4.5,
+    "total_reviews": 2,
+    "positive_tags": ["친근함", "대화가 잘됨", "매너가 좋음", "진정성 있음"]
+  },
+  {
+    "user_id": "user-3",
+    "avg_appearance": 4.0,
+    "avg_conversation": 5.0,
+    "avg_manners": 5.0,
+    "avg_honesty": 4.0,
     "total_reviews": 1,
-    "positive_tags": ["친절함", "대화가 잘됨", "매너가 좋음"]
+    "positive_tags": ["친근함", "대화가 잘됨", "매너가 좋음", "진정성 있음"]
+  },
+  {
+    "user_id": "user-5",
+    "avg_appearance": 4.0,
+    "avg_conversation": 3.0,
+    "avg_manners": 4.0,
+    "avg_honesty": 4.0,
+    "total_reviews": 1,
+    "positive_tags": []
   }
 ] 

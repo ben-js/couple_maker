@@ -1,10 +1,50 @@
 [
   {
     "user_id": "user-1",
-    "timestamp": "2024-01-01T00:00:00.000Z",
-    "from_status": "none",
+    "timestamp": "2024-07-01T00:00:00.000Z",
+    "from_status": null,
     "to_status": "green",
     "reason": "회원가입",
+    "updated_by": "system"
+  },
+  {
+    "user_id": "user-2",
+    "timestamp": "2024-07-01T00:00:00.000Z",
+    "from_status": null,
+    "to_status": "green",
+    "reason": "회원가입",
+    "updated_by": "system"
+  },
+  {
+    "user_id": "user-3",
+    "timestamp": "2024-06-01T00:00:00.000Z",
+    "from_status": null,
+    "to_status": "green",
+    "reason": "회원가입",
+    "updated_by": "system"
+  },
+  {
+    "user_id": "user-4",
+    "timestamp": "2024-07-10T00:00:00.000Z",
+    "from_status": null,
+    "to_status": "green",
+    "reason": "회원가입",
+    "updated_by": "system"
+  },
+  {
+    "user_id": "user-5",
+    "timestamp": "2024-05-01T00:00:00.000Z",
+    "from_status": null,
+    "to_status": "green",
+    "reason": "회원가입",
+    "updated_by": "system"
+  },
+  {
+    "user_id": "user-5",
+    "timestamp": "2024-07-13T00:00:00.000Z",
+    "from_status": "green",
+    "to_status": "deleted",
+    "reason": "회원 요청 탈퇴",
     "updated_by": "system"
   }
 ] 

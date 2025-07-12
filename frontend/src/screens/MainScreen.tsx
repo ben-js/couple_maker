@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { StyleSheet, Alert, Modal } from 'react-native';
 import MainLayout from '../components/MainLayout';
 import { View, Text, TouchableOpacity } from 'react-native-ui-lib';
@@ -11,6 +11,7 @@ import regionData from '../data/regions.json';
 import CardProfile from '../components/CardProfile';
 import CardCTA from '../components/CardCTA';
 import CardScheduleChoice from '../components/CardScheduleChoice';
+import CardReview from '../components/CardReview';
 import { useUserStatus, useUserInfo } from '../hooks/useUserStatus';
 
 const MainScreen = () => {
@@ -25,7 +26,31 @@ const MainScreen = () => {
   const [showDatePickerIdx, setShowDatePickerIdx] = useState<number|null>(null);
   const [locationSelection, setLocationSelection] = useState<string[]>([]);
   const [showDateDuplicateModal, setShowDateDuplicateModal] = useState(false);
+  const [showProposalModal, setShowProposalModal] = useState(false);
+  const [proposalMatchId, setProposalMatchId] = useState<string | null>(null);
+  
+  // 디버깅용: 모달 상태 로그
+  useEffect(() => {
+    console.log('[매니저 제안] 모달 상태 변경:', { showProposalModal, proposalMatchId });
+  }, [showProposalModal, proposalMatchId]);
   const [refreshing, setRefreshing] = useState(false);
+
+  // 소개팅 완료 후 2시간이 지났는지 확인
+  const isDatePassed = useMemo(() => {
+    console.log('[MainScreen] finalDate 확인:', statusData?.finalDate);
+    if (!statusData?.finalDate) return false;
+    const finalDate = new Date(statusData.finalDate);
+    const twoHoursLater = new Date(finalDate.getTime() + 2 * 60 * 60 * 1000); // 2시간 후
+    const now = new Date();
+    const isPassed = now > twoHoursLater;
+    console.log('[MainScreen] 날짜 계산:', {
+      finalDate: finalDate.toISOString(),
+      twoHoursLater: twoHoursLater.toISOString(),
+      now: now.toISOString(),
+      isPassed
+    });
+    return isPassed;
+  }, [statusData?.finalDate]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -38,6 +63,63 @@ const MainScreen = () => {
       setRefreshing(false);
     }
   }, [refetchStatus, refetchUser]);
+
+  // 매칭 제안 확인 및 상태 자동 처리
+  useEffect(() => {
+    const checkProposalAndStatus = async () => {
+      if (!user?.userId) return;
+      
+      try {
+        // 매칭 상태 자동 처리 API 호출 (백그라운드)
+        apiPost('/process-matching-status').catch(console.error);
+        
+        // 매칭 상태 조회 (제안 포함)
+        const statusData = await apiGet('/matching-status', { userId: user.userId });
+        
+        console.log('[매니저 제안] API 응답:', JSON.stringify(statusData, null, 2));
+        console.log('[매니저 제안] hasPendingProposal:', statusData.hasPendingProposal);
+        console.log('[매니저 제안] proposalMatchId:', statusData.proposalMatchId);
+        console.log('[매니저 제안] status:', statusData.status);
+        
+        if (statusData.hasPendingProposal) {
+          console.log('[매니저 제안] 모달 표시 시도');
+          setProposalMatchId(statusData.proposalMatchId);
+          setShowProposalModal(true);
+        } else {
+          console.log('[매니저 제안] hasPendingProposal이 false');
+        }
+      } catch (error) {
+        console.error('매칭 제안 확인 실패:', error);
+      }
+    };
+
+    checkProposalAndStatus();
+  }, [user?.userId]);
+
+  // 매칭 제안 응답 처리
+  const handleProposalResponse = async (response: 'accept' | 'reject') => {
+    if (!proposalMatchId) return;
+
+    try {
+      const result = await apiPost(`/propose/${proposalMatchId}/respond`, {
+        response
+      });
+
+      setShowProposalModal(false);
+      setProposalMatchId(null);
+
+      if (response === 'accept') {
+        Alert.alert('수락 완료', '매칭 제안을 수락했습니다.');
+        // 상태 새로고침
+        await refetchStatus();
+      } else {
+        Alert.alert('거절 완료', '매칭 제안을 거절했습니다.');
+      }
+    } catch (error) {
+      console.error('매칭 제안 응답 실패:', error);
+      Alert.alert('오류', '처리 중 오류가 발생했습니다.');
+    }
+  };
 
   // statusData에서 matchId 추출하여 세팅
   useEffect(() => {
@@ -56,13 +138,21 @@ const MainScreen = () => {
   const matchingStepDescriptions: Record<string, string> = {
     waiting: '신청이 완료되었어요.\n매칭 소식을 곧 알려드릴게요!',
     matched: '매칭 성공!\n일정을 선택 해주세요.',
-    confirmed: '매칭 확정!\n일정 조율 중이에요.',
+    mismatched: '일정이 겹치지 않았어요.\n다시 일정을 선택해 주세요!',
+    confirmed: '매칭 확정!\n관리자가 최종 일정을 확정하고 있어요.',
     scheduled: '소개팅 일정이 확정됐어요!\n당일 오전 9시에 프로필이 공개됩니다.',
+    completed: '소개팅이 완료되었어요!\n후기를 작성해주세요.',
+    failed: '매칭이 실패했어요.\n포인트가 반환되었습니다.',
     none: '아직 소개팅 신청을 하지 않았습니다.',
   };
 
   const statusSteps = ['waiting', 'matched', 'confirmed', 'scheduled'];
-  const currentStep = statusData?.status ? statusSteps.indexOf(statusData.status) : -1;
+  const currentStep =
+    statusData?.status === 'mismatched'
+      ? statusSteps.indexOf('confirmed') // mismatched는 confirmed와 동일하게!
+      : statusData?.status
+        ? statusSteps.indexOf(statusData.status)
+        : -1;
 
   const renderMatchingProgress = () => (
     <View style={styles.matchingProgressContainer}>
@@ -107,6 +197,7 @@ const MainScreen = () => {
       return;
     }
     try {
+      // 정책상 제출하면 무조건 confirmed로 처리
       const res = await apiPost('/matching-choices', {
         match_id: matchId,
         user_id: user?.userId,
@@ -136,16 +227,37 @@ const MainScreen = () => {
       )}
 
       {/* 매칭 상대 카드 도착 시 카드 UI 노출 */}
-      {!showCtaCard && (statusData?.status === 'scheduled') && userInfo && (
+      {!showCtaCard && (statusData?.status === 'scheduled') && statusData?.matchedUser && !isDatePassed && (
         <CardProfile
-          user={userInfo}
+          user={statusData.matchedUser}
           matchId={matchId || ''}
-          onPress={() => navigation.navigate(NAVIGATION_ROUTES.USER_DETAIL, { userId: userInfo.userId, matchId })}
+          onPress={() => navigation.navigate(NAVIGATION_ROUTES.USER_DETAIL, { userId: statusData.matchedUser.userId, matchId })}
+        />
+      )}
+
+      {/* 소개팅 완료 후 리뷰 작성 카드 */}
+      {!showCtaCard && (statusData?.status === 'scheduled') && statusData?.matchedUser && isDatePassed && (
+        <CardReview
+          user={statusData.matchedUser}
+          matchId={matchId || ''}
+          onPress={() => navigation.navigate(NAVIGATION_ROUTES.REVIEW_WRITE, { userId: statusData.matchedUser.userId, matchId })}
         />
       )}
 
       {/* 일정 선택 UI: status가 matched일 때 */}
-      {!showCtaCard && statusData?.status === 'matched' && (
+      {!showCtaCard && (statusData?.status === 'matched' || statusData?.status === 'mismatched') && statusData.otherUserChoices && (
+        <View style={{ backgroundColor: '#FFF3F3', borderRadius: 12, marginTop: 0, marginBottom: 12, padding: 16, alignItems: 'center' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 4 }}>
+            <Text style={{ fontSize: 12, lineHeight: 22, marginRight: 5 }}>💡</Text>
+            <Text style={{ fontWeight: 'bold', fontSize: 16, lineHeight: 22 }}>상대방이 선택한 일정/장소</Text>
+          </View>
+          <Text style={{ marginBottom: 2, textAlign: 'center' }}>날짜: {statusData.otherUserChoices.dates?.join(', ') || '-'}</Text>
+          <Text style={{ textAlign: 'center' }}>장소: {statusData.otherUserChoices.locations?.join(', ') || '-'}</Text>
+        </View>
+      )}
+
+      {/* 일정 선택 UI: matched, mismatched 모두에서 노출 */}
+      {!showCtaCard && (statusData?.status === 'matched' || statusData?.status === 'mismatched') && (
         <CardScheduleChoice
           otherChoices={otherChoices}
           dateSelections={dateSelections}
@@ -160,6 +272,46 @@ const MainScreen = () => {
           onConfirm={handleConfirmSchedule}
         />
       )}
+
+      {/* failed 상태일 때 실패 UI */}
+      {!showCtaCard && statusData?.status === 'failed' && (
+        <CardCTA
+          title="매칭이 실패했어요"
+          subtitle="포인트가 자동으로 반환되었습니다.\n다시 신청해보세요!"
+          buttonText="다시 신청하기"
+          onPress={handleCtaPress}
+        />
+      )}
+
+      {/* 매칭 제안 모달 */}
+      <Modal
+        visible={showProposalModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowProposalModal(false)}
+      >
+        <View style={styles.proposalModalOverlay}>
+          <View style={styles.proposalModalContainer}>
+            <Text style={styles.proposalModalTitle}>매니저에게로 부터 소개팅 제안이 왔습니다.</Text>
+            <Text style={styles.proposalModalSubtitle}>소개팅을 받으시겠습니까? (포인트 미차감)</Text>
+            <View style={styles.proposalButtonContainer}>
+              <TouchableOpacity
+                style={[styles.proposalButton, styles.proposalAcceptButton]}
+                onPress={() => handleProposalResponse('accept')}
+              >
+                <Text style={styles.proposalAcceptButtonText}>예</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.proposalButton, styles.proposalRejectButton]}
+                onPress={() => handleProposalResponse('reject')}
+              >
+                <Text style={styles.proposalRejectButtonText}>아니오</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <Modal
         visible={showDateDuplicateModal}
@@ -442,7 +594,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginVertical: 16,
     alignItems: 'center',
-    minHeight: 190,
+    height: 200,
+    marginBottom: 10,
   },
   matchingProgressCenter: {
     alignItems: 'center',
@@ -475,6 +628,65 @@ const styles = StyleSheet.create({
     right: 16,
     zIndex: 1,
     padding: 2,
+  },
+  proposalModalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  proposalModalContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 28,
+    alignItems: 'center',
+    minWidth: 280,
+  },
+  proposalModalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  proposalModalSubtitle: {
+    fontSize: 15,
+    color: '#888',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  proposalButtonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+  },
+  proposalButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 25,
+    borderRadius: 12,
+  },
+  proposalAcceptButton: {
+    backgroundColor: colors.primary,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    width: 100, 
+    textAlign: 'center',
+  },
+  proposalAcceptButtonText: {
+    ...typography.button,
+    color: '#fff', 
+    textAlign: 'center',
+  },
+  proposalRejectButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: colors.border,
+    width: 100, 
+    textAlign: 'center',
+  },
+  proposalRejectButtonText: {
+    ...typography.button,
+    color: colors.text.secondary,
+    textAlign: 'center',
   },
 });
 

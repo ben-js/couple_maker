@@ -231,5 +231,43 @@ functions:
           path: /reward/{userId}
           method: get
 
+  respondToProposal:
+    handler: handler.respondToProposal
+    events:
+      - httpApi:
+          path: /matching-requests/{matchId}/respond
+          method: post
+
+  respondToProposalByProposeId:
+    handler: handler.respondToProposalByProposeId
+    events:
+      - httpApi:
+          path: /propose/{proposeId}/respond
+          method: post
+
+  processMatchingStatus:
+    handler: handler.processMatchingStatus
+    events:
+      - httpApi:
+          path: /process-matching-status
+          method: post
+      - schedule:
+          rate: rate(1 hour)
+          enabled: true
+
+  finalizeMatching:
+    handler: handler.finalizeMatching
+    events:
+      - httpApi:
+          path: /finalize-matching
+          method: post
+
+  shareContact:
+    handler: handler.shareContact
+    events:
+      - httpApi:
+          path: /share-contact
+          method: post
+
 plugins:
   - serverless-offline 

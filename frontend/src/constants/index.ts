@@ -34,9 +34,12 @@ export const POINTS_POLICY = {
 // 매칭 상태
 export const MATCHING_STATUS = {
   WAITING: 'waiting',
-  MATCHING: 'matching',
+  PROPOSED: 'proposed',
+  MATCHED: 'matched',
   CONFIRMED: 'confirmed',
+  SCHEDULED: 'scheduled',
   COMPLETED: 'completed',
+  FINISHED: 'finished',
   FAILED: 'failed',
 } as const;
 

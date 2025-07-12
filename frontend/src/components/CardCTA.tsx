@@ -9,17 +9,19 @@ export interface CardCTAProps {
   subtitle?: string;
   buttonText: string;
   onPress: () => void;
+  disabled?: boolean;
 }
 
-const CardCTA: React.FC<CardCTAProps> = ({ title, subtitle, buttonText, onPress }) => (
+const CardCTA: React.FC<CardCTAProps> = ({ title, subtitle, buttonText, onPress, disabled = false }) => (
   <View style={styles.ctaCard}>
     <Text style={styles.ctaButtonText}>{title}</Text>
     {!!subtitle && <Text style={styles.ctaButtonSubtext}>{subtitle}</Text>}
     <PrimaryButton
       title={buttonText}
       onPress={onPress}
-      style={styles.ctaButton}
-      textColor={colors.surface}
+      style={[styles.ctaButton, disabled && styles.ctaButtonDisabled]}
+      textColor={disabled ? colors.text.secondary : colors.surface}
+      disabled={disabled}
     />
   </View>
 );
@@ -50,6 +52,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 20,
     paddingVertical: 8,
+  },
+  ctaButtonDisabled: {
+    backgroundColor: colors.border,
   },
 });
 

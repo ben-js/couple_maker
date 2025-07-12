@@ -1,5 +1,7 @@
 import React, { useRef, useState } from 'react';
-import { FlatList, View, Image, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import { FlatList, View, Image, StyleSheet, TouchableOpacity, Dimensions, Text } from 'react-native';
+import { Feather } from '@expo/vector-icons';
+import { colors } from '@/constants';
 
 interface PhotoSliderProps {
   photoList: string[];
@@ -23,7 +25,19 @@ const PhotoSlider: React.FC<PhotoSliderProps> = ({ photoList }) => {
     flatListRef.current?.scrollToIndex({ index: idx, animated: true });
   };
 
-  if (!photoList || photoList.length === 0) return null;
+  // 사진이 비어있거나 없을 때 잠금 상태 표시
+  if (!photoList || photoList.length === 0) {
+    return (
+      <View style={styles.photoSliderWrap}>
+        <View style={styles.lockedContainer}>
+          <View style={styles.lockedImageContainer}>
+            <Feather name="lock" size={48} color="#999" />
+            <Text style={styles.lockedText}>소개팅 당일 오전 9시에 공개됩니다</Text>
+          </View>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.photoSliderWrap}>
@@ -99,6 +113,32 @@ const styles = StyleSheet.create({
   },
   dotActive: {
     backgroundColor: '#333',
+  },
+  // 잠금 상태 스타일
+  lockedContainer: {
+    width: containerWidth,
+    height: containerWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  lockedImageContainer: {
+    width: containerWidth,
+    height: containerWidth,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
+    borderStyle: 'dashed',
+  },
+  lockedText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#999',
+    textAlign: 'center',
+    fontWeight: '500',
   },
 });
 

@@ -8,19 +8,22 @@ type Props = {
   style?: object;
   textColor?: string;
   backgroundColor?: string;
+  disabled?: boolean;
 };
 
-const PrimaryButton = ({ title, onPress, style, textColor, backgroundColor }: Props) => (
+const PrimaryButton = ({ title, onPress, style, textColor, backgroundColor, disabled = false }: Props) => (
   <TouchableOpacity
     style={[
       styles.button,
       backgroundColor ? { backgroundColor } : {},
+      disabled && styles.buttonDisabled,
       style,
     ]}
     onPress={onPress}
-    activeOpacity={0.8}
+    activeOpacity={disabled ? 1 : 0.8}
+    disabled={disabled}
   >
-    <Text style={[styles.text, textColor ? { color: textColor } : {}]}>{title}</Text>
+    <Text style={[styles.text, textColor ? { color: textColor } : {}, disabled && styles.textDisabled]}>{title}</Text>
   </TouchableOpacity>
 );
 
@@ -37,10 +40,17 @@ const styles = StyleSheet.create({
     borderWidth: 0,
     marginVertical: 4,
   },
+  buttonDisabled: {
+    backgroundColor: colors.border,
+    opacity: 0.6,
+  },
   text: {
     color: colors.text.primary, // '#262626'
     fontSize: 15,
     fontWeight: '600',
+  },
+  textDisabled: {
+    color: colors.text.secondary,
   },
 });
 

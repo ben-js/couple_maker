@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { StyleSheet, ActivityIndicator, Image, Dimensions, FlatList, View as RNView, ScrollView } from 'react-native';
-import { View, Text, TouchableOpacity, Chip } from 'react-native-ui-lib';
+import { StyleSheet, ActivityIndicator, Image, Dimensions, FlatList, View as RNView, ScrollView, Alert, Platform, ToastAndroid } from 'react-native';
+import { View, Text, TouchableOpacity, Chip, Dialog, Button } from 'react-native-ui-lib';
 import { Feather } from '@expo/vector-icons';
 import { colors, typography } from '@/constants';
 import { commonStyles } from '@/constants/commonStyles';
@@ -12,6 +12,7 @@ import { MatchDetailData } from '@/types/match';
 import PhotoSlider from '../components/PhotoSlider';
 import PageLayout from '../components/PageLayout';
 import ProfileSection from '../components/ProfileSection';
+import * as Clipboard from 'expo-clipboard';
 
 interface RouteParams {
   userId: string;
@@ -27,16 +28,25 @@ const UserDetailScreen: React.FC = () => {
     const [matchDetail, setMatchDetail] = useState<MatchDetailData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [showCopyModal, setShowCopyModal] = useState(false);
 
     // 매칭 상세 정보 가져오기
     const fetchMatchDetail = useCallback(async () => {
-      if (!matchId || !user?.userId) return;
+      if (!matchId || !user?.userId) {
+        console.log('[UserDetailScreen] matchId 또는 userId 없음:', { matchId, userId: user?.userId });
+        setError('매칭 정보를 찾을 수 없습니다.');
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       setError(null);
       try {
+        console.log('[UserDetailScreen] API 호출 시작:', { matchId, userId: user.userId });
         const response = await apiGet<MatchDetailData>(`/match-detail/${matchId}?userId=${user.userId}`);
+        console.log('[UserDetailScreen] API 응답:', JSON.stringify(response, null, 2));
         setMatchDetail(response);
       } catch (e: any) {
+        console.error('[UserDetailScreen] API 에러:', e);
         setError(e.message || '프로필 정보를 불러오지 못했습니다.');
       } finally {
         setLoading(false);
@@ -55,7 +65,52 @@ const UserDetailScreen: React.FC = () => {
       return age;
     };
 
+    // 소개팅 날짜 포맷팅 함수
+    const formatDate = (dateString: string) => {
+      try {
+        const date = new Date(dateString);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = date.getHours();
+        const ampm = hours >= 12 ? '오후' : '오전';
+        const displayHours = hours > 12 ? hours - 12 : hours === 0 ? 12 : hours;
+        
+        return `${year}.${month}.${day} ${ampm} ${displayHours}시`;
+      } catch (error) {
+        return dateString; // 파싱 실패시 원본 반환
+      }
+    };
+
     const photoList = matchDetail?.profile?.photos || [];
+
+    // 디버깅용: matchDetail 데이터 확인
+    useEffect(() => {
+      console.log('[UserDetailScreen] matchDetail 상태 변경:', { 
+        matchDetail: !!matchDetail, 
+        loading, 
+        error 
+      });
+      
+      if (matchDetail) {
+        console.log('[UserDetailScreen] matchDetail 전체 데이터:', JSON.stringify(matchDetail, null, 2));
+        console.log('[UserDetailScreen] finalDate:', matchDetail.finalDate);
+        console.log('[UserDetailScreen] dateAddress:', matchDetail.dateAddress);
+        
+        // 조건부 렌더링 조건 확인
+        const hasFinalDate = !!matchDetail.finalDate;
+        const hasDateAddress = !!matchDetail.dateAddress;
+        const shouldShow = hasFinalDate && hasDateAddress;
+        
+        console.log('[UserDetailScreen] 조건 확인:', {
+          hasFinalDate,
+          hasDateAddress,
+          shouldShow,
+          finalDateValue: matchDetail.finalDate,
+          dateAddressValue: matchDetail.dateAddress
+        });
+      }
+    }, [matchDetail, loading, error]);
 
   if (loading) return (<View style={styles.loadingContainer}><ActivityIndicator size="large" color={colors.primary} /><Text style={styles.loadingText}>프로필 정보를 불러오는 중...</Text></View>);
   if (error || !matchDetail) return (<View style={styles.errorContainer}><Feather name="alert-circle" size={48} color={colors.error} /><Text style={styles.errorText}>{error || '프로필 정보를 불러올 수 없습니다.'}</Text><TouchableOpacity style={styles.retryButton} onPress={fetchMatchDetail}><Text style={styles.retryButtonText}>다시 시도</Text></TouchableOpacity></View>);
@@ -86,12 +141,59 @@ const UserDetailScreen: React.FC = () => {
   ].filter(Boolean);
 
   // 관심사 칩 데이터
-  const interestChips = (profile.interests || []).filter(Boolean);
+      const interestChips = (profile.interests || []).filter(Boolean);
+
+    // 클립보드 복사 함수
+    const handleCopyAddress = async () => {
+      if (matchDetail?.dateAddress) {
+        try {
+          await Clipboard.setStringAsync(matchDetail.dateAddress);
+          setShowCopyModal(false);
+          
+          if (Platform.OS === 'android') {
+            ToastAndroid.show('클립보드에 저장되었습니다', ToastAndroid.SHORT);
+          } else {
+            Alert.alert('알림', '클립보드에 저장되었습니다');
+          }
+        } catch (error) {
+          console.error('클립보드 복사 실패:', error);
+          if (Platform.OS === 'android') {
+            ToastAndroid.show('클립보드 복사에 실패했습니다', ToastAndroid.SHORT);
+          } else {
+            Alert.alert('오류', '클립보드 복사에 실패했습니다');
+          }
+        }
+      }
+    };
 
   return (
     <PageLayout title="프로필">
       {/* 프로필 사진 슬라이드 */}
       <PhotoSlider photoList={photoList} />
+
+      {/* 소개팅 장소 박스 */}
+      {(matchDetail?.finalDate && matchDetail?.dateAddress) && (
+        <TouchableOpacity 
+          style={styles.scheduleTipBox}
+          onPress={() => setShowCopyModal(true)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.scheduleTipHeader}>
+            <Text style={styles.scheduleTipIcon}>💡</Text>
+            <Text style={styles.scheduleTipTitle}>소개팅 장소</Text>
+          </View>
+          {matchDetail.finalDate && (
+            <Text style={styles.scheduleTipText}>
+              소개팅 날짜: {formatDate(matchDetail.finalDate)}
+            </Text>
+          )}
+          {matchDetail.dateAddress && (
+            <Text style={styles.scheduleTipText}>
+              소개팅 장소: {matchDetail.dateAddress}
+            </Text>
+          )}
+        </TouchableOpacity>
+      )}
 
       {/* introduction(자기소개) */}
       {profile.introduction && (
@@ -131,20 +233,38 @@ const UserDetailScreen: React.FC = () => {
         </ProfileSection>
       )}
 
-      {/* 이상형 정보 */}
-      {(profile.idealType || preference) && (
-        <ProfileSection title="이상형">
-          {profile.idealType && <Text style={commonStyles.bodyText}>{profile.idealType}</Text>}
-          {preference && (
-            <View style={commonStyles.chipRow}>
-              {preference.ageRange && <Chip label={`나이: ${preference.ageRange.min}~${preference.ageRange.max}세`} containerStyle={commonStyles.chip} labelStyle={commonStyles.chipLabel} />}
-              {preference.heightRange && <Chip label={`키: ${preference.heightRange.min}~${preference.heightRange.max}cm`} containerStyle={commonStyles.chip} labelStyle={commonStyles.chipLabel} />}
-              {preference.regions && preference.regions.length > 0 && <Chip label={`지역: ${preference.regions.join(', ')}`} containerStyle={commonStyles.chip} labelStyle={commonStyles.chipLabel} />}
-              {preference.jobs && preference.jobs.length > 0 && <Chip label={`직업: ${preference.jobs.join(', ')}`} containerStyle={commonStyles.chip} labelStyle={commonStyles.chipLabel} />}
-            </View>
-          )}
-        </ProfileSection>
-      )}
+      {/* 클립보드 복사 모달 */}
+      <Dialog
+        visible={showCopyModal}
+        onDismiss={() => setShowCopyModal(false)}
+        containerStyle={styles.copyModalContainer}
+        width={320}
+        panDirection={null}
+      >
+        <View style={styles.copyModalContent}>
+          <View style={styles.copyModalHeader}>
+            <Text style={styles.copyModalTitle}>주소 복사</Text>
+            <TouchableOpacity 
+              onPress={() => setShowCopyModal(false)}
+              style={styles.copyModalCloseButton}
+            >
+              <Feather name="x" size={24} color="#666" />
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.copyModalText}>
+            소개팅 장소 주소를 클립보드에 복사하시겠습니까?
+          </Text>
+          <View style={styles.copyModalButtonContainer}>
+            <Button
+              label="확인"
+              onPress={handleCopyAddress}
+              style={styles.copyModalConfirmButton}
+              labelStyle={styles.copyModalConfirmButtonText}
+            />
+          </View>
+        </View>
+      </Dialog>
+
     </PageLayout>
   );
 };
@@ -178,6 +298,85 @@ const styles = StyleSheet.create({
   },
   headerSpacer: {
     width: 40,
+  },
+  // 소개팅 장소 팁 박스 스타일
+  scheduleTipBox: {
+    backgroundColor: '#FFF3F3',
+    borderRadius: 12,
+    marginTop: 0,
+    marginBottom: 12,
+    padding: 16,
+    alignItems: 'center',
+  },
+  scheduleTipHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  scheduleTipIcon: {
+    fontSize: 12,
+    lineHeight: 22,
+    marginRight: 5,
+  },
+  scheduleTipTitle: {
+    fontWeight: 'bold',
+    fontSize: 16,
+    lineHeight: 22,
+  },
+  scheduleTipText: {
+    marginBottom: 2,
+    textAlign: 'left',
+    alignSelf: 'stretch',
+  },
+  // 클립보드 복사 모달 스타일
+  copyModalContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  copyModalContent: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: 24,
+    width: 320,
+    alignItems: 'center',
+  },
+  copyModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 16,
+  },
+  copyModalTitle: {
+    ...typography.title,
+    color: colors.text.primary,
+    flex: 1,
+    textAlign: 'center',
+  },
+  copyModalCloseButton: {
+    padding: 4,
+  },
+  copyModalText: {
+    ...typography.body,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 20,
+  },
+  copyModalButtonContainer: {
+    width: '100%',
+  },
+  copyModalConfirmButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingVertical: 14,
+    width: '100%',
+  },
+  copyModalConfirmButtonText: {
+    color: colors.surface,
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });
 

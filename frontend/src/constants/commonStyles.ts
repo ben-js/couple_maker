@@ -38,7 +38,7 @@ export const commonStyles = StyleSheet.create({
     marginBottom: 8,
     borderColor: colors.border,
     borderRadius: 16,
-    paddingHorizontal: 14,
+    paddingHorizontal: 4,
     paddingVertical: 8,
     borderWidth: 1
   },

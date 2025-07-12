@@ -1,9 +1,138 @@
 [
   {
     "user_id": "user-1",
-    "timestamp": "2024-01-01T00:00:00.000Z",
+    "timestamp": "2024-07-01T00:00:00.000Z",
     "type": "signup",
     "points": 100,
-    "description": "회원가입 보너스"
+    "description": "회원가입 보너스",
+    "related_id": null
+  },
+  {
+    "user_id": "user-1",
+    "timestamp": "2024-07-12T10:00:00.000Z",
+    "type": "matching_cost",
+    "points": -100,
+    "description": "소개팅 신청",
+    "related_id": "match-1"
+  },
+  {
+    "user_id": "user-1",
+    "timestamp": "2024-06-15T18:00:00.000Z",
+    "type": "matching_cost",
+    "points": -100,
+    "description": "소개팅 신청",
+    "related_id": "pair-2"
+  },
+  {
+    "user_id": "user-1",
+    "timestamp": "2024-06-16T10:00:00.000Z",
+    "type": "review_bonus",
+    "points": 50,
+    "description": "후기 작성 보너스",
+    "related_id": "pair-2"
+  },
+  {
+    "user_id": "user-1",
+    "timestamp": "2024-05-20T19:00:00.000Z",
+    "type": "matching_cost",
+    "points": -100,
+    "description": "소개팅 신청",
+    "related_id": "pair-3"
+  },
+  {
+    "user_id": "user-1",
+    "timestamp": "2024-05-21T10:00:00.000Z",
+    "type": "review_bonus",
+    "points": 30,
+    "description": "후기 작성 보너스",
+    "related_id": "pair-3"
+  },
+  {
+    "user_id": "user-2",
+    "timestamp": "2024-07-01T00:00:00.000Z",
+    "type": "signup",
+    "points": 100,
+    "description": "회원가입 보너스",
+    "related_id": null
+  },
+  {
+    "user_id": "user-2",
+    "timestamp": "2024-07-12T11:00:00.000Z",
+    "type": "matching_cost",
+    "points": -100,
+    "description": "매니저 제안 수락",
+    "related_id": "match-2"
+  },
+  {
+    "user_id": "user-3",
+    "timestamp": "2024-06-01T00:00:00.000Z",
+    "type": "signup",
+    "points": 100,
+    "description": "회원가입 보너스",
+    "related_id": null
+  },
+  {
+    "user_id": "user-3",
+    "timestamp": "2024-06-01T10:00:00.000Z",
+    "type": "matching_cost",
+    "points": -100,
+    "description": "소개팅 신청",
+    "related_id": "pair-2"
+  },
+  {
+    "user_id": "user-3",
+    "timestamp": "2024-06-16T10:00:00.000Z",
+    "type": "review_bonus",
+    "points": 50,
+    "description": "후기 작성 보너스",
+    "related_id": "pair-2"
+  },
+  {
+    "user_id": "user-4",
+    "timestamp": "2024-07-10T00:00:00.000Z",
+    "type": "signup",
+    "points": 100,
+    "description": "회원가입 보너스",
+    "related_id": null
+  },
+  {
+    "user_id": "user-4",
+    "timestamp": "2024-07-10T10:00:00.000Z",
+    "type": "matching_cost",
+    "points": -100,
+    "description": "소개팅 신청",
+    "related_id": "match-5"
+  },
+  {
+    "user_id": "user-5",
+    "timestamp": "2024-05-01T00:00:00.000Z",
+    "type": "signup",
+    "points": 100,
+    "description": "회원가입 보너스",
+    "related_id": null
+  },
+  {
+    "user_id": "user-5",
+    "timestamp": "2024-05-20T19:00:00.000Z",
+    "type": "matching_cost",
+    "points": -100,
+    "description": "소개팅 신청",
+    "related_id": "pair-3"
+  },
+  {
+    "user_id": "user-5",
+    "timestamp": "2024-05-21T10:00:00.000Z",
+    "type": "review_bonus",
+    "points": 30,
+    "description": "후기 작성 보너스",
+    "related_id": "pair-3"
+  },
+  {
+    "user_id": "user-5",
+    "timestamp": "2024-07-13T00:00:00.000Z",
+    "type": "refund",
+    "points": 0,
+    "description": "탈퇴로 인한 포인트 소멸",
+    "related_id": null
   }
 ] 

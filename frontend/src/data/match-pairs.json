@@ -1,0 +1,25 @@
+[
+  {
+    "match_pair_id": "pair-1",
+    "match_a_id": "match-1",
+    "match_b_id": "match-2",
+    "status": "proposed",
+    "is_manual": true,
+    "is_proposed": true,
+    "confirm_proposed": false,
+    "user_a_choices": { "dates": [], "locations": [] },
+    "user_b_choices": { "dates": [], "locations": [] },
+    "schedule_date": null,
+    "date_location": null,
+    "created_at": "2024-07-17T00:00:00.000Z",
+    "updated_at": "2025-07-11T18:02:59.984Z",
+    "confirmed_at": null,
+    "scheduled_at": null,
+    "completed_at": null,
+    "failed_at": null,
+    "failure_reason": null,
+    "photo_visible_at": null,
+    "contact_shared": false,
+    "both_interested": false
+  }
+]
