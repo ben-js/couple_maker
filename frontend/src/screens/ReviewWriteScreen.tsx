@@ -377,6 +377,7 @@ const styles = StyleSheet.create({
     minHeight: 100,
     ...typography.body,
     color: colors.text.primary,
+    backgroundColor: colors.background,
   },
   submitContainer: {
     paddingBottom: 32,

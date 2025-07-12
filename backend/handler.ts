@@ -837,10 +837,9 @@ export const submitChoices = async (event: any) => {
       currentRequest.final_date = final_date;
       currentRequest.final_location = final_location;
       
-      // final_date의 오전 9시로 photo_visible_at 설정
+      // final_date의 30분 전으로 photo_visible_at 설정
       const finalDate = new Date(final_date);
-      const photoVisibleAt = new Date(finalDate);
-      photoVisibleAt.setHours(9, 0, 0, 0);
+      const photoVisibleAt = new Date(finalDate.getTime() - 30 * 60 * 1000); // 30분 전
       currentRequest.photo_visible_at = photoVisibleAt.toISOString();
       
       console.log('[submitChoices] photo_visible_at 자동 설정:', {

@@ -140,7 +140,7 @@ const MainScreen = () => {
     matched: '매칭 성공!\n일정을 선택 해주세요.',
     mismatched: '일정이 겹치지 않았어요.\n다시 일정을 선택해 주세요!',
     confirmed: '매칭 확정!\n관리자가 최종 일정을 확정하고 있어요.',
-    scheduled: '소개팅 일정이 확정됐어요!\n당일 오전 9시에 프로필이 공개됩니다.',
+    scheduled: '소개팅 일정이 확정됐어요!\n소개팅 30분 전에 사진이 공개됩니다.',
     completed: '소개팅이 완료되었어요!\n후기를 작성해주세요.',
     failed: '매칭이 실패했어요.\n포인트가 반환되었습니다.',
     none: '아직 소개팅 신청을 하지 않았습니다.',
@@ -595,6 +595,7 @@ const styles = StyleSheet.create({
     marginVertical: 16,
     alignItems: 'center',
     height: 200,
+    marginTop: 0,
     marginBottom: 10,
   },
   matchingProgressCenter: {
