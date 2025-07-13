@@ -8,6 +8,7 @@ interface MainLayoutProps {
   contentStyle?: ViewStyle;
   onRefresh?: () => void;
   refreshing?: boolean;
+  useScrollView?: boolean; // FlatList 사용 시 false로 설정
 }
 
 const onChargePress = () => {};
@@ -23,17 +24,24 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   contentStyle,
   onRefresh,
   refreshing,
+  useScrollView = true, // 기본값은 true
 }) => (
   <View style={[styles.container, containerStyle]}>
     <ProfileHeader onChargePress={onChargePress} />
-    <ScrollView
-      contentContainerStyle={[styles.content, contentStyle]}
-      refreshControl={onRefresh ? (
-        <RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} />
-      ) : undefined}
-    >
-      {children}
-    </ScrollView>
+    {useScrollView ? (
+      <ScrollView
+        contentContainerStyle={[styles.content, contentStyle]}
+        refreshControl={onRefresh ? (
+          <RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} />
+        ) : undefined}
+      >
+        {children}
+      </ScrollView>
+    ) : (
+      <View style={[styles.content, contentStyle]}>
+        {children}
+      </View>
+    )}
   </View>
 );
 

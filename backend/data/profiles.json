@@ -2,40 +2,42 @@
   {
     "user_id": "user-1",
     "id": "user-1",
-    "introduction": "안녕하세요! IT 업계에서 일하고 있는 김민수입니다. 새로운 기술을 배우는 것을 좋아하고, 여행과 독서가 취미입니다. 진정성 있는 만남을 찾고 있어요.",
-    "marriage_plans": "2-3년 내",
+    "introduction": "안녕하세요! 디자인을 전공하고 현재 UI/UX 디자이너로 일하고 있는 이지은입니다. 예술과 창작을 좋아하며, 새로운 경험을 통해 성장하는 것을 즐깁니다. 진정성 있는 만남을 찾고 있어요.",
+    "marriage_plans": "1-2년 내",
     "has_children": "없음",
     "marital_status": "미혼",
     "religion": "무교",
-    "drinking": "음주",
+    "drinking": "비음주",
     "smoking": "비흡연",
     "favorite_foods": [
-      "파스타",
-      "스테이크",
-      "피자"
+      "샐러드",
+      "스시",
+      "커피",
+      "파스타"
     ],
     "interests": [
-      "독서",
-      "영화감상",
-      "여행",
-      "게임"
+      "그림그리기",
+      "카페투어",
+      "요리",
+      "음악감상",
+      "여행"
     ],
-    "mbti": "INTJ",
+    "mbti": "ENFP",
     "region": {
       "region": "서울",
       "district": "강남구"
     },
     "education": "대학교",
-    "job": "소프트웨어 개발자",
-    "body_type": "평균",
-    "height": "178",
-    "gender": "남",
+    "job": "UI/UX 디자이너",
+    "body_type": "슬림",
+    "height": "165",
+    "gender": "여",
     "birth_date": {
-      "year": 1995,
-      "month": 3,
-      "day": 15
+      "year": 1996,
+      "month": 7,
+      "day": 22
     },
-    "name": "김민수",
+    "name": "이지은",
     "points": 100,
     "photos": [
       "http://192.168.219.100:3000/files/2025/07/12/user-1/1752322576432.jpg",
@@ -206,18 +208,98 @@
     ],
     "favorite_foods": [
       "한식",
-      "베이킹",
-      "차"
+      "디저트",
+      "커피"
     ],
     "smoking": "비흡연",
     "drinking": "비음주",
     "religion": "불교",
     "marital_status": "미혼",
     "has_children": "없음",
-    "marriage_plans": "미정",
-    "introduction": "회계사로 일하고 있는 최수진입니다. 차분하고 신중한 성격이며, 일과 가정의 균형을 중요하게 생각합니다. 진정성 있는 만남을 기대합니다.",
+    "marriage_plans": "2년 후",
+    "introduction": "안녕하세요! 회계사로 일하고 있는 최수진입니다. 차분하고 신중한 성격이며, 안정적인 관계를 추구합니다. 취미는 독서와 요리입니다.",
     "photos": [
       "user-5-photo-1.jpg"
+    ]
+  },
+  {
+    "user_id": "user-6",
+    "name": "강동현",
+    "birth_date": {
+      "year": 1991,
+      "month": 2,
+      "day": 14
+    },
+    "gender": "남",
+    "height": "175",
+    "body_type": "평균",
+    "job": "의사",
+    "education": "대학원",
+    "region": {
+      "region": "서울",
+      "district": "송파구"
+    },
+    "mbti": "INFJ",
+    "interests": [
+      "음악감상",
+      "피아노",
+      "등산",
+      "독서"
+    ],
+    "favorite_foods": [
+      "한식",
+      "양식",
+      "와인"
+    ],
+    "smoking": "비흡연",
+    "drinking": "음주",
+    "religion": "무교",
+    "marital_status": "미혼",
+    "has_children": "없음",
+    "marriage_plans": "1-2년 내",
+    "introduction": "안녕하세요! 병원에서 근무하는 강동현입니다. 사람을 돕는 일에 보람을 느끼며, 음악과 등산을 좋아합니다. 진정한 파트너를 찾고 있어요.",
+    "photos": [
+      "user-6-photo-1.jpg"
+    ]
+  },
+  {
+    "user_id": "user-7",
+    "name": "윤미영",
+    "birth_date": {
+      "year": 1997,
+      "month": 6,
+      "day": 18
+    },
+    "gender": "여",
+    "height": "170",
+    "body_type": "슬림",
+    "job": "간호사",
+    "education": "대학교",
+    "region": {
+      "region": "경기",
+      "district": "부천시"
+    },
+    "mbti": "ENFJ",
+    "interests": [
+      "댄스",
+      "요가",
+      "여행",
+      "사진촬영"
+    ],
+    "favorite_foods": [
+      "샐러드",
+      "스무디",
+      "과일"
+    ],
+    "smoking": "비흡연",
+    "drinking": "비음주",
+    "religion": "기독교",
+    "marital_status": "미혼",
+    "has_children": "없음",
+    "marriage_plans": "3년 후",
+    "introduction": "안녕하세요! 간호사로 일하고 있는 윤미영입니다. 활발하고 긍정적인 성격이며, 건강한 라이프스타일을 추구합니다. 댄스와 요가가 취미예요.",
+    "photos": [
+      "user-7-photo-1.jpg"
     ]
   }
 ]

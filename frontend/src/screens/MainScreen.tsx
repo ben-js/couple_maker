@@ -9,10 +9,12 @@ import { apiGet, apiPost } from '@/utils/apiUtils';
 import StepProgressBar from '../components/StepProgressBar';
 import regionData from '../data/regions.json';
 import CardProfile from '../components/CardProfile';
+import CardRequest from '../components/CardRequest';
 import CardCTA from '../components/CardCTA';
 import CardScheduleChoice from '../components/CardScheduleChoice';
 import CardReview from '../components/CardReview';
 import { useUserStatus, useUserInfo } from '../hooks/useUserStatus';
+import ContactExchangeModal from '../components/ContactExchangeModal';
 
 const MainScreen = () => {
   const navigation = useNavigation<any>();
@@ -28,6 +30,20 @@ const MainScreen = () => {
   const [showDateDuplicateModal, setShowDateDuplicateModal] = useState(false);
   const [showProposalModal, setShowProposalModal] = useState(false);
   const [proposalMatchId, setProposalMatchId] = useState<string | null>(null);
+  const [showContactModal, setShowContactModal] = useState(false);
+  const [isSavingContact, setIsSavingContact] = useState(false);
+  
+  // 현재 사용자가 연락처를 보냈는지 확인
+  const hasSentContact = useMemo(() => {
+    if (!statusData?.matchId || !user?.userId) return false;
+    return statusData.review?.contact;
+  }, [statusData?.matchId, statusData?.review?.contact, user?.userId]);
+  
+  // 상대방이 연락처를 보냈는지 확인
+  const hasReceivedContact = useMemo(() => {
+    if (!statusData?.matchId || !statusData?.matchedUser) return false;
+    return !!statusData.otherUserContact;
+  }, [statusData?.matchId, statusData?.matchedUser, statusData?.otherUserContact]);
   
   // 디버깅용: 모달 상태 로그
   useEffect(() => {
@@ -71,10 +87,10 @@ const MainScreen = () => {
       
       try {
         // 매칭 상태 자동 처리 API 호출 (백그라운드)
-        apiPost('/process-matching-status').catch(console.error);
+        apiPost('/process-matching-status', undefined, user.userId).catch(console.error);
         
         // 매칭 상태 조회 (제안 포함)
-        const statusData = await apiGet('/matching-status', { userId: user.userId });
+        const statusData = await apiGet('/matching-status', { userId: user.userId }, user.userId);
         
         console.log('[매니저 제안] API 응답:', JSON.stringify(statusData, null, 2));
         console.log('[매니저 제안] hasPendingProposal:', statusData.hasPendingProposal);
@@ -103,7 +119,7 @@ const MainScreen = () => {
     try {
       const result = await apiPost(`/propose/${proposalMatchId}/respond`, {
         response
-      });
+      }, user?.userId);
 
       setShowProposalModal(false);
       setProposalMatchId(null);
@@ -132,27 +148,92 @@ const MainScreen = () => {
     }
   }, [statusData]);
 
-  // showCtaCard 조건을 status 값만으로 명확하게 처리
-  const showCtaCard = !statusData?.status;
+  // 화면이 포커스될 때마다 상태 새로고침
+  useFocusEffect(
+    useCallback(() => {
+      console.log('[MainScreen] 화면 포커스 - 상태 새로고침 시작');
+      refetchStatus();
+      refetchUser();
+    }, [refetchStatus, refetchUser])
+  );
 
+  // 현재 매칭 상태와 매칭자 정보 로깅
+  useEffect(() => {
+    if (statusData) {
+      console.log('=== 현재 매칭 상태 ===');
+      console.log('현재 사용자 ID:', user?.userId);
+      console.log('매칭 상태:', statusData.status);
+      console.log('매칭 ID:', statusData.matchId);
+      console.log('매칭된 사용자 ID:', statusData.matchedUser?.user_id || '없음');
+      console.log('매칭된 사용자 이름:', statusData.matchedUser?.name || '없음');
+      console.log('매칭된 사용자 나이:', statusData.matchedUser?.age || '없음');
+      console.log('매칭된 사용자 지역:', statusData.matchedUser?.location || '없음');
+      console.log('연락처 교환 여부:', statusData.contactShared);
+      console.log('서로 관심 여부:', statusData.bothInterested);
+      console.log('최종 일정:', statusData.finalDate);
+      console.log('최종 장소:', statusData.finalLocation);
+      console.log('==================');
+    }
+  }, [statusData, user?.userId]);
+
+  // 매칭 단계별 설명
   const matchingStepDescriptions: Record<string, string> = {
     waiting: '신청이 완료되었어요.\n매칭 소식을 곧 알려드릴게요!',
     matched: '매칭 성공!\n일정을 선택 해주세요.',
     mismatched: '일정이 겹치지 않았어요.\n다시 일정을 선택해 주세요!',
     confirmed: '매칭 확정!\n관리자가 최종 일정을 확정하고 있어요.',
     scheduled: '소개팅 일정이 확정됐어요!\n소개팅 30분 전에 사진이 공개됩니다.',
-    completed: '소개팅이 완료되었어요!\n후기를 작성해주세요.',
+    review: '상대방이 리뷰를 아직 작성 하지 않았습니다.\n조금만더 기다려 주세요.',
+    completed: '소개팅이 완료되었어요!\n연락처 교환이 가능합니다.',
+    exchanged: '연락처 교환이 완료되었어요!\n확인해 보세요.',
+    finished: '소개팅이 완료되었어요!\n상대방이 연락처를 확인, 또는 \n3일이 지나면 현재 소개팅은 종료 됩니다.',
     failed: '매칭이 실패했어요.\n포인트가 반환되었습니다.',
     none: '아직 소개팅 신청을 하지 않았습니다.',
   };
 
-  const statusSteps = ['waiting', 'matched', 'confirmed', 'scheduled'];
-  const currentStep =
-    statusData?.status === 'mismatched'
-      ? statusSteps.indexOf('confirmed') // mismatched는 confirmed와 동일하게!
-      : statusData?.status
-        ? statusSteps.indexOf(statusData.status)
-        : -1;
+  // 매칭 진행 단계 정의
+  const MATCHING_STEPS = {
+    WAITING: 0,      // 신청완료
+    MATCHED: 1,      // 매칭성공  
+    CONFIRMED: 2,    // 일정 조율
+    SCHEDULED: 3,    // 소개팅 예정
+  } as const;
+
+  const STEP_LABELS = ['신청완료', '매칭성공', '일정 조율', '소개팅 예정'];
+
+  // 상태별 진행 단계 매핑
+  const getCurrentStep = (status: string | undefined): number => {
+    if (!status) return -1;
+
+    // 특별한 상태들: 소개팅 예정 단계로 매핑
+    const scheduledStepStatuses = ['review', 'completed', 'exchanged', 'finished'];
+    if (scheduledStepStatuses.includes(status)) {
+      return MATCHING_STEPS.SCHEDULED;
+    }
+
+    // mismatched 상태: 일정 조율 단계로 매핑
+    if (status === 'mismatched') {
+      return MATCHING_STEPS.CONFIRMED;
+    }
+
+    // 기본 상태들: 해당하는 단계로 매핑
+    const stepMapping: Record<string, number> = {
+      waiting: MATCHING_STEPS.WAITING,
+      matched: MATCHING_STEPS.MATCHED,
+      confirmed: MATCHING_STEPS.CONFIRMED,
+      scheduled: MATCHING_STEPS.SCHEDULED,
+    };
+
+    return stepMapping[status] ?? -1;
+  };
+
+  const showCtaCard = !statusData?.status;
+  const showWaitingReviewMsg = statusData?.status === 'review' && !statusData?.bothReviewed;
+  const currentStep = getCurrentStep(statusData?.status);
+
+  console.log('statusData:', statusData);
+  console.log('showWaitingReviewMsg:', showWaitingReviewMsg);
+  console.log('currentStep:', currentStep);
 
   const renderMatchingProgress = () => (
     <View style={styles.matchingProgressContainer}>
@@ -163,9 +244,9 @@ const MainScreen = () => {
         {statusData?.status ? (matchingStepDescriptions[statusData.status] || '') : matchingStepDescriptions.none}
       </Text>
       <StepProgressBar
-        total={statusSteps.length}
+        total={STEP_LABELS.length}
         current={currentStep}
-        labels={['신청완료', '매칭성공', '일정 조율', '소개팅 예정']}
+        labels={STEP_LABELS}
       />
     </View>
   );
@@ -188,7 +269,7 @@ const MainScreen = () => {
   // 일정/장소 바텀시트 확인
   const handleConfirmSchedule = async () => {
     console.log('[일정/장소 저장] 시도', { dateSelections, locationSelection, matchId, userId: user?.userId });
-    if (!dateSelections.every(d => d) || locationSelection.length === 0) {
+    if (!dateSelections.every(d => d) || !locationSelection?.length) {
       console.log('[일정/장소 저장] 날짜/장소 미입력');
       return;
     }
@@ -197,18 +278,66 @@ const MainScreen = () => {
       return;
     }
     try {
-      // 정책상 제출하면 무조건 confirmed로 처리
-      const res = await apiPost('/matching-choices', {
+      const res = await apiPost('/submit-choices', {
         match_id: matchId,
         user_id: user?.userId,
         dates: dateSelections,
         locations: locationSelection,
-      });
+      }, user?.userId);
       console.log('[일정/장소 저장] API 응답', res);
+      
+      // mismatched 상태인 경우 알림 표시
+      if (res.status === 'mismatched') {
+        const otherDates = statusData?.otherUserChoices?.dates || [];
+        const otherLocations = statusData?.otherUserChoices?.locations || [];
+        
+        let message = '상대방과 일정이 맞지 않습니다.\n\n';
+        message += `상대방이 선택한 날짜: ${otherDates.join(', ')}\n`;
+        message += `상대방이 선택한 장소: ${otherLocations.join(', ')}\n\n`;
+        message += '위 일정 중에서 선택하거나, 같은 지역의 장소를 선택해주세요.';
+        
+        Alert.alert(
+          '일정이 맞지 않습니다', 
+          message,
+          [
+            {
+              text: '확인',
+              onPress: () => {
+                // 일정 선택 초기화
+                setDateSelections([null, null, null]);
+                setLocationSelection([]);
+              }
+            }
+          ]
+        );
+      } else if (res.status === 'confirmed') {
+        Alert.alert('일정 확정!', '상대방과 일정이 맞아서 소개팅이 확정되었습니다.');
+      }
+      
       refetchStatus();
     } catch (e) {
       console.log('[일정/장소 저장] API 에러', e);
       Alert.alert('저장 실패', '일정/장소 저장에 실패했습니다.');
+    }
+  };
+
+  // 연락처 저장 핸들러
+  const handleContactSubmit = async (contact: string) => {
+    if (!statusData?.matchId || !user?.userId) return;
+    setIsSavingContact(true);
+    try {
+      await apiPost('/reviews/contact', {
+        match_id: statusData.matchId,
+        reviewer_id: user.userId,
+        contact,
+      }, user.userId);
+      setShowContactModal(false);
+      refetchStatus();
+      Alert.alert('완료', '연락처가 저장되었습니다.');
+    } catch (e) {
+      Alert.alert('오류', '연락처 저장에 실패했습니다. 다시 시도해주세요.');
+    } finally {
+      setIsSavingContact(false);
     }
   };
 
@@ -218,7 +347,7 @@ const MainScreen = () => {
 
       {/* 소개팅 신청 CTA: 신청 전(status 없음) */}
       {showCtaCard && (
-        <CardCTA
+        <CardRequest
           title="지금 소개팅 신청하기"
           subtitle="AI + 매니저가 어울리는 상대를 찾아드려요!"
           buttonText="신청하기"
@@ -235,22 +364,78 @@ const MainScreen = () => {
         />
       )}
 
-      {/* 소개팅 완료 후 리뷰 작성 카드 */}
+      {/* 소개팅 완료 후 리뷰 작성 카드 - scheduled 상태 */}
       {!showCtaCard && (statusData?.status === 'scheduled') && statusData?.matchedUser && isDatePassed && (
         <CardReview
           user={statusData.matchedUser}
           matchId={matchId || ''}
-          onPress={() => navigation.navigate(NAVIGATION_ROUTES.REVIEW_WRITE, { userId: statusData.matchedUser.userId, matchId })}
+          onPress={() => {
+            if (statusData.review) {
+              navigation.navigate(NAVIGATION_ROUTES.REVIEW_WRITE, {
+                userId: statusData.matchedUser.userId,
+                matchId,
+                readonly: true,
+                review: statusData.review,
+              });
+            } else {
+              navigation.navigate(NAVIGATION_ROUTES.REVIEW_WRITE, {
+                userId: statusData.matchedUser.userId,
+                matchId,
+                readonly: false,
+              });
+            }
+          }}
+          buttonText={statusData.review ? '리뷰 완료' : '리뷰/에프터 작성하기'}
         />
       )}
 
-      {/* 일정 선택 UI: status가 matched일 때 */}
+      {/* 리뷰 상태일 때 카드 - review 상태 */}
+      {!showCtaCard && (statusData?.status === 'review') && statusData?.matchedUser && (
+        <CardReview
+          user={statusData.matchedUser}
+          matchId={matchId || ''}
+          onPress={() => {
+            navigation.navigate(NAVIGATION_ROUTES.REVIEW_WRITE, {
+              userId: statusData.matchedUser.userId,
+              matchId,
+              readonly: true,
+              review: statusData.review,
+            });
+          }}
+          buttonText="내가 작성한 리뷰 보기"
+          title="리뷰 작성 완료!"
+          subtitle={`${statusData.matchedUser.name}님이 리뷰를 작성 중입니다.`}
+        />
+      )}
+
+      {/* 일정 선택 UI: status가 matched 또는 mismatched일 때 */}
       {!showCtaCard && (statusData?.status === 'matched' || statusData?.status === 'mismatched') && statusData.otherUserChoices && (
-        <View style={{ backgroundColor: '#FFF3F3', borderRadius: 12, marginTop: 0, marginBottom: 12, padding: 16, alignItems: 'center' }}>
+        <View style={{ 
+          backgroundColor: statusData?.status === 'mismatched' ? '#FFF0F0' : '#FFF3F3', 
+          borderRadius: 12, 
+          marginTop: 0, 
+          marginBottom: 12, 
+          padding: 16, 
+          alignItems: 'center' 
+        }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 4 }}>
-            <Text style={{ fontSize: 12, lineHeight: 22, marginRight: 5 }}>💡</Text>
-            <Text style={{ fontWeight: 'bold', fontSize: 16, lineHeight: 22 }}>상대방이 선택한 일정/장소</Text>
+            <Text style={{ fontSize: 12, lineHeight: 22, marginRight: 5 }}>
+              {statusData?.status === 'mismatched' ? '⚠️' : '💡'}
+            </Text>
+            <Text style={{ 
+              fontWeight: 'bold', 
+              fontSize: 16, 
+              lineHeight: 22,
+              color: statusData?.status === 'mismatched' ? '#E53E3E' : '#222'
+            }}>
+              {statusData?.status === 'mismatched' ? '일정이 맞지 않습니다' : '상대방이 선택한 일정/장소'}
+            </Text>
           </View>
+          {statusData?.status === 'mismatched' && (
+            <Text style={{ marginBottom: 8, textAlign: 'center', color: '#E53E3E', fontSize: 14, fontWeight: '500' }}>
+              위 일정 중에서 선택하거나, 같은 지역의 장소를 선택해주세요
+            </Text>
+          )}
           <Text style={{ marginBottom: 2, textAlign: 'center' }}>날짜: {statusData.otherUserChoices.dates?.join(', ') || '-'}</Text>
           <Text style={{ textAlign: 'center' }}>장소: {statusData.otherUserChoices.locations?.join(', ') || '-'}</Text>
         </View>
@@ -273,12 +458,36 @@ const MainScreen = () => {
         />
       )}
 
+      {/* completed 상태일 때 연락처 교환 카드 */}
+      {!showCtaCard && statusData?.status === 'completed' && statusData?.matchedUser && statusData?.contactReady && !hasSentContact && (
+        <CardCTA
+          title="연락처 교환 가능!"
+          subtitle={`${statusData.matchedUser.name}님과 서로 호감이 통했어요!\n연락처를 교환해보세요.`}
+          buttonText="연락처 교환하기"
+          icon="phone"
+          onPress={() => setShowContactModal(true)}
+        />
+      )}
+
+      {/* completed 상태에서 연락처를 보낸 후 */}
+      {!showCtaCard && statusData?.status === 'completed' && statusData?.matchedUser && statusData?.contactReady && hasSentContact && !hasReceivedContact && (
+        <CardCTA
+          title="연락처를 보냈습니다"
+          subtitle={`${statusData.matchedUser.name}님이 연락처를 작성 중에 있습니다.\n잠시만 기다려 주세요.`}
+          buttonText="연락처 교환하기"
+          icon="phone"
+          disabled={true}
+          onPress={() => {}}
+        />
+      )}
+
       {/* failed 상태일 때 실패 UI */}
       {!showCtaCard && statusData?.status === 'failed' && (
         <CardCTA
           title="매칭이 실패했어요"
           subtitle="포인트가 자동으로 반환되었습니다.\n다시 신청해보세요!"
           buttonText="다시 신청하기"
+          icon="x-circle"
           onPress={handleCtaPress}
         />
       )}
@@ -331,6 +540,24 @@ const MainScreen = () => {
           </View>
         </View>
       </Modal>
+
+      <ContactExchangeModal
+        visible={showContactModal}
+        onClose={() => setShowContactModal(false)}
+        onSubmit={handleContactSubmit}
+      />
+
+      {/* exchanged 상태일 때 연락처 도착 카드 */}
+      {!showCtaCard && statusData?.status === 'exchanged' && statusData?.matchedUser && (
+        <CardCTA
+          title="연락처가 도착했습니다!"
+          subtitle={`${statusData.matchedUser.name}님의 연락처가 도착했어요.`}
+          buttonText="연락처 확인"
+          icon="heart"
+          iconColor="#E94F4F"
+          onPress={() => navigation.navigate(NAVIGATION_ROUTES.CONTACT_DETAIL, { matchId: statusData.matchId })}
+        />
+      )}
 
       <View style={{ height: 20 }} />
     </MainLayout>

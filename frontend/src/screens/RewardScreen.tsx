@@ -8,7 +8,7 @@ import { useAuth } from '../store/AuthContext';
 const useReward = (userId?: string) =>
   useQuery({
     queryKey: ['reward', userId],
-    queryFn: () => apiGet(`/reward/${userId}`),
+    queryFn: () => apiGet(`/reward/${userId}`, undefined, userId),
     enabled: !!userId,
     refetchOnWindowFocus: true,
   });
@@ -31,7 +31,7 @@ const RewardScreen = () => {
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
         <Text style={{ fontSize: 20, fontWeight: 'bold' }}>리워드</Text>
         <Text style={{ marginTop: 12, color: '#888', fontSize: 16 }}>출석 보상, 후기 참여 포인트, VIP 조건 등</Text>
-              </View>
+      </View>
     </MainLayout>
   );
 };

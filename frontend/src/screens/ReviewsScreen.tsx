@@ -13,13 +13,13 @@ const ReviewsScreen = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.userId) return;
     setLoading(true);
-    apiGet('/reviews', { userId: user.id })
+    apiGet('/reviews', { userId: user.userId }, user.userId)
       .then(setReviews)
       .catch(e => setError(e.message || '후기 목록을 불러오지 못했습니다.'))
       .finally(() => setLoading(false));
-  }, [user?.id]);
+  }, [user?.userId]);
 
   const getAverageRating = (rating: any) => {
     const sum = rating.appearance + rating.conversation + rating.manners + rating.honesty;
@@ -63,7 +63,7 @@ const ReviewsScreen = () => {
 
   return (
     <MainLayout onRefresh={handleRefresh} refreshing={refreshing}>
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <Text style={styles.headerTitle}>후기</Text>
       <Text style={styles.headerSubtitle}>소개팅 상대가 남긴 후기</Text>
       {reviews.length === 0 && (
@@ -131,7 +131,7 @@ const ReviewsScreen = () => {
         </Card>
       ))}
       <View style={{ height: 100 }} />
-      </ScrollView>
+    </ScrollView>
     </MainLayout>
   );
 };
@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   headerTitle: {
-    ...typography.h1,
+    ...typography.title,
     marginBottom: 8,
   },
   headerSubtitle: {
@@ -167,17 +167,17 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   reviewUserName: {
-    ...typography.h3,
+    ...typography.title,
     marginBottom: 2,
   },
   reviewDate: {
-    ...typography.small,
+    ...typography.caption,
   },
   overallRating: {
     alignItems: 'center',
   },
   ratingText: {
-    ...typography.h3,
+    ...typography.title,
     color: colors.primary,
     marginBottom: 4,
   },
@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   ratingLabel: {
-    ...typography.bodySmall,
+    ...typography.caption,
     width: 60,
   },
   tagsContainer: {
@@ -211,10 +211,10 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   tagText: {
-    ...typography.small,
+    ...typography.caption,
   },
   comment: {
-    ...typography.bodySmall,
+    ...typography.caption,
     lineHeight: 20,
     marginBottom: 12,
   },
@@ -223,7 +223,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   meetAgainText: {
-    ...typography.small,
+    ...typography.caption,
     marginLeft: 6,
   },
 });

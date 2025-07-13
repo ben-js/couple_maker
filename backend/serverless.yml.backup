@@ -95,7 +95,7 @@ functions:
     handler: handler.submitChoices
     events:
       - httpApi:
-          path: /submit-choices
+          path: /matching-choices
           method: post
 
   saveReview:

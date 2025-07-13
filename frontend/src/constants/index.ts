@@ -39,6 +39,7 @@ export const MATCHING_STATUS = {
   CONFIRMED: 'confirmed',
   SCHEDULED: 'scheduled',
   COMPLETED: 'completed',
+  EXCHANGED: 'exchanged',
   FINISHED: 'finished',
   FAILED: 'failed',
 } as const;
@@ -124,6 +125,8 @@ export const API_ENDPOINTS = {
   POINTS_HISTORY: '/points-history',
   USER_STATUS: '/user-status',
   CHARGE_POINTS: '/charge-points',
+  CONTACT_DETAIL: '/contact-detail',
+  MEETING_FINISH: '/meeting/finish',
 } as const;
 
 // 로컬 스토리지 키

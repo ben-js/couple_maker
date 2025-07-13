@@ -20,50 +20,50 @@ interface RouteParams {
 }
 
 const UserDetailScreen: React.FC = () => {
-    const route = useRoute<RouteProp<Record<string, RouteParams>, string>>();
-    const navigation = useNavigation();
-    const { user } = useAuth();
-    const { userId, matchId } = route.params;
+  const route = useRoute<RouteProp<Record<string, RouteParams>, string>>();
+  const navigation = useNavigation();
+  const { user } = useAuth();
+  const { userId, matchId } = route.params;
 
-    const [matchDetail, setMatchDetail] = useState<MatchDetailData | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+  const [matchDetail, setMatchDetail] = useState<MatchDetailData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
     const [showCopyModal, setShowCopyModal] = useState(false);
 
-    // 매칭 상세 정보 가져오기
-    const fetchMatchDetail = useCallback(async () => {
+  // 매칭 상세 정보 가져오기
+  const fetchMatchDetail = useCallback(async () => {
       if (!matchId || !user?.userId) {
         console.log('[UserDetailScreen] matchId 또는 userId 없음:', { matchId, userId: user?.userId });
         setError('매칭 정보를 찾을 수 없습니다.');
         setLoading(false);
         return;
       }
-      setLoading(true);
-      setError(null);
-      try {
+    setLoading(true);
+    setError(null);
+    try {
         console.log('[UserDetailScreen] API 호출 시작:', { matchId, userId: user.userId });
-        const response = await apiGet<MatchDetailData>(`/match-detail/${matchId}?userId=${user.userId}`);
+      const response = await apiGet<MatchDetailData>(`/match-detail/${matchId}?userId=${user.userId}`, undefined, user.userId);
         console.log('[UserDetailScreen] API 응답:', JSON.stringify(response, null, 2));
-        setMatchDetail(response);
-      } catch (e: any) {
+      setMatchDetail(response);
+    } catch (e: any) {
         console.error('[UserDetailScreen] API 에러:', e);
-        setError(e.message || '프로필 정보를 불러오지 못했습니다.');
-      } finally {
-        setLoading(false);
-      }
-    }, [matchId, user?.userId]);
+      setError(e.message || '프로필 정보를 불러오지 못했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  }, [matchId, user?.userId]);
 
-    useEffect(() => { fetchMatchDetail(); }, [fetchMatchDetail]);
+  useEffect(() => { fetchMatchDetail(); }, [fetchMatchDetail]);
 
-    const calculateAge = (birthDate?: { year: number; month: number; day: number }): number | null => {
-      if (!birthDate) return null;
-      const today = new Date();
-      const birth = new Date(birthDate.year, birthDate.month - 1, birthDate.day);
-      let age = today.getFullYear() - birth.getFullYear();
-      const monthDiff = today.getMonth() - birth.getMonth();
-      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) age--;
-      return age;
-    };
+  const calculateAge = (birthDate?: { year: number; month: number; day: number }): number | null => {
+    if (!birthDate) return null;
+    const today = new Date();
+    const birth = new Date(birthDate.year, birthDate.month - 1, birthDate.day);
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) age--;
+    return age;
+  };
 
     // 소개팅 날짜 포맷팅 함수
     const formatDate = (dateString: string) => {
@@ -82,7 +82,7 @@ const UserDetailScreen: React.FC = () => {
       }
     };
 
-    const photoList = matchDetail?.profile?.photos || [];
+  const photoList = matchDetail?.profile?.photos || [];
 
     // 디버깅용: matchDetail 데이터 확인
     useEffect(() => {
@@ -96,7 +96,7 @@ const UserDetailScreen: React.FC = () => {
         console.log('[UserDetailScreen] matchDetail 전체 데이터:', JSON.stringify(matchDetail, null, 2));
         console.log('[UserDetailScreen] finalDate:', matchDetail.finalDate);
         console.log('[UserDetailScreen] dateAddress:', matchDetail.dateAddress);
-        
+
         // 조건부 렌더링 조건 확인
         const hasFinalDate = !!matchDetail.finalDate;
         const hasDateAddress = !!matchDetail.dateAddress;
@@ -118,6 +118,9 @@ const UserDetailScreen: React.FC = () => {
   const { profile, preference } = matchDetail;
   if (!profile) return null;
   const age = profile?.age || calculateAge(profile?.birthDate);
+
+  // 안내 문구 표시 조건
+  const showWaitingReviewMsg = matchDetail?.status === 'review' && !matchDetail?.bothReviewed;
 
   // 기본 정보 칩 데이터
   const basicChips = [
@@ -141,7 +144,7 @@ const UserDetailScreen: React.FC = () => {
   ].filter(Boolean);
 
   // 관심사 칩 데이터
-      const interestChips = (profile.interests || []).filter(Boolean);
+  const interestChips = (profile.interests || []).filter(Boolean);
 
     // 클립보드 복사 함수
     const handleCopyAddress = async () => {
@@ -168,7 +171,7 @@ const UserDetailScreen: React.FC = () => {
 
   return (
     <PageLayout title="프로필">
-      {/* 프로필 사진 슬라이드 */}
+        {/* 프로필 사진 슬라이드 */}
       <PhotoSlider photoList={photoList} />
 
       {/* 소개팅 장소 박스 */}
@@ -193,45 +196,54 @@ const UserDetailScreen: React.FC = () => {
             </Text>
           )}
         </TouchableOpacity>
-      )}
+        )}
 
-      {/* introduction(자기소개) */}
-      {profile.introduction && (
+        {/* 리뷰 대기 안내 문구 */}
+        {showWaitingReviewMsg && (
+          <View style={styles.waitingReviewMsgBox}>
+            <Text style={styles.waitingReviewMsgText}>
+              상대방이 리뷰를 아직 작성하지 않았습니다. 조금만더 기다려 주세요.
+            </Text>
+          </View>
+        )}
+
+        {/* introduction(자기소개) */}
+        {profile.introduction && (
         <ProfileSection title="자기소개">
           <Text style={{ color: '#222', fontSize: 16 }}>{profile.introduction}</Text>
         </ProfileSection>
-      )}
+        )}
 
-      {/* 기본 정보 */}
+        {/* 기본 정보 */}
       <ProfileSection title="기본 정보">
         <View style={commonStyles.chipRow}>
-          {basicChips.map((chip, idx) => (
+            {basicChips.map((chip, idx) => (
             <Chip key={idx} label={chip as string} containerStyle={commonStyles.chip} labelStyle={commonStyles.chipLabel} />
-          ))}
+            ))}
         </View>
       </ProfileSection>
 
-      {/* 상세 정보 */}
+        {/* 상세 정보 */}
       {detailChips.length > 0 && (
         <ProfileSection title="나는 이런 사람!">
           <View style={commonStyles.chipRow}>
-            {detailChips.map((chip, idx) => (
+              {detailChips.map((chip, idx) => (
               <Chip key={idx} label={chip as string} containerStyle={commonStyles.chip} labelStyle={commonStyles.chipLabel} />
-            ))}
+              ))}
           </View>
         </ProfileSection>
-      )}
+        )}
 
-      {/* 관심사 */}
-      {interestChips.length > 0 && (
+        {/* 관심사 */}
+        {interestChips.length > 0 && (
         <ProfileSection title="요즘 관심있는 것은">
           <View style={commonStyles.chipRow}>
-            {interestChips.map((chip: string, idx: number) => (
+              {interestChips.map((chip: string, idx: number) => (
               <Chip key={idx} label={chip as string} containerStyle={commonStyles.chip} labelStyle={commonStyles.chipLabel} />
-            ))}
+              ))}
           </View>
         </ProfileSection>
-      )}
+        )}
 
       {/* 클립보드 복사 모달 */}
       <Dialog
@@ -250,7 +262,7 @@ const UserDetailScreen: React.FC = () => {
             >
               <Feather name="x" size={24} color="#666" />
             </TouchableOpacity>
-          </View>
+              </View>
           <Text style={styles.copyModalText}>
             소개팅 장소 주소를 클립보드에 복사하시겠습니까?
           </Text>
@@ -377,6 +389,24 @@ const styles = StyleSheet.create({
     color: colors.surface,
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  // 리뷰 대기 안내 문구 스타일
+  waitingReviewMsgBox: {
+    backgroundColor: '#FFF8E1',
+    borderRadius: 12,
+    marginTop: 0,
+    marginBottom: 12,
+    padding: 16,
+    alignItems: 'center',
+    borderLeftWidth: 4,
+    borderLeftColor: '#FFB300',
+  },
+  waitingReviewMsgText: {
+    color: '#E65100',
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+    fontWeight: '500',
   },
 });
 

@@ -2,28 +2,27 @@
   {
     "match_id": "match-1",
     "requester_id": "user-1",
-    "status": "scheduled",
+    "status": "mismatched",
     "created_at": "2024-07-12T10:00:00.000Z",
     "updated_at": "2025-07-12T12:13:30.044Z",
     "is_manual": false,
     "date_choices": {
       "dates": [
-        "2025-07-16",
-        "2025-07-28",
-        "2025-07-23"
+        "2025-07-20",
+        "2025-07-25",
+        "2025-07-30"
       ],
       "locations": [
         "서울 강남",
         "서울 강동",
-        "서울 관악",
-        "경기 경기"
+        "서울 관악"
       ]
     },
     "choices_submitted_at": "2025-07-12T12:13:30.044Z",
-    "photo_visible_at": "2025-07-23T11:43:30.044Z",
-    "final_date": "2025-07-23T12:13:30.044Z",
-    "final_location": "경기 경기",
-    "date_address": "서울 강남구 논현로98길 26-7 1층 21케이크",
+    "photo_visible_at": null,
+    "final_date": null,
+    "final_location": null,
+    "date_address": null,
     "failure_reason": null,
     "points_refunded": false,
     "match_pair_id": null,
@@ -32,26 +31,18 @@
   {
     "match_id": "match-2",
     "requester_id": "user-2",
-    "status": "scheduled",
-    "created_at": "2024-07-12T11:00:00.000Z",
-    "updated_at": "2025-07-12T12:14:38.338Z",
+    "status": "matched",
+    "created_at": "2025-07-13T11:29:33.442Z",
+    "updated_at": "2025-07-13T11:29:33.442Z",
     "is_manual": false,
     "date_choices": {
-      "dates": [
-        "2025-07-22",
-        "2025-07-23",
-        "2025-07-30"
-      ],
-      "locations": [
-        "서울 강남",
-        "경기 경기"
-      ]
+      "dates": [],
+      "locations": []
     },
-    "choices_submitted_at": "2025-07-12T12:14:38.338Z",
-    "photo_visible_at": "2025-07-23T11:43:30.044Z",
-    "final_date": "2025-07-23T12:13:30.044Z",
-    "final_location": "경기 경기",
-    "date_address": "서울 강남구 논현로98길 26-7 1층 21케이크",
+    "choices_submitted_at": null,
+    "photo_visible_at": null,
+    "final_date": null,
+    "final_location": null,
     "failure_reason": null,
     "points_refunded": false,
     "match_pair_id": null,
@@ -76,5 +67,89 @@
     "points_refunded": false,
     "match_pair_id": null,
     "partner_id": null
+  },
+  {
+    "match_id": "match-3",
+    "requester_id": "user-1",
+    "status": "finished",
+    "created_at": "2024-06-10T10:00:00.000Z",
+    "updated_at": "2024-06-10T18:00:00.000Z",
+    "is_manual": false,
+    "date_choices": {
+      "dates": ["2024-06-15"],
+      "locations": ["강남역 스타벅스"]
+    },
+    "choices_submitted_at": "2024-06-10T12:00:00.000Z",
+    "photo_visible_at": "2024-06-15T17:30:00.000Z",
+    "final_date": "2024-06-15T18:00:00.000Z",
+    "final_location": "강남역 스타벅스",
+    "date_address": "서울 강남구 강남대로 396",
+    "failure_reason": null,
+    "points_refunded": false,
+    "match_pair_id": "pair-2",
+    "partner_id": "user-3"
+  },
+  {
+    "match_id": "match-4",
+    "requester_id": "user-3",
+    "status": "finished",
+    "created_at": "2024-06-10T10:00:00.000Z",
+    "updated_at": "2024-06-10T18:00:00.000Z",
+    "is_manual": false,
+    "date_choices": {
+      "dates": ["2024-06-15"],
+      "locations": ["강남역 스타벅스"]
+    },
+    "choices_submitted_at": "2024-06-10T12:00:00.000Z",
+    "photo_visible_at": "2024-06-15T17:30:00.000Z",
+    "final_date": "2024-06-15T18:00:00.000Z",
+    "final_location": "강남역 스타벅스",
+    "date_address": "서울 강남구 강남대로 396",
+    "failure_reason": null,
+    "points_refunded": false,
+    "match_pair_id": "pair-2",
+    "partner_id": "user-1"
+  },
+  {
+    "match_id": "match-6",
+    "requester_id": "user-1",
+    "status": "finished",
+    "created_at": "2024-05-10T10:00:00.000Z",
+    "updated_at": "2024-05-20T19:00:00.000Z",
+    "is_manual": false,
+    "date_choices": {
+      "dates": ["2024-05-20"],
+      "locations": ["홍대입구 카페"]
+    },
+    "choices_submitted_at": "2024-05-10T12:00:00.000Z",
+    "photo_visible_at": "2024-05-20T18:30:00.000Z",
+    "final_date": "2024-05-20T19:00:00.000Z",
+    "final_location": "홍대입구 카페",
+    "date_address": "서울 마포구 홍대로 1",
+    "failure_reason": null,
+    "points_refunded": false,
+    "match_pair_id": "pair-3",
+    "partner_id": "user-5"
+  },
+  {
+    "match_id": "match-7",
+    "requester_id": "user-5",
+    "status": "finished",
+    "created_at": "2024-05-10T10:00:00.000Z",
+    "updated_at": "2024-05-20T19:00:00.000Z",
+    "is_manual": false,
+    "date_choices": {
+      "dates": ["2024-05-20"],
+      "locations": ["홍대입구 카페"]
+    },
+    "choices_submitted_at": "2024-05-10T12:00:00.000Z",
+    "photo_visible_at": "2024-05-20T18:30:00.000Z",
+    "final_date": "2024-05-20T19:00:00.000Z",
+    "final_location": "홍대입구 카페",
+    "date_address": "서울 마포구 홍대로 1",
+    "failure_reason": null,
+    "points_refunded": false,
+    "match_pair_id": "pair-3",
+    "partner_id": "user-1"
   }
-]
+] 

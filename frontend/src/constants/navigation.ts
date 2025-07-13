@@ -18,6 +18,7 @@ export const NAVIGATION_ROUTES = {
   SETTINGS: 'Settings',
   MENU: 'Menu',
   REVIEW_WRITE: 'ReviewWrite',
+  CONTACT_DETAIL: 'ContactDetail',
 } as const;
 
 // 탭 네비게이션 상수

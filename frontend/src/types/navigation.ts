@@ -15,4 +15,5 @@ export type RootStackParamList = {
   Auth?: undefined;
   PointCharge: undefined;
   ReviewWrite: { userId: string; matchId: string };
+  ContactDetail: { matchId: string };
 }; 

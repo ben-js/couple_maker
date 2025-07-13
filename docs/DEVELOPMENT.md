@@ -405,6 +405,7 @@ export interface User {
 - **GSI1**: userId + status (string)
 - **GSI2**: matchedUserId + status (string)
 - **속성**: 매칭 정보
+- **상태**: waiting | propose | matched | confirmed | scheduled | completed | exchanged | finished
 
 #### 3. Likes 테이블
 - **Primary Key**: id (string)
@@ -547,6 +548,15 @@ Authorization: Bearer <token>
 
 ### 매칭 API
 
+#### 매칭 진행 상황 (7단계)
+1. **신청완료** (waiting): 소개팅 신청 완료
+2. **매칭성공** (matched): 상대방과 매칭 성공
+3. **일정 조율** (confirmed): 소개팅 일정 확정
+4. **소개팅 예정** (scheduled): 소개팅 일정 확정
+5. **소개팅 완료** (completed): 소개팅 완료, 후기 작성
+6. **연락처 교환 완료** (exchanged): 연락처 교환 완료
+7. **소개팅 종료** (finished): 소개팅 종료, 연락처 삭제
+
 #### POST /likes
 좋아요 보내기
 
@@ -574,10 +584,99 @@ Authorization: Bearer <token>
           "name": "이지영",
           "photos": ["https://..."]
         },
-        "status": "accepted",
+        "status": "completed",
         "createdAt": "2024-01-01T00:00:00Z"
       }
     ]
+  }
+}
+```
+
+#### POST /contact/exchange
+연락처 교환
+
+**Request Body:**
+```json
+{
+  "matchId": "match-123",
+  "contact": {
+    "phone": "010-1234-5678",
+    "kakaoId": "kakao123"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "연락처 교환이 완료되었습니다.",
+  "data": {
+    "status": "exchanged",
+    "contactExchangedAt": "2024-01-01T00:00:00Z"
+  }
+}
+```
+
+#### GET /contact/detail
+연락처 상세 정보 조회
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "contact": {
+      "phone": "010-1234-5678",
+      "kakaoId": "kakao123"
+    },
+    "photos": [
+      "https://example.com/photo1.jpg",
+      "https://example.com/photo2.jpg",
+      "https://example.com/photo3.jpg"
+    ]
+  }
+}
+```
+
+#### POST /meeting/finish
+소개팅 종료
+
+**Request Body:**
+```json
+{
+  "matchId": "match-123"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "소개팅이 종료되었습니다.",
+  "data": {
+    "status": "finished",
+    "finishedAt": "2024-01-01T00:00:00Z"
+  }
+}
+```
+
+#### POST /cleanup-finished-requests
+완료된 매칭 요청 정리 (자동 실행)
+
+**설명:**
+- finished 상태가 된 지 3일이 지난 매칭 요청을 자동으로 삭제
+- 매일 자동 실행되며, 매칭 이력을 matching-history.json에 저장 후 삭제
+- 개인정보 보호를 위한 자동 정리 시스템
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "완료된 매칭 요청이 정리되었습니다.",
+  "data": {
+    "deletedCount": 5,
+    "savedToHistoryCount": 5
   }
 }
 ```

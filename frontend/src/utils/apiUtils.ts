@@ -3,9 +3,10 @@ import { logger } from './logger';
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.219.100:3000';
 
 // API 요청 기본 설정
-const defaultHeaders = {
+const getDefaultHeaders = (userId?: string) => ({
   'Content-Type': 'application/json',
-};
+  ...(userId && { 'userid': userId }),
+});
 
 // API 응답 타입
 interface ApiResponse<T = any> {
@@ -15,7 +16,7 @@ interface ApiResponse<T = any> {
 }
 
 // API 요청 함수 (GET)
-export const apiGet = async <T = any>(url: string, params?: Record<string, any>): Promise<T> => {
+export const apiGet = async <T = any>(url: string, params?: Record<string, any>, userId?: string): Promise<T> => {
   const fullUrl = params 
     ? `${API_BASE_URL}${url}?${new URLSearchParams(params).toString()}`
     : `${API_BASE_URL}${url}`;
@@ -25,7 +26,7 @@ export const apiGet = async <T = any>(url: string, params?: Record<string, any>)
     
     const response = await fetch(fullUrl, {
       method: 'GET',
-      headers: defaultHeaders,
+      headers: getDefaultHeaders(userId),
     });
 
     const result: ApiResponse<T> = await response.json();
@@ -35,7 +36,7 @@ export const apiGet = async <T = any>(url: string, params?: Record<string, any>)
     }
 
     logger.api.response('GET', fullUrl, result);
-    return result.data || result;
+    return (result.data || result) as T;
   } catch (error) {
     logger.api.error('GET', fullUrl, error);
     throw error;
@@ -43,7 +44,7 @@ export const apiGet = async <T = any>(url: string, params?: Record<string, any>)
 };
 
 // API 요청 함수 (POST)
-export const apiPost = async <T = any>(url: string, data?: any): Promise<T> => {
+export const apiPost = async <T = any>(url: string, data?: any, userId?: string): Promise<T> => {
   const fullUrl = `${API_BASE_URL}${url}`;
 
   try {
@@ -51,7 +52,7 @@ export const apiPost = async <T = any>(url: string, data?: any): Promise<T> => {
     
     const response = await fetch(fullUrl, {
       method: 'POST',
-      headers: defaultHeaders,
+      headers: getDefaultHeaders(userId),
       body: data ? JSON.stringify(data) : undefined,
     });
 
@@ -62,7 +63,7 @@ export const apiPost = async <T = any>(url: string, data?: any): Promise<T> => {
     }
 
     logger.api.response('POST', fullUrl, result);
-    return result.data || result;
+    return (result.data || result) as T;
   } catch (error) {
     logger.api.error('POST', fullUrl, error);
     throw error;
@@ -70,7 +71,7 @@ export const apiPost = async <T = any>(url: string, data?: any): Promise<T> => {
 };
 
 // API 요청 함수 (PUT)
-export const apiPut = async <T = any>(url: string, data?: any): Promise<T> => {
+export const apiPut = async <T = any>(url: string, data?: any, userId?: string): Promise<T> => {
   const fullUrl = `${API_BASE_URL}${url}`;
 
   try {
@@ -78,7 +79,7 @@ export const apiPut = async <T = any>(url: string, data?: any): Promise<T> => {
     
     const response = await fetch(fullUrl, {
       method: 'PUT',
-      headers: defaultHeaders,
+      headers: getDefaultHeaders(userId),
       body: data ? JSON.stringify(data) : undefined,
     });
 
@@ -89,7 +90,7 @@ export const apiPut = async <T = any>(url: string, data?: any): Promise<T> => {
     }
 
     logger.api.response('PUT', fullUrl, result);
-    return result.data || result;
+    return (result.data || result) as T;
   } catch (error) {
     logger.api.error('PUT', fullUrl, error);
     throw error;
@@ -97,7 +98,7 @@ export const apiPut = async <T = any>(url: string, data?: any): Promise<T> => {
 };
 
 // API 요청 함수 (DELETE)
-export const apiDelete = async <T = any>(url: string): Promise<T> => {
+export const apiDelete = async <T = any>(url: string, userId?: string): Promise<T> => {
   const fullUrl = `${API_BASE_URL}${url}`;
 
   try {
@@ -105,7 +106,7 @@ export const apiDelete = async <T = any>(url: string): Promise<T> => {
     
     const response = await fetch(fullUrl, {
       method: 'DELETE',
-      headers: defaultHeaders,
+      headers: getDefaultHeaders(userId),
     });
 
     const result: ApiResponse<T> = await response.json();
@@ -115,7 +116,7 @@ export const apiDelete = async <T = any>(url: string): Promise<T> => {
     }
 
     logger.api.response('DELETE', fullUrl, result);
-    return result.data || result;
+    return (result.data || result) as T;
   } catch (error) {
     logger.api.error('DELETE', fullUrl, error);
     throw error;
@@ -123,7 +124,7 @@ export const apiDelete = async <T = any>(url: string): Promise<T> => {
 };
 
 // 파일 업로드 함수
-export const apiUpload = async <T = any>(url: string, file: File, onProgress?: (progress: number) => void): Promise<T> => {
+export const apiUpload = async <T = any>(url: string, file: File, onProgress?: (progress: number) => void, userId?: string): Promise<T> => {
   const fullUrl = `${API_BASE_URL}${url}`;
   const formData = new FormData();
   formData.append('file', file);
@@ -136,6 +137,7 @@ export const apiUpload = async <T = any>(url: string, file: File, onProgress?: (
       body: formData,
       headers: {
         // Content-Type은 자동으로 설정됨 (multipart/form-data)
+        ...(userId && { 'userid': userId }),
       },
     });
 
@@ -146,7 +148,7 @@ export const apiUpload = async <T = any>(url: string, file: File, onProgress?: (
     }
 
     logger.api.response('UPLOAD', fullUrl, result);
-    return result.data || result;
+    return (result.data || result) as T;
   } catch (error) {
     logger.api.error('UPLOAD', fullUrl, error);
     throw error;

@@ -69,7 +69,7 @@ export interface UserPreferences {
 export interface MatchingRequest {
   match_id: string;
   requester_id: string;
-  status: 'waiting' | 'propose' | 'matched' | 'confirmed' | 'scheduled' | 'completed' | 'failed';
+  status: 'waiting' | 'propose' | 'matched' | 'mismatched' | 'confirmed' | 'scheduled' | 'completed' | 'exchanged' | 'failed';
   created_at: string;
   updated_at: string;
   photo_visible_at?: string | null;
@@ -100,18 +100,29 @@ export interface MatchPair {
 
 // 후기 타입
 export interface Review {
-  id: string;
-  reviewer_id: string;
-  reviewed_id: string;
+  review_id: string;
   match_id: string;
+  reviewer_id: string;
+  target_id: string;
+  rating: {
   appearance: number;
   conversation: number;
-  manner: number;
-  sincerity: number;
+    manners: number;
+    honesty: number;
+  };
   want_to_meet_again: boolean;
-  positive_tags: string[];
-  negative_tags: string[];
+  tags: string[];
   comment: string;
+  // 연락처 교환 관련 필드
+  contact?: string | null;
+  contact_shared_at?: string | null;
+  // AI 인사이트를 위한 추가 필드들
+  overall_satisfaction?: number;
+  date_duration?: string;
+  location_satisfaction?: number;
+  conversation_initiative?: string;
+  first_impression_vs_reality?: string;
+  success_failure_factors?: string[];
   created_at: string;
 }
 
@@ -154,6 +165,23 @@ export interface ApiResponse<T> {
   data?: T;
   message?: string;
   error?: string;
+}
+
+// 매칭 히스토리 타입
+export interface MatchingHistory {
+  match_pair_id: string;
+  match_a_id: string;
+  match_b_id: string;
+  contact_a: string | null;
+  contact_b: string | null;
+  contact_exchanged_at: string | null;
+  final_status: 'finished' | 'exchanged';
+  finished_at: string;
+  review_a: Review | null;
+  review_b: Review | null;
+  request_a: MatchingRequest | null;
+  request_b: MatchingRequest | null;
+  created_at: string;
 }
 
 // 사용자 상태 기록 타입 (handler.ts에서 이동)

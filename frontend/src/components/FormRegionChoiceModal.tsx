@@ -112,7 +112,7 @@ const FormRegionChoiceModal: React.FC<FormRegionChoiceModalProps> = ({ label, va
 
   // chips 선택된 지역 텍스트 생성 (selectedDistricts 상태 반영)
   const selectedRegionText = selectedDistricts.length
-    ? `선택 지역 : ${selectedDistricts.map(sel => sel.district === sel.region ? sel.region : sel.district).join(', ')}`
+    ? `선택 지역 : ${selectedDistricts.map(sel => sel.district === sel.region ? sel.region : `${sel.region} ${sel.district}`).join(', ')}`
     : `지역을 최소 ${minSelect}개 선택하세요`;
 
   return (
@@ -126,7 +126,7 @@ const FormRegionChoiceModal: React.FC<FormRegionChoiceModalProps> = ({ label, va
             style={{ backgroundColor: '#fff', minHeight: 48, justifyContent: 'center', paddingHorizontal: 0, paddingVertical: 12, flex: 1 }}
           >
             <Text style={{ color: value.length ? '#222' : '#bbb', fontSize: 16 }}>
-              {value.length ? value.map(sel => sel.district === sel.region ? sel.region : sel.district).join(', ') : (placeholder || '지역 선택')}
+              {value.length ? value.map(sel => sel.district === sel.region ? sel.region : `${sel.region} ${sel.district}`).join(', ') : (placeholder || '지역 선택')}
             </Text>
           </TouchableOpacity>
           {error && <Text style={{ color: 'red', marginLeft: 8, fontSize: 13 }}>{error}</Text>}
@@ -143,7 +143,7 @@ const FormRegionChoiceModal: React.FC<FormRegionChoiceModalProps> = ({ label, va
             style={{ backgroundColor: '#fff', minHeight: 48, justifyContent: 'center', paddingHorizontal: 0, paddingVertical: 12 }}
           >
             <Text style={{ color: value.length ? '#222' : '#bbb', fontSize: 16 }}>
-              {value.length ? value.map(sel => sel.district === sel.region ? sel.region : sel.district).join(', ') : (placeholder || '지역 선택')}
+              {value.length ? value.map(sel => sel.district === sel.region ? sel.region : `${sel.region} ${sel.district}`).join(', ') : (placeholder || '지역 선택')}
             </Text>
           </TouchableOpacity>
         </>
@@ -169,10 +169,10 @@ const FormRegionChoiceModal: React.FC<FormRegionChoiceModalProps> = ({ label, va
               {!selectedRegion ? selectedRegionText : (
                 (() => {
                   // value 전체를 map해서 중복 없이 district/region을 쉼표로 구분해 표시
-                  const allSelectedArr = value.map(sel => sel.district === sel.region ? sel.region : sel.district);
+                  const allSelectedArr = value.map(sel => sel.district === sel.region ? sel.region : `${sel.region} ${sel.district}`);
                   // 현재 하위 chips에서 선택된 값(아직 value에 반영 전)이 있으면 미리 반영
                   const currentSelectedArr = selectedDistricts.filter(sel => sel.region === selectedRegion)
-                    .map(sel => sel.district === sel.region ? sel.region : sel.district);
+                    .map(sel => sel.district === sel.region ? sel.region : `${sel.region} ${sel.district}`);
                   // 중복 제거
                   const merged = Array.from(new Set([...allSelectedArr, ...currentSelectedArr]));
                   if (merged.length === 0) return `지역을 최소 ${minSelect}개 선택하세요`;

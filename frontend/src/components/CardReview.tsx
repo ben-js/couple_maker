@@ -9,13 +9,18 @@ export interface CardReviewProps {
   user: { userId: string; name: string; job: string };
   matchId: string;
   onPress: () => void;
+  buttonText?: string;
+  title?: string;
+  subtitle?: string;
 }
 
-const CardReview: React.FC<CardReviewProps> = ({ user, matchId, onPress }) => (
+const CardReview: React.FC<CardReviewProps> = ({ user, matchId, onPress, buttonText, title, subtitle }) => (
   <Card enableShadow style={styles.reviewCard}>
     <View style={styles.reviewCardHeader}>
       <View style={styles.reviewCardHeaderRow}>
-        <Text style={[styles.reviewCardTitle, { textAlign: 'center' }]}>소개팅은 잘 끝나셨나요?</Text>
+        <Text style={[styles.reviewCardTitle, { textAlign: 'center' }]}>
+          {title || '소개팅은 잘 끝나셨나요?'}
+        </Text>
       </View>
     </View>
     <View style={styles.reviewCardContent}>
@@ -23,10 +28,10 @@ const CardReview: React.FC<CardReviewProps> = ({ user, matchId, onPress }) => (
         <Feather name={'book-open'} size={40} color={colors.primary} />
       </View>
       <Text style={styles.reviewCardSubtitle}>
-        {user.name}님과의 소개팅 후기를 작성해주세요
+        {subtitle || `${user.name}님과의 소개팅 후기를 작성해주세요`}
       </Text>
       <PrimaryButton
-        title="지금 에프터 유무 작성하러 가기"
+        title={buttonText || '지금 에프터 유무 작성하러 가기'}
         onPress={onPress}
         style={styles.reviewCardButton}
         textColor={colors.surface}

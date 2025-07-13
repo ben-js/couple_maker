@@ -761,19 +761,19 @@ export const confirmMatching = async (event: any) => {
 // 관리자 매칭 최종 확정 (confirmed → scheduled)
 export const finalizeMatching = async (event: any) => {
   const { match_pair_id, final_date, final_location, photo_visible_at } = JSON.parse(event.body || '{}');
-  
+
   const matchPairsPath = path.join(__dirname, 'data/match-pairs.json');
   const matchPairs = fs.existsSync(matchPairsPath) ? readJson(matchPairsPath) : [];
   const matchIndex = matchPairs.findIndex((match: any) => match.match_pair_id === match_pair_id);
-  
+
   if (matchIndex >= 0) {
     const match = matchPairs[matchIndex];
     const now = new Date().toISOString();
     
     // MatchPairs는 updated_at만 업데이트 (상태는 MatchingRequests에서 관리)
-    match.updated_at = now;
+      match.updated_at = now;
     writeJson(matchPairsPath, matchPairs);
-    
+
     // matching-requests 상태 변경 (중심 테이블)
     const matchingRequestsPath = path.join(__dirname, 'data/matching-requests.json');
     const matchingRequests = fs.existsSync(matchingRequestsPath) ? readJson(matchingRequestsPath) : [];
@@ -781,7 +781,7 @@ export const finalizeMatching = async (event: any) => {
     [match.match_a_id, match.match_b_id].forEach((mid: string) => {
       const reqIdx = matchingRequests.findIndex((req: any) => req.match_id === mid);
       if (reqIdx >= 0) {
-        matchingRequests[reqIdx].status = 'scheduled';
+          matchingRequests[reqIdx].status = 'scheduled';
         matchingRequests[reqIdx].final_date = final_date;
         matchingRequests[reqIdx].final_location = final_location;
         matchingRequests[reqIdx].photo_visible_at = photo_visible_at;
@@ -830,22 +830,140 @@ export const submitChoices = async (event: any) => {
     currentRequest.date_choices = { dates, locations };
     currentRequest.choices_submitted_at = now;
     currentRequest.updated_at = now;
-    currentRequest.status = 'confirmed';
     
-    // final_date가 설정된 경우 photo_visible_at 자동 설정
-    if (final_date) {
-      currentRequest.final_date = final_date;
-      currentRequest.final_location = final_location;
+    // 매칭 페어 찾기
+    const matchPairsPath = path.join(__dirname, 'data/match-pairs.json');
+    const matchPairs = fs.existsSync(matchPairsPath) ? readJson(matchPairsPath) : [];
+    const matchPair = matchPairs.find((pair: any) => 
+      pair.match_a_id === match_id || pair.match_b_id === match_id
+    );
+    
+    if (matchPair) {
+      // 상대방의 매칭 요청 찾기
+      const otherMatchId = matchPair.match_a_id === match_id ? matchPair.match_b_id : matchPair.match_a_id;
+      const otherRequest = matchingRequests.find((req: any) => req.match_id === otherMatchId);
       
-      // final_date의 30분 전으로 photo_visible_at 설정
-      const finalDate = new Date(final_date);
-      const photoVisibleAt = new Date(finalDate.getTime() - 30 * 60 * 1000); // 30분 전
-      currentRequest.photo_visible_at = photoVisibleAt.toISOString();
-      
-      console.log('[submitChoices] photo_visible_at 자동 설정:', {
-        final_date,
-        photo_visible_at: currentRequest.photo_visible_at
-      });
+      if (otherRequest && otherRequest.date_choices && otherRequest.date_choices.dates.length > 0) {
+        // 상대방이 이미 일정을 제출한 경우, 일정이 겹치는지 확인
+        const commonDates = dates.filter((date: string) => 
+          otherRequest.date_choices.dates.includes(date)
+        );
+        
+        // 정확한 장소 매칭
+        const commonLocations = locations.filter((location: string) => 
+          otherRequest.date_choices.locations.includes(location)
+        );
+        
+        // 지역 매칭 (같은 지역이면 매칭 성공)
+        const getRegionFromLocation = (location: string) => {
+          if (location.includes('서울')) return '서울';
+          if (location.includes('경기')) return '경기';
+          if (location.includes('인천')) return '인천';
+          if (location.includes('부산')) return '부산';
+          if (location.includes('대구')) return '대구';
+          if (location.includes('광주')) return '광주';
+          if (location.includes('대전')) return '대전';
+          if (location.includes('울산')) return '울산';
+          if (location.includes('세종')) return '세종';
+          return location.split(' ')[0]; // 첫 번째 단어를 지역으로 간주
+        };
+        
+        // "어디든 괜찮음" 패턴 체크 (예: "서울 서울", "경기 경기")
+        const isFlexibleLocation = (location: string) => {
+          const parts = location.split(' ');
+          return parts.length >= 2 && parts[0] === parts[1];
+        };
+        
+        const myRegions = locations.map(getRegionFromLocation);
+        const otherRegions = otherRequest.date_choices.locations.map(getRegionFromLocation);
+        const commonRegions = myRegions.filter((region: string) => otherRegions.includes(region));
+        
+        // 유연한 매칭 체크
+        let flexibleMatch = false;
+        
+        // 내가 구체적인 장소를 선택하고 상대방이 "어디든 괜찮음"을 선택한 경우
+        for (const myLocation of locations) {
+          for (const otherLocation of otherRequest.date_choices.locations) {
+            if (isFlexibleLocation(otherLocation)) {
+              const myRegion = getRegionFromLocation(myLocation);
+              const otherRegion = getRegionFromLocation(otherLocation);
+              if (myRegion === otherRegion) {
+                flexibleMatch = true;
+                break;
+              }
+            }
+          }
+          if (flexibleMatch) break;
+        }
+        
+        // 상대방이 구체적인 장소를 선택하고 내가 "어디든 괜찮음"을 선택한 경우
+        if (!flexibleMatch) {
+          for (const otherLocation of otherRequest.date_choices.locations) {
+            for (const myLocation of locations) {
+              if (isFlexibleLocation(myLocation)) {
+                const myRegion = getRegionFromLocation(myLocation);
+                const otherRegion = getRegionFromLocation(otherLocation);
+                if (myRegion === otherRegion) {
+                  flexibleMatch = true;
+                  break;
+                }
+              }
+            }
+            if (flexibleMatch) break;
+          }
+        }
+        
+        // 날짜가 겹치고 (장소가 정확히 겹치거나 같은 지역이거나 유연한 매칭이면) 매칭 성공
+        if (commonDates.length > 0 && (commonLocations.length > 0 || commonRegions.length > 0 || flexibleMatch)) {
+          // 일정이 겹치면 양쪽 모두 confirmed 상태로 설정
+          currentRequest.status = 'confirmed';
+          currentRequest.final_date = commonDates[0]; // 첫 번째 겹치는 날짜 선택
+          currentRequest.final_location = commonLocations[0]; // 첫 번째 겹치는 장소 선택
+          
+          // final_date의 30분 전으로 photo_visible_at 설정
+          const finalDate = new Date(currentRequest.final_date);
+          const photoVisibleAt = new Date(finalDate.getTime() - 30 * 60 * 1000);
+          currentRequest.photo_visible_at = photoVisibleAt.toISOString();
+          
+          // 상대방도 confirmed 상태로 변경
+          otherRequest.status = 'confirmed';
+          otherRequest.final_date = commonDates[0];
+          otherRequest.final_location = commonLocations[0];
+          otherRequest.photo_visible_at = photoVisibleAt.toISOString();
+          
+          console.log('[submitChoices] 일정 매칭 성공 - 양쪽 모두 confirmed:', {
+            commonDates,
+            commonLocations,
+            commonRegions,
+            flexibleMatch,
+            final_date: currentRequest.final_date,
+            final_location: currentRequest.final_location,
+            currentUserStatus: currentRequest.status,
+            otherUserStatus: otherRequest.status
+          });
+        } else {
+          // 일정이 겹치지 않으면 현재 사용자만 mismatched 상태로 설정
+          currentRequest.status = 'mismatched';
+          console.log('[submitChoices] 일정 매칭 실패 - 현재 사용자만 mismatched:', {
+            myDates: dates,
+            myLocations: locations,
+            otherDates: otherRequest.date_choices.dates,
+            otherLocations: otherRequest.date_choices.locations
+          });
+        }
+      } else {
+        // 상대방이 아직 일정을 제출하지 않은 경우
+        // 현재 사용자가 mismatched 상태였다면 matched로 변경
+        if (currentRequest.status === 'mismatched') {
+          currentRequest.status = 'matched';
+          console.log('[submitChoices] 상대방이 일정을 제출하지 않음 - 현재 사용자를 matched로 변경');
+        } else {
+          currentRequest.status = 'matched';
+        }
+      }
+    } else {
+      // 매칭 페어를 찾을 수 없는 경우
+      currentRequest.status = 'confirmed';
     }
   }
 
@@ -855,7 +973,14 @@ export const submitChoices = async (event: any) => {
     type: 'choices_submitted',
     userId: user_id,
     result: 'success',
-    detail: { match_id, dates, locations, final_date, photo_visible_at: currentRequest?.photo_visible_at },
+    detail: { 
+      match_id, 
+      dates, 
+      locations, 
+      status: currentRequest?.status,
+      final_date: currentRequest?.final_date,
+      photo_visible_at: currentRequest?.photo_visible_at 
+    },
   });
 
   return { 
@@ -864,13 +989,32 @@ export const submitChoices = async (event: any) => {
       'Content-Type': 'application/json',
       'Access-Control-Allow-Origin': '*'
     },
-    body: JSON.stringify({ ok: true }) 
+    body: JSON.stringify({ 
+      ok: true, 
+      status: currentRequest?.status,
+      message: currentRequest?.status === 'mismatched' ? '일정이 맞지 않습니다. 다시 일정을 선택해주세요.' : '일정이 제출되었습니다.'
+    }) 
   };
 };
 
 // 리뷰 저장
 export const saveReview = async (event: any) => {
-  const { match_id, reviewer_id, target_id, rating, want_to_meet_again, tags, comment } = JSON.parse(event.body || '{}');
+  const { 
+    match_id, 
+    reviewer_id, 
+    target_id, 
+    rating, 
+    want_to_meet_again, 
+    tags, 
+    comment,
+    // AI 인사이트를 위한 추가 필드들
+    overall_satisfaction,
+    date_duration,
+    location_satisfaction,
+    conversation_initiative,
+    first_impression_vs_reality,
+    success_failure_factors
+  } = JSON.parse(event.body || '{}');
   
   const reviewsPath = path.join(__dirname, 'data/reviews.json');
   const reviews = fs.existsSync(reviewsPath) ? readJson(reviewsPath) : [];
@@ -884,6 +1028,13 @@ export const saveReview = async (event: any) => {
     want_to_meet_again,
     tags,
     comment,
+    // AI 인사이트를 위한 추가 필드들
+    overall_satisfaction,
+    date_duration,
+    location_satisfaction,
+    conversation_initiative,
+    first_impression_vs_reality,
+    success_failure_factors,
     created_at: new Date().toISOString()
   };
   
@@ -902,8 +1053,33 @@ export const saveReview = async (event: any) => {
       avg_conversation: 0,
       avg_manners: 0,
       avg_honesty: 0,
+      avg_overall_satisfaction: 0,
+      avg_location_satisfaction: 0,
       total_reviews: 0,
-      positive_tags: []
+      positive_tags: [],
+      date_duration_stats: {
+        "30분 미만": 0,
+        "30분-1시간": 0,
+        "1시간-2시간": 0,
+        "2시간 이상": 0
+      },
+      conversation_initiative_stats: {
+        "나": 0,
+        "상대방": 0,
+        "비슷함": 0
+      },
+      first_impression_stats: {
+        "더 좋아짐": 0,
+        "비슷함": 0,
+        "실망": 0
+      },
+      success_factor_stats: {
+        "대화": 0,
+        "외모": 0,
+        "매너": 0,
+        "장소": 0,
+        "기타": 0
+      }
     };
     reviewStats.push(targetStats);
   }
@@ -915,40 +1091,38 @@ export const saveReview = async (event: any) => {
   targetStats.avg_manners = (targetStats.avg_manners * (targetStats.total_reviews - 1) + rating.manners) / targetStats.total_reviews;
   targetStats.avg_honesty = (targetStats.avg_honesty * (targetStats.total_reviews - 1) + rating.honesty) / targetStats.total_reviews;
   
+  // AI 인사이트를 위한 추가 평균 계산
+  if (overall_satisfaction) {
+    targetStats.avg_overall_satisfaction = (targetStats.avg_overall_satisfaction * (targetStats.total_reviews - 1) + overall_satisfaction) / targetStats.total_reviews;
+  }
+  if (location_satisfaction) {
+    targetStats.avg_location_satisfaction = (targetStats.avg_location_satisfaction * (targetStats.total_reviews - 1) + location_satisfaction) / targetStats.total_reviews;
+  }
+  
   // 긍정적 태그 추가
   if (tags && tags.length > 0) {
     targetStats.positive_tags = [...new Set([...targetStats.positive_tags, ...tags])];
   }
   
-  writeJson(reviewStatsPath, reviewStats);
-  
-  // 후기 작성 완료 시 매칭 상태를 completed로 변경
-  const matchPairsPath = path.join(__dirname, 'data/match-pairs.json');
-  const matchPairs = fs.existsSync(matchPairsPath) ? readJson(matchPairsPath) : [];
-  const match = matchPairs.find((m: any) => m.match_a_id === match_id || m.match_b_id === match_id);
-  
-  if (match) {
-    // 양측 모두 후기 작성 완료 확인
-    const reviews = readJson(reviewsPath);
-    const matchReviews = reviews.filter((r: any) => 
-      (r.match_id === match.match_a_id || r.match_id === match.match_b_id)
-    );
-    
-    if (matchReviews.length >= 2) {
-      // 양측 모두 후기 작성 완료 - MatchingRequests 상태 변경
-      const matchingRequestsPath = path.join(__dirname, 'data/matching-requests.json');
-      const matchingRequests = fs.existsSync(matchingRequestsPath) ? readJson(matchingRequestsPath) : [];
-      
-      [match.match_a_id, match.match_b_id].forEach((mid: string) => {
-        const reqIdx = matchingRequests.findIndex((req: any) => req.match_id === mid);
-        if (reqIdx >= 0) {
-          matchingRequests[reqIdx].status = 'completed';
-          matchingRequests[reqIdx].updated_at = new Date().toISOString();
-        }
-      });
-      writeJson(matchingRequestsPath, matchingRequests);
-    }
+  // 소개팅 패턴 통계 업데이트
+  if (date_duration && targetStats.date_duration_stats[date_duration] !== undefined) {
+    targetStats.date_duration_stats[date_duration]++;
   }
+  if (conversation_initiative && targetStats.conversation_initiative_stats[conversation_initiative] !== undefined) {
+    targetStats.conversation_initiative_stats[conversation_initiative]++;
+  }
+  if (first_impression_vs_reality && targetStats.first_impression_stats[first_impression_vs_reality] !== undefined) {
+    targetStats.first_impression_stats[first_impression_vs_reality]++;
+  }
+  if (success_failure_factors && Array.isArray(success_failure_factors)) {
+    success_failure_factors.forEach((factor: string) => {
+      if (targetStats.success_factor_stats[factor] !== undefined) {
+        targetStats.success_factor_stats[factor]++;
+      }
+    });
+  }
+  
+  writeJson(reviewStatsPath, reviewStats);
   
   await appendLog({
     type: 'review_saved',
@@ -956,6 +1130,46 @@ export const saveReview = async (event: any) => {
     result: 'success',
     detail: { review_id: newReview.review_id, target_id, rating },
   });
+  
+  // 리뷰 저장 후 매칭 상태 확인 및 변경
+  const matchingRequestsPath = path.join(__dirname, 'data/matching-requests.json');
+  const matchingRequests = readJson(matchingRequestsPath);
+  const reqIdx = matchingRequests.findIndex((req: any) => req.match_id === match_id);
+  if (reqIdx >= 0) {
+    // 먼저 review 상태로 변경
+    matchingRequests[reqIdx].status = 'review';
+    matchingRequests[reqIdx].updated_at = new Date().toISOString();
+    
+    // 매칭 쌍 찾기
+    const matchPairsPath = path.join(__dirname, 'data/match-pairs.json');
+    const matchPairs = fs.existsSync(matchPairsPath) ? readJson(matchPairsPath) : [];
+    const match = matchPairs.find((m: any) => m.match_a_id === match_id || m.match_b_id === match_id);
+    
+    if (match) {
+      // 양쪽 모두 리뷰를 작성했는지 확인
+      const allReviews = readJson(reviewsPath);
+      const matchReviews = allReviews.filter((r: any) => 
+        (r.match_id === match.match_a_id || r.match_id === match.match_b_id)
+      );
+      
+      if (matchReviews.length >= 2) {
+        // 양쪽 모두 리뷰 작성 완료 - want_to_meet_again 확인
+        const bothWantToMeet = matchReviews.every((r: any) => r.want_to_meet_again === true);
+        const finalStatus = bothWantToMeet ? 'completed' : 'failed';
+        
+        // 양쪽 모두 상태 변경
+        [match.match_a_id, match.match_b_id].forEach((mid: string) => {
+          const reqIdx = matchingRequests.findIndex((req: any) => req.match_id === mid);
+          if (reqIdx >= 0) {
+            matchingRequests[reqIdx].status = finalStatus;
+            matchingRequests[reqIdx].updated_at = new Date().toISOString();
+          }
+        });
+      }
+    }
+    
+    writeJson(matchingRequestsPath, matchingRequests);
+  }
   
   return { 
     statusCode: 200, 
@@ -1621,6 +1835,8 @@ export const getCustomerService = async () => {
   return { statusCode: 200, body: JSON.stringify(snakeToCamelCase(cs)) };
 };
 
+
+
 // 매칭 상세 정보 조회 (matchId 기반)
 export const getMatchDetail = async (event: any) => {
   const matchId = event.pathParameters?.matchId;
@@ -1795,10 +2011,7 @@ export const getMatchingStatus = async (event: any) => {
     p.target_id === userId && p.status === 'propose'
   );
   
-  // 디버깅용 로그
-  console.log('[getMatchingStatus] userId:', userId);
-  console.log('[getMatchingStatus] proposes:', proposes);
-  console.log('[getMatchingStatus] pendingProposal:', pendingProposal);
+
   
   let status = null;
   let matchId = null;
@@ -1884,6 +2097,51 @@ export const getMatchingStatus = async (event: any) => {
     }
   }
 
+  let bothReviewed = false;
+  let myReview = null;
+  if (myMatch) {
+    // 양쪽 모두 리뷰를 작성했는지 확인
+    const reviews = readJson(reviewsPath);
+    const reviewA = reviews.find((r: any) => r.match_id === myMatch.match_a_id);
+    const reviewB = reviews.find((r: any) => r.match_id === myMatch.match_b_id);
+    
+    if (reviewA && reviewB) {
+      bothReviewed = true;
+    }
+    
+    // 내가 작성한 리뷰 찾기 - 현재 매칭의 match_id로 찾기
+    if (myMatch) {
+      // match_a_id 또는 match_b_id와 일치하는 리뷰 중에서 현재 사용자가 작성한 리뷰 찾기
+      myReview = reviews.find((r: any) => 
+        r.reviewer_id === userId && 
+        (r.match_id === myMatch.match_a_id || r.match_id === myMatch.match_b_id)
+      );
+    }
+  }
+
+  let contactReady = false;
+  let otherUserContact = null;
+  // completed 상태이고 양쪽 모두 want_to_meet_again이 true일 때만 연락처 교환 가능
+  if ((status === 'completed' || status === 'exchanged') && myMatch) {
+    const reviews = readJson(reviewsPath);
+    const reviewA = reviews.find((r: any) => r.match_id === myMatch.match_a_id);
+    const reviewB = reviews.find((r: any) => r.match_id === myMatch.match_b_id);
+    if (
+      reviewA && reviewB &&
+      reviewA.want_to_meet_again === true &&
+      reviewB.want_to_meet_again === true
+    ) {
+      contactReady = true;
+      
+      // 상대방의 연락처 정보 가져오기
+      if (reviewA.reviewer_id === userId && reviewB.contact) {
+        otherUserContact = reviewB.contact;
+      } else if (reviewB.reviewer_id === userId && reviewA.contact) {
+        otherUserContact = reviewA.contact;
+      }
+    }
+  }
+
   return { 
     statusCode: 200, 
     headers: {
@@ -1897,7 +2155,11 @@ export const getMatchingStatus = async (event: any) => {
       hasPendingProposal,
       proposalMatchId,
       otherUserChoices, // 추가
-      finalDate: myRequest?.final_date || null
+      finalDate: myRequest?.final_date || null,
+      bothReviewed,
+      contactReady,
+      review: myReview, // 내가 작성한 리뷰 데이터 추가
+      otherUserContact // 상대방 연락처 정보 추가
     }) 
   };
 }; 
@@ -1905,109 +2167,449 @@ export const getMatchingStatus = async (event: any) => {
 // [신규] 인사이트 API (더미)
 export const getInsight = async (event: any) => {
   const { userId } = event.pathParameters || {};
-  // 실제 구현 전까지 더미 데이터 반환
+  
   if (!userId) {
     return { statusCode: 400, body: JSON.stringify({ error: 'userId required' }) };
   }
-  // 예시: 매칭 횟수, 성공률, 최근 활동 등
-  const dummy = {
-    userId,
-    totalMatches: 5,
-    successfulMatches: 2,
-    lastActive: new Date().toISOString(),
-    favoriteRegion: '서울',
-    pointsUsed: 300,
-    reviewScore: 4.2,
-    // ... 기타 통계
-  };
-  return { statusCode: 200, body: JSON.stringify(dummy) };
+  
+  try {
+    console.log('인사이트 조회 시작:', userId);
+    
+    // 히스토리 데이터 조회
+    const matchingHistoryPath = path.join(__dirname, 'data/matching-history.json');
+    const matchingHistory = readJson(matchingHistoryPath);
+    const reviews = readJson(reviewsPath);
+    const profiles = readJson(profilesPath);
+    const users = readJson(usersPath);
+    
+    console.log('데이터 로드 완료:', {
+      historyCount: matchingHistory.length,
+      reviewsCount: reviews.length,
+      profilesCount: profiles.length
+    });
+    
+    // 사용자의 히스토리 필터링
+    const userHistory = matchingHistory.filter((history: any) => {
+      return (history.request_a && history.request_a.requester_id === userId) || 
+             (history.request_b && history.request_b.requester_id === userId);
+    });
+    
+    console.log('사용자 히스토리:', userHistory.length, '개');
+    
+    // 사용자의 리뷰 데이터 조회 - 히스토리에서 직접 추출
+    const userReviews: any[] = [];
+    const receivedReviews: any[] = [];
+    
+    userHistory.forEach((history: any) => {
+      const isUserA = history.request_a && history.request_a.requester_id === userId;
+      const userReview = isUserA ? history.review_a : history.review_b;
+      const partnerReview = isUserA ? history.review_b : history.review_a;
+      
+      if (userReview) {
+        userReviews.push(userReview);
+      }
+      if (partnerReview) {
+        receivedReviews.push(partnerReview);
+      }
+    });
+    
+    console.log('리뷰 데이터:', {
+      written: userReviews.length,
+      received: receivedReviews.length
+    });
+    
+    // 기본 통계 계산 - exchanged, completed, finished 모두 성공으로 계산 (실제 앱 기준)
+    const totalMatches = userHistory.length;
+    const successfulMatches = userHistory.filter((h: any) => 
+      h.final_status === 'exchanged' || h.final_status === 'completed' || h.final_status === 'finished'
+    ).length;
+    const successRate = totalMatches > 0 ? Math.round((successfulMatches / totalMatches) * 100) : 0;
+    
+    console.log('기본 통계:', { totalMatches, successfulMatches, successRate });
+    
+    // 평균 평점 계산 - 받은 리뷰만 계산
+    const averageRating = receivedReviews.length > 0 
+      ? receivedReviews.reduce((sum: number, review: any) => {
+          const rating = review.rating;
+          return sum + (rating.appearance + rating.conversation + rating.manners + rating.honesty) / 4;
+        }, 0) / receivedReviews.length
+      : 0;
+    
+    console.log('평균 평점:', averageRating);
+    
+    // 선호 지역 분석 - 성공/완료/종료된 매칭만 집계 (실제 앱 기준)
+    const locationCounts: { [key: string]: number } = {};
+    userHistory.forEach((history: any) => {
+      // 성공/완료/종료된 매칭만 집계
+      if (history.final_status === 'exchanged' || history.final_status === 'completed' || history.final_status === 'finished') {
+        const isUserA = history.request_a && history.request_a.requester_id === userId;
+        const userRequest = isUserA ? history.request_a : history.request_b;
+        const location = userRequest?.date_address || userRequest?.final_location;
+        if (location) {
+          // region+district(예: '서울 강남구')까지 반영
+          const parts = location.split(' ');
+          const regionKey = parts.length >= 2 ? parts.slice(0, 2).join(' ') : location;
+          locationCounts[regionKey] = (locationCounts[regionKey] || 0) + 1;
+        }
+      }
+    });
+    const favoriteRegion = Object.keys(locationCounts).length > 0 
+      ? Object.keys(locationCounts).reduce((a, b) => locationCounts[a] > locationCounts[b] ? a : b)
+      : '없음';
+    
+    console.log('선호 지역:', favoriteRegion, locationCounts);
+    
+    // 대화 스타일 분석 - 본인이 작성한 리뷰에서 추출
+    const conversationStyles: { [key: string]: number } = {};
+    userReviews.forEach((review: any) => {
+      if (review.conversation_initiative) {
+        conversationStyles[review.conversation_initiative] = 
+          (conversationStyles[review.conversation_initiative] || 0) + 1;
+      }
+    });
+    
+    console.log('대화 스타일 분석:', conversationStyles);
+    
+    // 대화 스타일 분석 개선
+    let dominantStyle = '없음';
+    if (Object.keys(conversationStyles).length > 0) {
+      const maxCount = Math.max(...Object.values(conversationStyles));
+      const dominantStyles = Object.keys(conversationStyles).filter(style => conversationStyles[style] === maxCount);
+      
+      if (dominantStyles.length === 1) {
+        dominantStyle = dominantStyles[0];
+      } else if (dominantStyles.includes('나') && dominantStyles.includes('상대방')) {
+        dominantStyle = '균형잡힌';
+      } else {
+        dominantStyle = dominantStyles[0];
+      }
+    }
+    
+    console.log('주요 대화 스타일:', dominantStyle);
+    
+    // 인사이트 카드 생성
+    const insightCards = [];
+    
+    // 1. 성향 분석 카드 (1회 이상 소개팅 완료 시)
+    if (totalMatches >= 1) {
+      const styleDescription = dominantStyle === '나' ? '적극적인 대화 스타일' : 
+                             dominantStyle === '상대방' ? '경청하는 대화 스타일' : 
+                             dominantStyle === '균형잡힌' ? '균형잡힌 대화 스타일' : '분석 불가';
+      
+      const ratingDescription = averageRating >= 4.5 ? '매우 높은 평점' :
+                               averageRating >= 4.0 ? '높은 평점' :
+                               averageRating >= 3.5 ? '보통 평점' : '개선 필요';
+      
+      insightCards.push({
+        id: 'personality',
+        title: '성향 분석',
+        description: `${styleDescription}을 보이며, ${ratingDescription}을 받고 있습니다.`,
+        isLocked: false,
+        data: {
+          totalMatches,
+          successRate,
+          averageRating: Math.round(averageRating * 10) / 10,
+          favoriteRegion,
+          dominantStyle,
+          styleDescription,
+          ratingDescription
+        }
+      });
+    } else {
+      insightCards.push({
+        id: 'personality',
+        title: '성향 분석',
+        description: '소개팅 1회 완료 시 해금됩니다.',
+        isLocked: true
+      });
+    }
+    
+    // 2. 매칭 성공률 그래프 (3회 이상 시)
+    if (totalMatches >= 3) {
+      insightCards.push({
+        id: 'success_rate',
+        title: '매칭 성공률 추이',
+        description: `현재 성공률 ${successRate}%로, 평균보다 ${successRate > 50 ? '높은' : '낮은'} 수준입니다.`,
+        isLocked: false,
+        data: {
+          successRate,
+          totalMatches,
+          successfulMatches
+        }
+      });
+    } else {
+      insightCards.push({
+        id: 'success_rate',
+        title: '매칭 성공률 추이',
+        description: '소개팅 3회 완료 시 해금됩니다.',
+        isLocked: true
+      });
+    }
+    
+    // 3. 대화 스타일 요약 (1회 이상 시)
+    if (totalMatches >= 1) {
+      const styleDescription = dominantStyle === '나' ? '적극적인 대화 스타일' : 
+                             dominantStyle === '상대방' ? '경청하는 대화 스타일' : 
+                             dominantStyle === '균형잡힌' ? '균형잡힌 대화 스타일' : '분석 불가';
+      insightCards.push({
+        id: 'conversation_style',
+        title: '대화 스타일 요약',
+        description: styleDescription,
+        isLocked: false,
+        data: {
+          dominantStyle,
+          totalReviews: userReviews.length
+        }
+      });
+    } else {
+      insightCards.push({
+        id: 'conversation_style',
+        title: '대화 스타일 요약',
+        description: '첫 소개팅 이후 분석이 시작됩니다.',
+        isLocked: true
+      });
+    }
+    
+    // 4. 맞춤 피드백 (2회 이상 시)
+    if (totalMatches >= 2) {
+      const feedback = successRate >= 70 ? '매우 좋은 매칭 성과를 보이고 있습니다!' :
+                      successRate >= 50 ? '평균적인 매칭 성과입니다. 조금만 더 노력해보세요.' :
+                      '매칭 성공률을 높이기 위해 프로필을 개선해보는 것을 추천합니다.';
+      insightCards.push({
+        id: 'custom_feedback',
+        title: '맞춤 피드백',
+        description: feedback,
+        isLocked: false,
+        data: {
+          feedback,
+          successRate,
+          totalMatches
+        }
+      });
+    } else {
+      insightCards.push({
+        id: 'custom_feedback',
+        title: '맞춤 피드백',
+        description: '소개팅 2회 완료 시 해금됩니다.',
+        isLocked: true
+      });
+    }
+    
+    console.log('생성된 인사이트 카드:', insightCards.length, '개');
+    
+    await appendLog({
+      type: 'insight_get',
+      userId,
+      result: 'success',
+      detail: { 
+        totalMatches, 
+        successRate, 
+        cardsCount: insightCards.length 
+      },
+      action: '인사이트 조회',
+      screen: 'InsightScreen',
+      component: 'insight_list'
+    });
+    
+    // 응답 데이터를 프론트엔드 타입에 맞게 구성
+    const response = {
+      userId,
+      totalMatches,
+      successfulMatches,
+      successRate,
+      averageRating: Math.round(averageRating * 10) / 10,
+      favoriteRegion,
+      dominantStyle,
+      insightCards: insightCards.map(card => ({
+        id: card.id,
+        title: card.title,
+        description: card.description,
+        isLocked: card.isLocked,
+        data: card.data
+      }))
+    };
+    
+    console.log('응답 데이터:', response);
+    
+    return { 
+      statusCode: 200, 
+      body: JSON.stringify(response)
+    };
+  } catch (error) {
+    console.error('인사이트 조회 오류:', error);
+    
+    await appendLog({
+      type: 'insight_get',
+      userId,
+      result: 'fail',
+      message: '인사이트 조회 실패',
+      errorStack: error instanceof Error ? error.stack : '',
+      action: '인사이트 조회',
+      screen: 'InsightScreen',
+      component: 'insight_list'
+    });
+    
+    return { 
+      statusCode: 500, 
+      body: JSON.stringify({ error: '인사이트 조회 중 오류가 발생했습니다.' }) 
+    };
+  }
 }; 
 
 // 히스토리 조회
 export const getHistory = async (event: any) => {
+  const { userId } = event.pathParameters || {};
+  const page = parseInt(event.queryStringParameters?.page || '1', 10);
+  const pageSize = parseInt(event.queryStringParameters?.pageSize || '10', 10);
+  
+  if (!userId) {
+    return { statusCode: 400, body: JSON.stringify({ error: 'userId required' }) };
+  }
+  
+  console.log('히스토리 조회 요청:', { userId, page, pageSize });
+  
   try {
-    const userId = event.pathParameters?.userId;
+    // matching-history.json에서 사용자의 히스토리 조회
+    const matchingHistoryPath = path.join(__dirname, 'data/matching-history.json');
+    const matchingHistory = readJson(matchingHistoryPath);
+    const profiles = readJson(profilesPath);
     
-    if (!userId) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ error: 'userId is required' })
-      };
-    }
-
-    // 매칭 요청 히스토리
-    const matchingRequests = readJson(matchingRequestsPath);
-    const userMatchingRequests = matchingRequests.filter((req: any) => req.requester_id === userId);
-
-    // 매칭 성사 히스토리
-    const matchPairs = readJson(matchPairsPath);
-    const userMatchPairs = matchPairs.filter((pair: any) => {
-      const matchA = matchingRequests.find((req: any) => req.match_id === pair.match_a_id);
-      const matchB = matchingRequests.find((req: any) => req.match_id === pair.match_b_id);
-      return (matchA && matchA.requester_id === userId) || (matchB && matchB.requester_id === userId);
+    // 사용자가 참여한 히스토리 찾기 (request_a 또는 request_b에서 사용자 ID 확인)
+    const userHistory = matchingHistory.filter((history: any) => {
+      return (history.request_a && history.request_a.requester_id === userId) || 
+             (history.request_b && history.request_b.requester_id === userId);
     });
-
-    // 포인트 히스토리
-    const pointsHistory = readJson(pointsHistoryPath);
-    const userPointsHistory = pointsHistory.filter((history: any) => history.user_id === userId);
-
-    // 상태 변경 히스토리
-    const statusHistory = readJson(userStatusHistoryPath);
-    const userStatusHistory = statusHistory.filter((history: any) => history.user_id === userId);
-
-    const history = {
-      matchingRequests: userMatchingRequests,
-      matchPairs: userMatchPairs,
-      pointsHistory: userPointsHistory,
-      statusHistory: userStatusHistory
-    };
-
+    
+    // 파트너 정보 추가
+    const enrichedHistory = userHistory.map((history: any) => {
+      // 현재 사용자의 요청과 상대방 요청 찾기
+      const isUserA = history.request_a && history.request_a.requester_id === userId;
+      const userRequest = isUserA ? history.request_a : history.request_b;
+      const partnerRequest = isUserA ? history.request_b : history.request_a;
+      const partnerId = userRequest?.partner_id;
+      
+      const partnerProfile = profiles.find((p: any) => p.user_id === partnerId);
+      
+      // 파트너 프로필 정보 (finished 상태일 때는 연락처 정보 제외)
+      let partnerInfo = null;
+      if (partnerProfile) {
+        if (history.final_status === 'finished') {
+          // finished 상태일 때는 기본 정보만 제공 (연락처 정보 제외)
+          partnerInfo = {
+            name: partnerProfile.name,
+            age: partnerProfile.age,
+            location: partnerProfile.location,
+            photos: [] // 사진도 제외
+          };
+        } else {
+          // 다른 상태일 때는 모든 정보 제공
+          partnerInfo = {
+            name: partnerProfile.name,
+            age: partnerProfile.age,
+            location: partnerProfile.location,
+            photos: partnerProfile.photos || []
+          };
+        }
+      }
+      
+      return {
+        user_id: userId,
+        timestamp: history.finished_at || history.created_at,
+        match_pair_id: history.match_pair_id,
+        partner_id: partnerId,
+        status: history.final_status,
+        schedule_date: userRequest?.final_date ? new Date(userRequest.final_date).toISOString().split('T')[0] : null,
+        date_location: userRequest?.final_location || userRequest?.date_address,
+        contact_shared: history.final_status === 'exchanged',
+        both_interested: history.review_a?.want_to_meet_again && history.review_b?.want_to_meet_again,
+        review_submitted: !!(history.review_a && history.review_b),
+        points_used: 100,
+        points_refunded: userRequest?.points_refunded ? 100 : 0,
+        partner: partnerInfo,
+        // 추가 상세 정보
+        match_a_id: history.match_a_id,
+        match_b_id: history.match_b_id,
+        contact_exchanged_at: history.contact_exchanged_at,
+        finished_at: history.finished_at,
+        created_at: history.created_at,
+        // 연락처 정보 제외 (개인정보 보호)
+        user_request: userRequest ? {
+          match_id: userRequest.match_id,
+          requester_id: userRequest.requester_id,
+          status: userRequest.status,
+          created_at: userRequest.created_at,
+          updated_at: userRequest.updated_at,
+          final_date: userRequest.final_date,
+          final_location: userRequest.final_location,
+          date_address: userRequest.date_address,
+          points_refunded: userRequest.points_refunded
+        } : null,
+        partner_request: partnerRequest ? {
+          match_id: partnerRequest.match_id,
+          requester_id: partnerRequest.requester_id,
+          status: partnerRequest.status,
+          created_at: partnerRequest.created_at,
+          updated_at: partnerRequest.updated_at,
+          final_date: partnerRequest.final_date,
+          final_location: partnerRequest.final_location,
+          date_address: partnerRequest.date_address,
+          points_refunded: partnerRequest.points_refunded
+        } : null
+      };
+    });
+    
+    // 날짜순 정렬 (최신순)
+    enrichedHistory.sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    
+    // 페이지네이션
+    const startIndex = (page - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    const pagedHistory = enrichedHistory.slice(startIndex, endIndex);
+    
     await appendLog({
-      type: 'get_history',
-      userId: userId,
+      type: 'history_get',
+      userId,
       result: 'success',
-      message: '히스토리 조회 성공',
       detail: { 
-        matchingRequestsCount: userMatchingRequests.length,
-        matchPairsCount: userMatchPairs.length,
-        pointsHistoryCount: userPointsHistory.length,
-        statusHistoryCount: userStatusHistory.length
+        page, 
+        pageSize, 
+        total: enrichedHistory.length, 
+        returned: pagedHistory.length 
       },
       action: '히스토리 조회',
       screen: 'HistoryScreen',
-      component: 'history'
+      component: 'history_list'
     });
-
-    return {
-      statusCode: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
-      },
-      body: JSON.stringify(history)
+    
+    return { 
+      statusCode: 200, 
+      body: JSON.stringify({
+        history: pagedHistory.map(snakeToCamelCase),
+        pagination: {
+          page,
+          pageSize,
+          total: enrichedHistory.length,
+          totalPages: Math.ceil(enrichedHistory.length / pageSize)
+        }
+      })
     };
-
-  } catch (error: any) {
-    console.error('getHistory error:', error);
+  } catch (error) {
+    console.error('히스토리 조회 오류:', error);
     
     await appendLog({
-      type: 'get_history',
-      userId: event.pathParameters?.userId,
+      type: 'history_get',
+      userId,
       result: 'fail',
       message: '히스토리 조회 실패',
-      detail: { error: error.message },
+      errorStack: error instanceof Error ? error.stack : '',
       action: '히스토리 조회',
       screen: 'HistoryScreen',
-      component: 'history'
+      component: 'history_list'
     });
-
-    return {
-      statusCode: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
-      },
-      body: JSON.stringify({ error: 'Internal server error' })
+    
+    return { 
+      statusCode: 500, 
+      body: JSON.stringify({ error: '히스토리 조회 중 오류가 발생했습니다.' }) 
     };
   }
 }; 
@@ -2811,5 +3413,436 @@ export const respondToProposalByProposeId = async (event: any) => {
       },
       body: JSON.stringify({ error: 'Internal server error' })
     };
+  }
+}; 
+
+export const saveReviewContact = async (event: any) => {
+  const { match_id, reviewer_id, contact } = JSON.parse(event.body || '{}');
+  if (!match_id || !reviewer_id || !contact) {
+    return { statusCode: 400, body: JSON.stringify({ error: '필수 파라미터 누락' }) };
+  }
+  const reviewsPath = path.join(__dirname, 'data/reviews.json');
+  const reviews = fs.existsSync(reviewsPath) ? readJson(reviewsPath) : [];
+  const idx = reviews.findIndex((r: any) => r.match_id === match_id && r.reviewer_id === reviewer_id);
+  if (idx === -1) {
+    return { statusCode: 404, body: JSON.stringify({ error: '리뷰를 찾을 수 없습니다.' }) };
+  }
+  reviews[idx].contact = contact;
+  reviews[idx].contact_shared_at = new Date().toISOString();
+  writeJson(reviewsPath, reviews);
+
+  // 연락처가 양쪽 모두 입력되면 MatchingRequests 상태 exchanged로 변경
+  const matchPairsPath = path.join(__dirname, 'data/match-pairs.json');
+  const matchPairs = fs.existsSync(matchPairsPath) ? readJson(matchPairsPath) : [];
+  const matchPair = matchPairs.find((m: any) => m.match_a_id === match_id || m.match_b_id === match_id);
+  if (matchPair) {
+    const reviewsA = reviews.find((r: any) => r.match_id === matchPair.match_a_id);
+    const reviewsB = reviews.find((r: any) => r.match_id === matchPair.match_b_id);
+    if (reviewsA?.contact && reviewsB?.contact) {
+      const matchingRequestsPath = path.join(__dirname, 'data/matching-requests.json');
+      const matchingRequests = fs.existsSync(matchingRequestsPath) ? readJson(matchingRequestsPath) : [];
+      [matchPair.match_a_id, matchPair.match_b_id].forEach((mid: string) => {
+        const reqIdx = matchingRequests.findIndex((req: any) => req.match_id === mid);
+        if (reqIdx >= 0) {
+          matchingRequests[reqIdx].status = 'exchanged';
+          matchingRequests[reqIdx].updated_at = new Date().toISOString();
+        }
+      });
+      writeJson(matchingRequestsPath, matchingRequests);
+    }
+  }
+
+  await appendLog({
+    type: 'review_contact_saved',
+    userId: reviewer_id,
+    result: 'success',
+    detail: { match_id, reviewer_id, contact },
+  });
+
+  return { statusCode: 200, body: JSON.stringify({ ok: true }) };
+};
+
+// 연락처 상세 정보 조회
+export const getContactDetail = async (event: any) => {
+  const matchId = event.queryStringParameters?.matchId;
+  const userId = event.headers?.userid;
+  
+  if (!matchId || !userId) {
+    return { statusCode: 400, body: JSON.stringify({ error: 'matchId와 userId가 필요합니다.' }) };
+  }
+
+  try {
+    const matchPairsPath = path.join(__dirname, 'data/match-pairs.json');
+    const matchPairs = fs.existsSync(matchPairsPath) ? readJson(matchPairsPath) : [];
+    const matchPair = matchPairs.find((m: any) => m.match_a_id === matchId || m.match_b_id === matchId);
+    
+    if (!matchPair) {
+      return { statusCode: 404, body: JSON.stringify({ error: '매칭 정보를 찾을 수 없습니다.' }) };
+    }
+
+    const reviewsPath = path.join(__dirname, 'data/reviews.json');
+    const reviews = fs.existsSync(reviewsPath) ? readJson(reviewsPath) : [];
+    const profilesPath = path.join(__dirname, 'data/profiles.json');
+    const profiles = fs.existsSync(profilesPath) ? readJson(profilesPath) : [];
+    const matchingRequestsPath = path.join(__dirname, 'data/matching-requests.json');
+    const matchingRequests = fs.existsSync(matchingRequestsPath) ? readJson(matchingRequestsPath) : [];
+
+    // 현재 사용자와 상대방의 매칭 요청 찾기
+    const myRequest = matchingRequests.find((r: any) => r.match_id === matchId && r.requester_id === userId);
+    const otherRequest = matchingRequests.find((r: any) => 
+      (r.match_id === matchPair.match_a_id || r.match_id === matchPair.match_b_id) && r.requester_id !== userId
+    );
+
+    if (!myRequest || !otherRequest) {
+      return { statusCode: 404, body: JSON.stringify({ error: '매칭 요청 정보를 찾을 수 없습니다.' }) };
+    }
+
+    // 상대방 프로필 정보
+    const otherProfile = profiles.find((p: any) => p.user_id === otherRequest.requester_id);
+    
+    // 디버깅 로그 추가
+    console.log('=== getContactDetail Debug ===');
+    console.log('otherRequest.requester_id:', otherRequest.requester_id);
+    console.log('otherProfile:', otherProfile);
+    console.log('otherProfile?.photos:', otherProfile?.photos);
+    console.log('============================');
+    
+    // 상대방 연락처 정보
+    const otherReview = reviews.find((r: any) => r.match_id === otherRequest.match_id);
+    const contact = otherReview?.contact || null;
+
+    await appendLog({
+      type: 'contact_detail_viewed',
+      userId: userId,
+      result: 'success',
+      detail: { matchId, otherUserId: otherRequest.requester_id },
+      action: '연락처 상세 조회',
+      screen: 'ContactDetailScreen',
+      component: 'contact_detail'
+    });
+
+    // 실제 photos 배열 사용
+    const photos = otherProfile?.photos || [];
+    
+    console.log('=== getContactDetail Response Debug ===');
+    console.log('otherProfile.user_id:', otherProfile?.user_id);
+    console.log('otherProfile.photos:', otherProfile?.photos);
+    console.log('최종 photos:', photos);
+    console.log('=====================================');
+
+    return {
+      statusCode: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      },
+      body: JSON.stringify({
+        contact,
+        profile: otherProfile ? {
+          userId: otherProfile.user_id,
+          name: otherProfile.name || '',
+          job: otherProfile.job || '',
+          region: otherProfile.region?.region || '',
+          photoUrl: otherProfile.photos?.[0] || null,
+          photos: photos, // 실제 photos 배열 사용
+        } : null
+      })
+    };
+
+  } catch (error: any) {
+    console.error('getContactDetail error:', error);
+    
+    await appendLog({
+      type: 'contact_detail_viewed',
+      userId: userId,
+      result: 'fail',
+      message: '연락처 상세 조회 실패',
+      detail: { error: error.message, matchId },
+      action: '연락처 상세 조회',
+      screen: 'ContactDetailScreen',
+      component: 'contact_detail'
+    });
+
+    return {
+      statusCode: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      },
+      body: JSON.stringify({ error: 'Internal server error' })
+    };
+  }
+};
+
+export const finishMeeting = async (event: any) => {
+  const { match_id, user_id } = JSON.parse(event.body || '{}');
+  if (!match_id || !user_id) {
+    return { statusCode: 400, body: JSON.stringify({ error: '필수 파라미터 누락' }) };
+  }
+
+  try {
+    const matchPairsPath = path.join(__dirname, 'data/match-pairs.json');
+    const matchPairs = fs.existsSync(matchPairsPath) ? readJson(matchPairsPath) : [];
+    const matchPair = matchPairs.find((m: any) => m.match_a_id === match_id || m.match_b_id === match_id);
+    
+    if (!matchPair) {
+      return { statusCode: 404, body: JSON.stringify({ error: '매칭 쌍을 찾을 수 없습니다.' }) };
+    }
+
+    const matchingRequestsPath = path.join(__dirname, 'data/matching-requests.json');
+    const matchingRequests = fs.existsSync(matchingRequestsPath) ? readJson(matchingRequestsPath) : [];
+    
+    // 현재 사용자의 매칭 요청 찾기
+    const myRequest = matchingRequests.find((r: any) => r.match_id === match_id && r.requester_id === user_id);
+    if (!myRequest) {
+      return { statusCode: 404, body: JSON.stringify({ error: '매칭 요청을 찾을 수 없습니다.' }) };
+    }
+
+    // 현재 사용자의 상태를 finished로 변경
+    myRequest.status = 'finished';
+    myRequest.updated_at = new Date().toISOString();
+    writeJson(matchingRequestsPath, matchingRequests);
+
+    // 상대방의 매칭 요청 찾기
+    const otherMatchId = match_id === matchPair.match_a_id ? matchPair.match_b_id : matchPair.match_a_id;
+    const otherRequest = matchingRequests.find((r: any) => r.match_id === otherMatchId);
+    
+    let existingHistory = null;
+    let historySaved = false;
+    
+    // 상대방도 finished 상태인지 확인
+    if (otherRequest && otherRequest.status === 'finished') {
+      // 둘 다 finished 상태이면 matching-history로 이동하고 matching-requests에서 삭제
+      const reviewsPath = path.join(__dirname, 'data/reviews.json');
+      const reviews = fs.existsSync(reviewsPath) ? readJson(reviewsPath) : [];
+      const reviewA = reviews.find((r: any) => r.match_id === matchPair.match_a_id);
+      const reviewB = reviews.find((r: any) => r.match_id === matchPair.match_b_id);
+      
+      // 이력 저장
+      const historyPath = path.join(__dirname, 'data/matching-history.json');
+      const history = fs.existsSync(historyPath) ? readJson(historyPath) : [];
+      
+      // 이미 history에 있는지 확인
+      existingHistory = history.find((h: any) => h.match_pair_id === matchPair.match_pair_id);
+      
+      if (!existingHistory) {
+        // 연락처 교환 완료 시간 및 최종 상태 결정
+        const contactExchangedAt = (reviewA?.contact && reviewB?.contact) ? 
+          Math.max(
+            new Date(reviewA.contact_shared_at || 0).getTime(),
+            new Date(reviewB.contact_shared_at || 0).getTime()
+          ) : null;
+        
+        const finalStatus = (reviewA?.contact && reviewB?.contact) ? 'exchanged' : 'finished';
+        
+        history.push({
+          match_pair_id: matchPair.match_pair_id,
+          match_a_id: matchPair.match_a_id,
+          match_b_id: matchPair.match_b_id,
+          contact_a: reviewA?.contact || null,
+          contact_b: reviewB?.contact || null,
+          contact_exchanged_at: contactExchangedAt ? new Date(contactExchangedAt).toISOString() : null,
+          final_status: finalStatus,
+          finished_at: new Date().toISOString(),
+          review_a: reviewA || null,
+          review_b: reviewB || null,
+          request_a: matchingRequests.find((r: any) => r.match_id === matchPair.match_a_id) || null,
+          request_b: matchingRequests.find((r: any) => r.match_id === matchPair.match_b_id) || null,
+          created_at: new Date().toISOString()
+        });
+        writeJson(historyPath, history);
+        historySaved = true;
+      }
+      
+      // 매칭 요청에서 삭제
+      const newMatchingRequests = matchingRequests.filter((r: any) => 
+        r.match_id !== matchPair.match_a_id && r.match_id !== matchPair.match_b_id
+      );
+      writeJson(matchingRequestsPath, newMatchingRequests);
+    }
+
+    await appendLog({
+      type: 'meeting_finished',
+      userId: user_id,
+      result: 'success',
+      detail: { 
+        match_pair_id: matchPair.match_pair_id, 
+        match_a_id: matchPair.match_a_id, 
+        match_b_id: matchPair.match_b_id,
+        status: 'finished',
+        both_finished: otherRequest && otherRequest.status === 'finished',
+        history_saved: historySaved
+      },
+    });
+
+    return { statusCode: 200, body: JSON.stringify({ ok: true }) };
+  } catch (error: any) {
+    console.error('finishMeeting error:', error);
+    
+    await appendLog({
+      type: 'meeting_finished',
+      userId: user_id,
+      result: 'fail',
+      message: '소개팅 종료 실패',
+      detail: { error: error.message, match_id },
+    });
+
+    return { statusCode: 500, body: JSON.stringify({ error: 'Internal server error' }) };
+  }
+};
+
+// 3일 후 자동 삭제 기능
+export const cleanupFinishedRequests = async (event: any) => {
+  try {
+    const matchingRequestsPath = path.join(__dirname, 'data/matching-requests.json');
+    const matchingRequests = fs.existsSync(matchingRequestsPath) ? readJson(matchingRequestsPath) : [];
+    
+    const now = new Date();
+    const threeDaysAgo = new Date(now.getTime() - (3 * 24 * 60 * 60 * 1000)); // 3일 전
+    
+    let deletedCount = 0;
+    const requestsToDelete: any[] = [];
+    
+    // 삭제할 요청들을 먼저 찾기
+    matchingRequests.forEach((request: any) => {
+      if (request.status === 'finished' && request.updated_at) {
+        const finishedAt = new Date(request.updated_at);
+        if (finishedAt < threeDaysAgo) {
+          requestsToDelete.push(request);
+        }
+      }
+    });
+    
+    // 삭제할 요청들에 대해 matching-history에 저장
+    const historyPath = path.join(__dirname, 'data/matching-history.json');
+    const history = fs.existsSync(historyPath) ? readJson(historyPath) : [];
+    
+    for (const request of requestsToDelete) {
+      // 매칭 쌍 정보 찾기
+      const matchPairsPath = path.join(__dirname, 'data/match-pairs.json');
+      const matchPairs = fs.existsSync(matchPairsPath) ? readJson(matchPairsPath) : [];
+      const matchPair = matchPairs.find((m: any) => m.match_a_id === request.match_id || m.match_b_id === request.match_id);
+      
+      if (matchPair) {
+        // 리뷰 정보 찾기
+        const reviewsPath = path.join(__dirname, 'data/reviews.json');
+        const reviews = fs.existsSync(reviewsPath) ? readJson(reviewsPath) : [];
+        const reviewA = reviews.find((r: any) => r.match_id === matchPair.match_a_id);
+        const reviewB = reviews.find((r: any) => r.match_id === matchPair.match_b_id);
+        
+        // 상대방 매칭 요청 찾기
+        const otherMatchId = request.match_id === matchPair.match_a_id ? matchPair.match_b_id : matchPair.match_a_id;
+        const otherRequest = matchingRequests.find((r: any) => r.match_id === otherMatchId);
+        
+        // 연락처 교환 완료 시간 및 최종 상태 결정
+        const contactExchangedAt = (reviewA?.contact && reviewB?.contact) ? 
+          Math.max(
+            new Date(reviewA.contact_shared_at || 0).getTime(),
+            new Date(reviewB.contact_shared_at || 0).getTime()
+          ) : null;
+        
+        const finalStatus = (reviewA?.contact && reviewB?.contact) ? 'exchanged' : 'finished';
+        
+        // 이미 history에 있는지 확인
+        const existingHistory = history.find((h: any) => h.match_pair_id === matchPair.match_pair_id);
+        
+        if (!existingHistory) {
+          history.push({
+            match_pair_id: matchPair.match_pair_id,
+            match_a_id: matchPair.match_a_id,
+            match_b_id: matchPair.match_b_id,
+            contact_a: reviewA?.contact || null,
+            contact_b: reviewB?.contact || null,
+            contact_exchanged_at: contactExchangedAt ? new Date(contactExchangedAt).toISOString() : null,
+            final_status: finalStatus,
+            finished_at: request.updated_at,
+            review_a: reviewA || null,
+            review_b: reviewB || null,
+            request_a: matchingRequests.find((r: any) => r.match_id === matchPair.match_a_id) || null,
+            request_b: matchingRequests.find((r: any) => r.match_id === matchPair.match_b_id) || null,
+            created_at: new Date().toISOString(),
+            cleanup_reason: '3일 경과 자동 삭제'
+          });
+        }
+      } else {
+        // 매칭 쌍을 찾을 수 없는 경우 로그 기록
+        await appendLog({
+          type: 'auto_cleanup_finished_request',
+          userId: request.requester_id,
+          result: 'warning',
+          detail: { 
+            match_id: request.match_id,
+            finished_at: request.updated_at,
+            cleanup_reason: '3일 경과 - 매칭 쌍 없음'
+          },
+        });
+      }
+      
+      // 로그 기록
+      await appendLog({
+        type: 'auto_cleanup_finished_request',
+        userId: request.requester_id,
+        result: 'success',
+        detail: { 
+          match_id: request.match_id,
+          finished_at: request.updated_at,
+          cleanup_reason: '3일 경과'
+        },
+      });
+    }
+    
+    // history 저장
+    if (requestsToDelete.length > 0) {
+      writeJson(historyPath, history);
+    }
+    
+    // 삭제할 요청들을 제외한 나머지 요청들만 유지
+    const updatedRequests = matchingRequests.filter((request: any) => {
+      if (request.status === 'finished' && request.updated_at) {
+        const finishedAt = new Date(request.updated_at);
+        if (finishedAt < threeDaysAgo) {
+          deletedCount++;
+          return false; // 삭제
+        }
+      }
+      return true; // 유지
+    });
+    
+    if (deletedCount > 0) {
+      writeJson(matchingRequestsPath, updatedRequests);
+      
+      await appendLog({
+        type: 'cleanup_finished_requests',
+        result: 'success',
+        detail: { 
+          deleted_count: deletedCount,
+          total_requests: matchingRequests.length,
+          remaining_requests: updatedRequests.length,
+          history_saved: true
+        },
+      });
+    }
+    
+    return { 
+      statusCode: 200, 
+      body: JSON.stringify({ 
+        ok: true, 
+        deleted_count: deletedCount,
+        total_requests: matchingRequests.length,
+        remaining_requests: updatedRequests.length,
+        history_saved: requestsToDelete.length > 0
+      }) 
+    };
+  } catch (error: any) {
+    console.error('cleanupFinishedRequests error:', error);
+    
+    await appendLog({
+      type: 'cleanup_finished_requests',
+      result: 'fail',
+      message: '자동 삭제 실패',
+      detail: { error: error.message },
+    });
+
+    return { statusCode: 500, body: JSON.stringify({ error: 'Internal server error' }) };
   }
 };

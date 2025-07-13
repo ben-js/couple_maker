@@ -34,13 +34,13 @@ const CardScheduleChoice: React.FC<CardScheduleChoiceProps> = ({
 }) => {
   const containerStyle: ViewStyle = cardScheduleChoiceStyles.container;
   const confirmButtonStyle = {
-    backgroundColor: dateSelections.every(d => d) && locationSelection.length > 0 ? colors.primary : '#eee',
+            backgroundColor: dateSelections.every(d => d) && locationSelection?.length > 0 ? colors.primary : '#eee',
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
   };
   const confirmButtonTextStyle = {
-    color: dateSelections.every(d => d) && locationSelection.length > 0 ? '#fff' : '#bbb',
+            color: dateSelections.every(d => d) && locationSelection?.length > 0 ? '#fff' : '#bbb',
     fontWeight: 'bold' as const,
     fontSize: 16,
   };
@@ -119,7 +119,7 @@ const CardScheduleChoice: React.FC<CardScheduleChoiceProps> = ({
       <View>
         <TouchableOpacity
           style={confirmButtonStyle}
-          disabled={!dateSelections.every(d => d) || locationSelection.length === 0}
+          disabled={!dateSelections.every(d => d) || !locationSelection?.length}
           onPress={onConfirm}
         >
           <Text style={confirmButtonTextStyle}>확인</Text>

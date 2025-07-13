@@ -105,9 +105,17 @@ const PreferenceSetupScreen = () => {
             ) {
               value = { min: value[0], max: value[1] };
             }
-            // region_choice 변환
+            // region_choice 변환 (기존 문자열 배열과의 호환성)
             if (field.type === 'region_choice' && Array.isArray(value) && typeof value[0] === 'string') {
-              value = (value as string[]).map(regionName => ({ region: regionName, district: regionName }));
+              // 기존 데이터가 문자열 배열인 경우 객체 배열로 변환
+              value = (value as string[]).map(regionName => {
+                // "서울 강남구" 형태의 문자열을 파싱
+                const parts = regionName.split(' ');
+                if (parts.length >= 2) {
+                  return { region: parts[0], district: parts.slice(1).join(' ') };
+                }
+                return { region: regionName, district: regionName };
+              });
             }
             setValue(field.name, value);
           });
@@ -229,7 +237,7 @@ const PreferenceSetupScreen = () => {
       // 이상형 정보 저장 (토스트 메시지 없이)
       await handleSubmit(onSubmit, onInvalid)();
       // 소개팅 신청 API 호출
-      await apiPost('/matching-requests', { userId: user.userId });
+      await apiPost('/matching-requests', { userId: user.userId }, user.userId);
       
       console.log('소개팅 신청 전 user points:', user.points);
       
@@ -383,7 +391,6 @@ const PreferenceSetupScreen = () => {
                     regionData={regionData}
                     error={error?.message}
                     placeholder={field.placeholder}
-                    type="same-line"
                   />
                 )}
               />
@@ -391,7 +398,7 @@ const PreferenceSetupScreen = () => {
           }
           return null;
         })}
-          </ScrollView>
+      </ScrollView>
         </View>
       </PageLayout>
       
