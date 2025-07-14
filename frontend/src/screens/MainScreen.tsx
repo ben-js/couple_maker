@@ -47,24 +47,24 @@ const MainScreen = () => {
   
   // 디버깅용: 모달 상태 로그
   useEffect(() => {
-    console.log('[매니저 제안] 모달 상태 변경:', { showProposalModal, proposalMatchId });
+    // console.log('[매니저 제안] 모달 상태 변경:', { showProposalModal, proposalMatchId });
   }, [showProposalModal, proposalMatchId]);
   const [refreshing, setRefreshing] = useState(false);
 
   // 소개팅 완료 후 2시간이 지났는지 확인
   const isDatePassed = useMemo(() => {
-    console.log('[MainScreen] finalDate 확인:', statusData?.finalDate);
+    // console.log('[MainScreen] finalDate 확인:', statusData?.finalDate);
     if (!statusData?.finalDate) return false;
     const finalDate = new Date(statusData.finalDate);
     const twoHoursLater = new Date(finalDate.getTime() + 2 * 60 * 60 * 1000); // 2시간 후
     const now = new Date();
     const isPassed = now > twoHoursLater;
-    console.log('[MainScreen] 날짜 계산:', {
-      finalDate: finalDate.toISOString(),
-      twoHoursLater: twoHoursLater.toISOString(),
-      now: now.toISOString(),
-      isPassed
-    });
+    // console.log('[MainScreen] 날짜 계산:', {
+    //   finalDate: finalDate.toISOString(),
+    //   twoHoursLater: twoHoursLater.toISOString(),
+    //   now: now.toISOString(),
+    //   isPassed
+    // });
     return isPassed;
   }, [statusData?.finalDate]);
 
@@ -92,17 +92,17 @@ const MainScreen = () => {
         // 매칭 상태 조회 (제안 포함)
         const statusData = await apiGet('/matching-status', { userId: user.userId }, user.userId);
         
-        console.log('[매니저 제안] API 응답:', JSON.stringify(statusData, null, 2));
-        console.log('[매니저 제안] hasPendingProposal:', statusData.hasPendingProposal);
-        console.log('[매니저 제안] proposalMatchId:', statusData.proposalMatchId);
-        console.log('[매니저 제안] status:', statusData.status);
+        // console.log('[매니저 제안] API 응답:', JSON.stringify(statusData, null, 2));
+        // console.log('[매니저 제안] hasPendingProposal:', statusData.hasPendingProposal);
+        // console.log('[매니저 제안] proposalMatchId:', statusData.proposalMatchId);
+        // console.log('[매니저 제안] status:', statusData.status);
         
         if (statusData.hasPendingProposal) {
-          console.log('[매니저 제안] 모달 표시 시도');
+          // console.log('[매니저 제안] 모달 표시 시도');
           setProposalMatchId(statusData.proposalMatchId);
           setShowProposalModal(true);
         } else {
-          console.log('[매니저 제안] hasPendingProposal이 false');
+          // console.log('[매니저 제안] hasPendingProposal이 false');
         }
       } catch (error) {
         console.error('매칭 제안 확인 실패:', error);
@@ -140,10 +140,10 @@ const MainScreen = () => {
   // statusData에서 matchId 추출하여 세팅
   useEffect(() => {
     if (statusData?.matchId) {
-      console.log('[매칭 상태] matchId 세팅:', statusData.matchId);
+      // console.log('[매칭 상태] matchId 세팅:', statusData.matchId);
       setMatchId(statusData.matchId);
     } else {
-      console.log('[매칭 상태] matchId 없음:', statusData);
+      // console.log('[매칭 상태] matchId 없음:', statusData);
       setMatchId(null);
     }
   }, [statusData]);
@@ -151,7 +151,7 @@ const MainScreen = () => {
   // 화면이 포커스될 때마다 상태 새로고침
   useFocusEffect(
     useCallback(() => {
-      console.log('[MainScreen] 화면 포커스 - 상태 새로고침 시작');
+      // console.log('[MainScreen] 화면 포커스 - 상태 새로고침 시작');
       refetchStatus();
       refetchUser();
     }, [refetchStatus, refetchUser])
@@ -160,19 +160,19 @@ const MainScreen = () => {
   // 현재 매칭 상태와 매칭자 정보 로깅
   useEffect(() => {
     if (statusData) {
-      console.log('=== 현재 매칭 상태 ===');
-      console.log('현재 사용자 ID:', user?.userId);
-      console.log('매칭 상태:', statusData.status);
-      console.log('매칭 ID:', statusData.matchId);
-      console.log('매칭된 사용자 ID:', statusData.matchedUser?.user_id || '없음');
-      console.log('매칭된 사용자 이름:', statusData.matchedUser?.name || '없음');
-      console.log('매칭된 사용자 나이:', statusData.matchedUser?.age || '없음');
-      console.log('매칭된 사용자 지역:', statusData.matchedUser?.location || '없음');
-      console.log('연락처 교환 여부:', statusData.contactShared);
-      console.log('서로 관심 여부:', statusData.bothInterested);
-      console.log('최종 일정:', statusData.finalDate);
-      console.log('최종 장소:', statusData.finalLocation);
-      console.log('==================');
+      // console.log('=== 현재 매칭 상태 ===');
+      // console.log('현재 사용자 ID:', user?.userId);
+      // console.log('매칭 상태:', statusData.status);
+      // console.log('매칭 ID:', statusData.matchId);
+      // console.log('매칭된 사용자 ID:', statusData.matchedUser?.user_id || '없음');
+      // console.log('매칭된 사용자 이름:', statusData.matchedUser?.name || '없음');
+      // console.log('매칭된 사용자 나이:', statusData.matchedUser?.age || '없음');
+      // console.log('매칭된 사용자 지역:', statusData.matchedUser?.location || '없음');
+      // console.log('연락처 교환 여부:', statusData.contactShared);
+      // console.log('서로 관심 여부:', statusData.bothInterested);
+      // console.log('최종 일정:', statusData.finalDate);
+      // console.log('최종 장소:', statusData.finalLocation);
+      // console.log('==================');
     }
   }, [statusData, user?.userId]);
 
@@ -231,9 +231,9 @@ const MainScreen = () => {
   const showWaitingReviewMsg = statusData?.status === 'review' && !statusData?.bothReviewed;
   const currentStep = getCurrentStep(statusData?.status);
 
-  console.log('statusData:', statusData);
-  console.log('showWaitingReviewMsg:', showWaitingReviewMsg);
-  console.log('currentStep:', currentStep);
+  // console.log('statusData:', statusData);
+  // console.log('showWaitingReviewMsg:', showWaitingReviewMsg);
+  // console.log('currentStep:', currentStep);
 
   const renderMatchingProgress = () => (
     <View style={styles.matchingProgressContainer}>
@@ -268,13 +268,13 @@ const MainScreen = () => {
 
   // 일정/장소 바텀시트 확인
   const handleConfirmSchedule = async () => {
-    console.log('[일정/장소 저장] 시도', { dateSelections, locationSelection, matchId, userId: user?.userId });
+    // console.log('[일정/장소 저장] 시도', { dateSelections, locationSelection, matchId, userId: user?.userId });
     if (!dateSelections.every(d => d) || !locationSelection?.length) {
-      console.log('[일정/장소 저장] 날짜/장소 미입력');
+      // console.log('[일정/장소 저장] 날짜/장소 미입력');
       return;
     }
     if (!matchId) {
-      console.log('[일정/장소 저장] matchId 없음');
+      // console.log('[일정/장소 저장] matchId 없음');
       return;
     }
     try {
@@ -284,7 +284,7 @@ const MainScreen = () => {
         dates: dateSelections,
         locations: locationSelection,
       }, user?.userId);
-      console.log('[일정/장소 저장] API 응답', res);
+      // console.log('[일정/장소 저장] API 응답', res);
       
       // mismatched 상태인 경우 알림 표시
       if (res.status === 'mismatched') {
@@ -316,7 +316,7 @@ const MainScreen = () => {
       
       refetchStatus();
     } catch (e) {
-      console.log('[일정/장소 저장] API 에러', e);
+      // console.log('[일정/장소 저장] API 에러', e);
       Alert.alert('저장 실패', '일정/장소 저장에 실패했습니다.');
     }
   };

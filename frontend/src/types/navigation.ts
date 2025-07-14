@@ -1,4 +1,6 @@
 // 네비게이션 스택 파라미터 타입 정의
+import { HistoryItem } from './history';
+
 export type RootStackParamList = {
   Main: undefined;
   ProfileEdit: { isEditMode?: boolean } | undefined;
@@ -16,4 +18,5 @@ export type RootStackParamList = {
   PointCharge: undefined;
   ReviewWrite: { userId: string; matchId: string };
   ContactDetail: { matchId: string };
+  HistoryDetail: { history: HistoryItem };
 }; 

@@ -33,7 +33,6 @@ const UserDetailScreen: React.FC = () => {
   // 매칭 상세 정보 가져오기
   const fetchMatchDetail = useCallback(async () => {
       if (!matchId || !user?.userId) {
-        console.log('[UserDetailScreen] matchId 또는 userId 없음:', { matchId, userId: user?.userId });
         setError('매칭 정보를 찾을 수 없습니다.');
         setLoading(false);
         return;
@@ -41,12 +40,9 @@ const UserDetailScreen: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-        console.log('[UserDetailScreen] API 호출 시작:', { matchId, userId: user.userId });
       const response = await apiGet<MatchDetailData>(`/match-detail/${matchId}?userId=${user.userId}`, undefined, user.userId);
-        console.log('[UserDetailScreen] API 응답:', JSON.stringify(response, null, 2));
       setMatchDetail(response);
     } catch (e: any) {
-        console.error('[UserDetailScreen] API 에러:', e);
       setError(e.message || '프로필 정보를 불러오지 못했습니다.');
     } finally {
       setLoading(false);
@@ -86,14 +82,9 @@ const UserDetailScreen: React.FC = () => {
 
     // 디버깅용: matchDetail 데이터 확인
     useEffect(() => {
-      console.log('[UserDetailScreen] matchDetail 상태 변경:', { 
-        matchDetail: !!matchDetail, 
-        loading, 
-        error 
-      });
       
       if (matchDetail) {
-        console.log('[UserDetailScreen] matchDetail 전체 데이터:', JSON.stringify(matchDetail, null, 2));
+        
         console.log('[UserDetailScreen] finalDate:', matchDetail.finalDate);
         console.log('[UserDetailScreen] dateAddress:', matchDetail.dateAddress);
 
@@ -102,13 +93,6 @@ const UserDetailScreen: React.FC = () => {
         const hasDateAddress = !!matchDetail.dateAddress;
         const shouldShow = hasFinalDate && hasDateAddress;
         
-        console.log('[UserDetailScreen] 조건 확인:', {
-          hasFinalDate,
-          hasDateAddress,
-          shouldShow,
-          finalDateValue: matchDetail.finalDate,
-          dateAddressValue: matchDetail.dateAddress
-        });
       }
     }, [matchDetail, loading, error]);
 

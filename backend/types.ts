@@ -69,7 +69,7 @@ export interface UserPreferences {
 export interface MatchingRequest {
   match_id: string;
   requester_id: string;
-  status: 'waiting' | 'propose' | 'matched' | 'mismatched' | 'confirmed' | 'scheduled' | 'completed' | 'exchanged' | 'failed';
+  status: 'waiting' | 'matched' | 'mismatched' | 'confirmed' | 'scheduled' | 'completed' | 'exchanged' | 'failed';
   created_at: string;
   updated_at: string;
   photo_visible_at?: string | null;
@@ -89,10 +89,7 @@ export interface MatchPair {
   match_pair_id: string;
   match_a_id: string;
   match_b_id: string;
-  is_proposed?: boolean;
-  confirm_proposed?: boolean;
   attempt_count?: number;
-  contact_shared?: boolean;
   both_interested?: boolean;
   created_at: string;
   updated_at: string;

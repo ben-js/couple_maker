@@ -18,6 +18,8 @@ import TermsScreen from '../screens/TermsScreen';
 import PointChargeScreen from '@/screens/PointChargeScreen';
 import ReviewWriteScreen from '@/screens/ReviewWriteScreen';
 import ContactDetailScreen from '../screens/ContactDetailScreen';
+import HistoryDetailScreen from '../screens/HistoryDetailScreen';
+import SignupScreen from '../screens/SignupScreen';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -79,6 +81,8 @@ const RootNavigator: React.FC = () => {
       <Stack.Screen name={NAVIGATION_ROUTES.REVIEW_WRITE} component={ReviewWriteScreen} />
       <Stack.Screen name="Terms" component={TermsScreen} />
       <Stack.Screen name={NAVIGATION_ROUTES.CONTACT_DETAIL} component={ContactDetailScreen} options={{ title: '연락처 상세' }} />
+      <Stack.Screen name="HistoryDetail" component={HistoryDetailScreen} />
+      <Stack.Screen name={NAVIGATION_ROUTES.SIGNUP} component={SignupScreen} />
     </Stack.Navigator>
   );
 };

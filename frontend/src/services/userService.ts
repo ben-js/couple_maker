@@ -19,14 +19,10 @@ export async function signup(userData: { email: string; password: string; name: 
 // 로그인 (단일 책임)
 export async function login(credentials: { email: string; password: string }): Promise<UserProfile | null> {
   try {
-    console.log('로그인 시도:', { email: credentials.email, password: credentials.password ? '***' : 'empty' });
     const data = await apiPost<UserProfile>('/login', credentials);
-    console.log('로그인 응답:', data);
     if (data && !data.id && (data.userId || data.user_id)) {
       data.id = data.userId || data.user_id;
-      console.log('ID 매핑 완료:', { originalId: data.userId || data.user_id, mappedId: data.id });
     }
-    console.log('최종 사용자 데이터:', data);
     return data;
   } catch (error) {
     console.error('로그인 실패:', error);

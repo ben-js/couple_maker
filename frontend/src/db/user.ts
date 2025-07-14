@@ -7,9 +7,7 @@ const USER_STORAGE_KEY = 'user_data';
 export const saveUser = async (user: User): Promise<void> => {
   try {
     await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
-    console.log('User saved to storage:', user.id);
   } catch (error) {
-    console.error('Failed to save user:', error);
     throw error;
   }
 };
@@ -20,12 +18,10 @@ export const getUser = async (): Promise<User | null> => {
     const userData = await AsyncStorage.getItem(USER_STORAGE_KEY);
     if (userData) {
       const user: User = JSON.parse(userData);
-      console.log('User loaded from storage:', user.id);
       return user;
     }
     return null;
   } catch (error) {
-    console.error('Failed to get user:', error);
     return null;
   }
 };
@@ -40,9 +36,7 @@ export const updateUser = async (userData: Partial<User>): Promise<void> => {
     
     const updatedUser = { ...currentUser, ...userData };
     await saveUser(updatedUser);
-    console.log('User updated in storage:', updatedUser.id);
   } catch (error) {
-    console.error('Failed to update user:', error);
     throw error;
   }
 };
@@ -51,14 +45,11 @@ export const updateUser = async (userData: Partial<User>): Promise<void> => {
 export const deleteUser = async (): Promise<void> => {
   try {
     await AsyncStorage.removeItem(USER_STORAGE_KEY);
-    console.log('User deleted from storage');
   } catch (error) {
-    console.error('Failed to delete user:', error);
     throw error;
   }
 };
 
 // 앱 시작 시 초기화 (AsyncStorage는 별도 초기화 불필요)
 export const initDatabase = async (): Promise<void> => {
-  console.log('AsyncStorage is ready');
 }; 

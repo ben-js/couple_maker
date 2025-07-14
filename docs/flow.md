@@ -89,7 +89,6 @@
 
 [매칭 상태 정의]
 - waiting: 소개팅 신청 완료, 매칭 대기 중
-- propose: 매니저 제안 도착, 수락/거절 대기
 - matched: 매칭 성사, 일정/장소 선택 대기
 - mismatched: 일정/장소가 맞지 않음, 재선택 필요
 - confirmed: 일정/장소 확정, 관리자 최종 확인 대기
@@ -113,25 +112,25 @@
   → 해당 유저에게 "소개팅 제안 도착" 푸시 발송
 
 [매니저 제안 시나리오]
-1. user-1이 소개팅 신청 → matching-requests.json에 waiting 상태로 등록
-2. 매니저가 user-2에게 제안 → propose.json에 제안 내용 등록
-3. user-2 → Propose 테이블에서 제안 확인 (MatchingRequests는 변경 없음)
-4. match-pairs.json에 매칭 정보 등록 (r값 포함)
+1. user-1이 소개팅 신청 → MatchingRequests Table에 waiting 상태로 등록
+2. 매니저가 user-2에게 제안 → Propose Table에 제안 내용 등록 (propose 상태는 MatchingRequests에 기록하지 않음)
+3. user-2 → Propose Table에서 제안 확인 (MatchingRequests는 변경 없음)
+4. MatchPairs Table에 매칭 정보 등록 (r값 포함)
 
 [user-2 로그인 후 처리]
 - 홈 화면에서 "매니저에게로부터 소개팅 제안이 왔습니다. 소개팅을 받으시겠습니까?" 모달 표시
-- Propose 테이블에서 pending 상태 제안 조회
+- Propose Table에서 pending 상태 제안 조회
 
 [예(수락) 선택 시]
-- propose.json: 해당 제안 상태를 accept로 변경
-- matching-requests.json: user-1 상태를 matched로 변경
-- user-2의 matching-requests.json에 새 요청 생성 (matched 상태)
-- match-pairs.json: 상태 유지
+- Propose Table: 해당 제안 상태를 accept로 변경
+- MatchingRequests Table: user-1 상태를 matched로 변경
+- user-2의 MatchingRequests Table에 새 요청 생성 (matched 상태)
+- MatchPairs Table: 상태 유지
 
 [아니오(거절) 선택 시]
-- propose.json: 제안 상태를 refuse로 변경
-- matching-requests.json: user-1 상태 유지 (다른 매칭 시도 가능)
-- match-pairs.json: 상태를 finished로 변경
+- Propose Table: 제안 상태를 refuse로 변경
+- MatchingRequests Table: user-1 상태 유지 (다른 매칭 시도 가능)
+- MatchPairs Table: 상태를 finished로 변경
 ```
 
 ---
@@ -288,14 +287,14 @@
   1. user-1이 소개팅 종료 → 상태를 finished로 변경
   2. user-2가 소개팅 종료 → 상태를 finished로 변경
   3. 둘 다 finished 상태가 되면:
-     - 모든 관련 데이터를 matching-history.json에 저장
-     - matching-requests.json에서 해당 매칭 요청들 삭제
+     - 모든 관련 데이터를 MatchingHistory Table에 저장
+     - MatchingRequests Table에서 해당 매칭 요청들 삭제
      - 연락처 교환 여부에 따라 final_status 결정 (exchanged/finished)
 
 [3일 후 자동 삭제 기능]
   - finished 상태가 된 지 3일이 지난 매칭 요청 자동 삭제
   - 매일 자동 실행 (cleanupFinishedRequests 함수)
-  - 삭제 전 matching-history.json에 모든 데이터 저장
+  - 삭제 전 MatchingHistory Table에 모든 데이터 저장
   - 개인정보 보호를 위한 자동 정리
 
 [소개팅 종료 API]
@@ -310,7 +309,7 @@
   - 로깅: 삭제된 요청 개수, 이력 저장 여부, 매칭 쌍 없음 경고
 
 [데이터 보존 정책]
-  - 삭제 전 모든 관련 데이터를 matching-history.json에 저장
+  - 삭제 전 모든 관련 데이터를 MatchingHistory Table에 저장
   - 매칭 쌍 정보, 연락처 정보, 리뷰 정보, 매칭 요청 정보 모두 보존
   - 중복 저장 방지 (이미 history에 있는 매칭 쌍은 저장하지 않음)
   - 삭제 사유 기록 (cleanup_reason: "3일 경과 자동 삭제")
@@ -448,7 +447,7 @@
 - 연락처 확인 화면 UI (구현됨)
 - 소개팅 종료 확인 플로우 (구현됨)
 - 3일 후 자동 삭제 기능 (구현됨)
-- 데이터 보존 정책 (matching-history.json에 저장)
+- 데이터 보존 정책 (MatchingHistory Table에 저장)
 - 중복 저장 방지 로직 (구현됨)
 - 개인정보 보호를 위한 자동 정리 (구현됨)
 
@@ -584,7 +583,7 @@
 * Attributes:
 
   * requester_id: (string) // 매칭 신청자 ID
-  * status: waiting | propose | matched | confirmed | scheduled | completed | failed | finished
+  * status: waiting | matched | confirmed | scheduled | completed | failed | finished
   * created_at: (ISO8601 string)
   * updated_at: (ISO8601 string)
   * photo_visible_at: (ISO8601 string|null) // 사진 공개 시간
@@ -898,8 +897,8 @@
   - user-1: 소개팅 종료 버튼 클릭 → 확인 알림
   - user-2: 소개팅 종료 버튼 클릭 → 확인 알림
   - 둘 다 finished 상태가 되면:
-    - 모든 데이터를 matching-history.json에 저장
-    - matching-requests.json에서 해당 매칭 요청들 삭제
+    - 모든 데이터를 MatchingHistory Table에 저장
+    - MatchingRequests Table에서 해당 매칭 요청들 삭제
     - 연락처 교환 여부에 따라 final_status 결정
   - UI: "소개팅이 종료되었습니다." (메인 화면으로 이동)
   - 진행률: 100% (완료)
@@ -907,7 +906,7 @@
 [3일 후 자동 삭제]
   - finished 상태가 된 지 3일 경과
   - 매일 자동 실행 (cleanupFinishedRequests)
-  - 삭제 전 matching-history.json에 데이터 보존
+  - 삭제 전 MatchingHistory Table에 데이터 보존
   - 개인정보 보호를 위한 자동 정리
 
 [상태별 상세 시나리오]
@@ -944,7 +943,7 @@ completed → exchanged 시나리오:
 exchanged → finished 시나리오:
   - user-1 소개팅 종료 → finished 상태
   - user-2 소개팅 종료 → finished 상태
-  - 둘 다 finished → matching-history로 이동, matching-requests에서 삭제
+  - 둘 다 finished → MatchingHistory Table로 이동, MatchingRequests Table에서 삭제
   - 3일 후 자동 삭제로 개인정보 보호
 
 [예외 상황 처리]
@@ -962,7 +961,7 @@ exchanged → finished 시나리오:
 
 소개팅 종료 시나리오:
   - 한쪽만 finished → 다른 쪽은 exchanged 상태 유지
-  - 둘 다 finished → matching-history로 이동, matching-requests에서 삭제
+  - 둘 다 finished → MatchingHistory Table로 이동, MatchingRequests Table에서 삭제
   - 3일 후 자동 삭제로 개인정보 보호
 
 [UI 상태별 표시 규칙]
@@ -987,18 +986,18 @@ Step UI (6단계):
 
 [데이터 흐름]
 
-MatchingRequests 테이블:
+MatchingRequests Table:
   - 사용자별 현재 진행 중인 매칭 1개만 관리
   - 상태 변경 시 updated_at 갱신
   - 매칭 성사 시 match_pair_id, partner_id 추가
   - finished 상태는 3일 후 자동 삭제
 
-MatchPairs 테이블:
+MatchPairs Table:
   - 매칭 성사 시 자동 생성
   - 페어 관계 및 공통 정보만 관리
   - 상태 정보는 MatchingRequests에서 관리
 
-MatchingHistory 테이블:
+MatchingHistory Table:
   - 매칭 완료/연락처 교환 완료 시 자동 이관
   - 소개팅 종료 시에도 자동 이관
   - 모든 관련 데이터 보존 (개인정보 보호 정책 적용)

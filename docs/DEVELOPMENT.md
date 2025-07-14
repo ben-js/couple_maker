@@ -862,3 +862,90 @@ Closes #123
 ## 📄 라이선스
 
 이 프로젝트는 MIT 라이선스 하에 배포됩니다. 
+
+---
+
+### 1. **진행 상황 요약**
+- **데이터 저장 구조**: 파일 → MySQL(Sequelize ORM) → AWS DynamoDB로 발전.
+- **핵심 테이블**: flow.md 기준 users, matching-requests 등 모든 테이블을 DynamoDB로 이전.
+- **AWS 연동**: AWS CLI/콘솔로 테이블 생성, Node.js에서 DynamoDB 연동 및 CRUD 구현 단계.
+
+---
+
+### 2. **DynamoDB 테이블 생성 오류 안내**
+
+#### **오류 메시지**
+```
+An error occurred (InvalidSignatureException) when calling the CreateTable operation: The request signature we calculated does not match the signature you provided. Check your AWS Secret Access Key and signing method. Consult the service documentation for details.
+```
+
+#### **원인 및 해결 방법**
+이 오류는 AWS CLI가 요청에 서명할 때 사용하는 자격증명(Access Key/Secret Key) 또는 region, 시간 동기화 등에 문제가 있을 때 발생합니다.
+
+**주요 원인 및 해결법:**
+
+1. **AWS 자격증명(Access Key/Secret Key) 오타/만료**
+   - `aws configure` 명령어로 Access Key, Secret Key, region, output을 다시 정확히 입력하세요.
+   - 키가 만료되었거나 잘못 입력된 경우 새로 발급받아 입력해야 합니다.
+
+2. **시스템 시간 불일치**
+   - PC의 시스템 시간이 실제 시간과 다르면 서명 오류가 발생할 수 있습니다.
+   - 윈도우에서 "날짜 및 시간"을 인터넷 시간과 동기화하세요.
+
+3. **프로파일/환경변수 충돌**
+   - 여러 AWS 계정/프로파일을 사용하는 경우, 원하는 프로파일이 맞는지 확인하세요.
+   - 명령어에 `--profile` 옵션을 추가해 명시적으로 지정할 수 있습니다.
+     ```
+     aws dynamodb create-table ... --profile myprofile
+     ```
+
+4. **리전(region) 불일치**
+   - CLI 명령어의 `--region` 값이 올바른지 확인하세요.
+   - `aws configure`에서 설정한 region과 명령어의 region이 다르면 오류가 날 수 있습니다.
+
+5. **CLI 버전 문제**
+   - `aws --version`으로 CLI 버전을 확인하고, 너무 오래된 버전이면 최신으로 업데이트하세요.
+
+---
+
+### 3. **점검 체크리스트**
+
+1. **자격증명 재설정**
+   ```bash
+   aws configure
+   ```
+   - Access Key ID:
+   - Secret Access Key:
+   - Default region name: ap-northeast-2
+   - Default output format: json
+
+2. **시스템 시간 동기화**
+   - 윈도우 작업표시줄 → 날짜/시간 우클릭 → "날짜/시간 조정" → "지금 동기화" 클릭
+
+3. **명령어 예시(정상 동작 시)**
+   ```bash
+   aws dynamodb create-table \
+     --table-name users \
+     --attribute-definitions AttributeName=user_id,AttributeType=S \
+     --key-schema AttributeName=user_id,KeyType=HASH \
+     --billing-mode PAY_PER_REQUEST \
+     --region ap-northeast-2
+   ```
+
+4. **프로파일 명시(필요시)**
+   ```bash
+   aws dynamodb create-table ... --profile myprofile
+   ```
+
+---
+
+### 4. **추가 안내**
+
+- 위 방법으로도 해결이 안 되면, AWS IAM에서 Access Key를 새로 발급받아 다시 시도해보세요.
+- CLI가 아닌 AWS 콘솔(웹)에서 테이블을 생성해도 무방합니다.
+- 테이블 생성 후, Node.js에서 DynamoDB 연동 및 CRUD 구현을 이어가면 됩니다.
+
+---
+
+**질문/요청이 있으시면 언제든 말씀해 주세요!**  
+(예: DynamoDB 연동 코드, CRUD 예시, 테이블 설계 등) 

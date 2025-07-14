@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -17,8 +17,13 @@ import MainLayout from '../components/MainLayout';
 import Skeleton from '../components/Skeleton';
 import { colors } from '../constants/colors';
 import { typography } from '../constants/typography';
+import { useNavigation } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
+
+const CARD_GAP = 12;
+const TAG_GAP = 8;
+const LINE_GAP = 12;
 
 const useHistory = (userId?: string, page: number = 1, filters?: HistoryFilter) =>
   useQuery({
@@ -33,24 +38,26 @@ const HistoryScreen = () => {
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState<HistoryFilter>({});
   const [refreshing, setRefreshing] = useState(false);
+  const navigation = useNavigation();
   
   const { data: historyData, isLoading, error, refetch } = useHistory(user?.userId, page, filters);
+  const [allHistory, setAllHistory] = useState<HistoryItem[]>([]);
 
-  // 히스토리 데이터 로깅
-  React.useEffect(() => {
-    if (historyData?.history) {
-      console.log('=== 히스토리 데이터 ===');
-      historyData.history.forEach((item, index) => {
-        console.log(`[${index + 1}] 매칭 상태: ${item.status}`);
-        console.log(`[${index + 1}] 매칭자 user_id: ${item.partnerId}`);
-        console.log(`[${index + 1}] 매칭 페어 ID: ${item.matchPairId}`);
-        console.log(`[${index + 1}] 파트너 이름: ${item.partner?.name || '알 수 없음'}`);
-        console.log(`[${index + 1}] 연락처 교환: ${item.contactShared}`);
-        console.log(`[${index + 1}] 서로 관심: ${item.bothInterested}`);
-        console.log('---');
-      });
+  useEffect(() => {
+    if (page === 1 && historyData?.history) {
+      setAllHistory(historyData.history);
+    } else if (historyData?.history) {
+      setAllHistory(prev => [...prev, ...historyData.history]);
     }
-  }, [historyData]);
+  }, [historyData, page]);
+
+  // 필터 변경/새로고침 시 allHistory 초기화
+  useEffect(() => {
+    setAllHistory([]);
+    setPage(1);
+  }, [filters]);
+
+  // 모든 console.log 삭제
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -97,70 +104,66 @@ const HistoryScreen = () => {
     }
   };
 
-  const renderHistoryItem = ({ item }: { item: HistoryItem }) => (
-    <TouchableOpacity 
-      style={styles.historyItem}
-      onPress={() => {
-        // 히스토리 상세 화면으로 이동 (추후 구현)
-        Alert.alert('히스토리 상세', '상세 정보는 추후 구현 예정입니다.');
-      }}
-    >
-      <View style={styles.itemHeader}>
-        <View style={styles.partnerInfo}>
-          <View style={styles.partnerDetails}>
-            <Text style={styles.partnerName}>
-              {item.partner?.name || '알 수 없음'}
-            </Text>
-            <Text style={styles.partnerAge}>
-              {item.partner?.age ? `${item.partner.age}세` : ''}
-            </Text>
-          </View>
-        </View>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status), borderWidth: 0, borderColor: 'transparent'}]}>
-          <Text style={styles.statusText}>{getStatusText(item.status)}</Text>
-        </View>
-      </View>
+  // 타입 확장: 태그/장소 등 확장 필드 지원
+  interface HistoryCardItem extends HistoryItem {
+    dateLocation?: string;
+    contactShared?: boolean;
+    bothInterested?: boolean;
+    reviewSubmitted?: boolean;
+  }
 
-      <View style={styles.itemDetails}>
-        <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>소개팅 날짜:</Text>
-          <Text style={styles.detailValue}>{formatDate(item.scheduleDate)}</Text>
-        </View>
-        <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>장소:</Text>
-          <Text style={styles.detailValue}>{item.dateLocation}</Text>
-        </View>
-        {item.isProposed && (
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>제안 상태:</Text>
-            <Text style={styles.detailValue}>
-              {item.confirmProposed ? '제안 수락' : '제안 대기'}
-            </Text>
-          </View>
-        )}
-      </View>
-
-      <View style={styles.itemFooter}>
-        <View style={styles.tagContainer}>
-          {item.contactShared && (
-            <View style={styles.tag}>
-              <Text style={styles.tagText}># 연락처 교환</Text>
-            </View>
-          )}
-          {item.bothInterested && (
-            <View style={styles.tag}>
-              <Text style={styles.tagText}># 서로 관심</Text>
-            </View>
-          )}
-          {item.reviewSubmitted && (
-            <View style={styles.tag}>
-              <Text style={styles.tagText}># 후기 작성</Text>
-            </View>
-          )}
-        </View>
-      </View>
-    </TouchableOpacity>
+  const InfoRow: React.FC<{ label: string; value: string; marginBottom?: number }> = ({ label, value, marginBottom = 0 }) => (
+    <View style={[styles.detailRow, { marginBottom }]}> 
+      <Text style={styles.detailLabel}>{label}</Text>
+      <Text style={styles.detailValue}>{value}</Text>
+    </View>
   );
+
+  const TagRow: React.FC<{ item: HistoryCardItem; marginBottom?: number }> = ({ item, marginBottom = 0 }) => {
+    const tags: string[] = [];
+    if (item.contactShared) tags.push('# 연락처 교환');
+    if (item.bothInterested) tags.push('# 서로 관심');
+    if (item.reviewSubmitted) tags.push('# 후기 작성');
+    if (tags.length === 0) return null;
+    return (
+      <View style={[styles.tagContainer, { marginBottom }]}> 
+        {tags.map(tag => (
+          <View key={tag} style={styles.tag}>
+            <Text style={styles.tagText}>{tag}</Text>
+          </View>
+        ))}
+      </View>
+    );
+  };
+
+  const renderHistoryItem = ({ item }: { item: HistoryItem }) => {
+    const cardItem = item as HistoryCardItem & { partnerName?: string; partner?: { name?: string } };
+    return (
+      <TouchableOpacity 
+        style={styles.historyItem}
+        onPress={() => (navigation as any).navigate('HistoryDetail', { matchPairId: item.matchPairId || item.match_pair_id, history: item })}
+      >
+        {/* 상단: 이름/상태 */}
+        <View style={[styles.itemHeader, { marginBottom: LINE_GAP }]}> 
+          <View style={styles.partnerInfo}>
+            <View style={styles.partnerDetails}>
+              <Text style={styles.partnerName}>
+                {cardItem.partnerName || cardItem.partner?.name || cardItem.partnerId || '알 수 없음'}
+              </Text>
+            </View>
+          </View>
+          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(cardItem.status), borderWidth: 0, borderColor: 'transparent'}]}>
+            <Text style={styles.statusText}>{getStatusText(cardItem.status)}</Text>
+          </View>
+        </View>
+        {/* 날짜/장소 */}
+        <InfoRow label="소개팅 날짜:" value={formatDate(cardItem.createdAt)} marginBottom={LINE_GAP} />
+        <InfoRow label="장소:" value={cardItem.dateLocation || '-'} marginBottom={LINE_GAP} />
+        {/* 태그 */}
+        <TagRow item={cardItem} marginBottom={0} />
+      </TouchableOpacity>
+    );
+  };
 
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
@@ -210,21 +213,24 @@ const HistoryScreen = () => {
         renderLoadingState()
       ) : (
         <FlatList
-          data={historyData?.history || []}
+          data={allHistory}
           renderItem={renderHistoryItem}
-          keyExtractor={(item) => `${item.matchPairId}-${item.timestamp}`}
-          contentContainerStyle={styles.listContainer}
+          keyExtractor={(item) => `${item.id}-${item.createdAt}`}
+          contentContainerStyle={{ ...styles.listContainer, paddingBottom: 16}}
           showsVerticalScrollIndicator={false}
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.1}
           ListEmptyComponent={renderEmptyState}
           ListFooterComponent={
-            page < (historyData?.pagination?.totalPages || 0) ? (
-              <View style={styles.loadingMore}>
-                <Text style={styles.loadingMoreText}>더 많은 기록을 불러오는 중...</Text>
-              </View>
-            ) : null
-            }
+            <>
+              {page < (historyData?.pagination?.totalPages || 0) ? (
+                <View style={styles.loadingMore}>
+                  <Text style={styles.loadingMoreText}>더 많은 기록을 불러오는 중...</Text>
+                </View>
+              ) : null}
+              <View style={{ height: 184 }} />
+            </>
+          }
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
           }
@@ -279,18 +285,19 @@ const styles = StyleSheet.create({
   historyItem: {
     backgroundColor: '#F8FBFF', // 연한 파랑
     borderRadius: 12,
-    marginBottom: 12,
+    marginBottom: CARD_GAP, // 카드 간 간격만 유지
     shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
     padding: 16,
+    paddingBottom: 16, // 카드 내부 하단 여백 최소화
   },
   itemHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: 0,
   },
   partnerInfo: {
@@ -337,42 +344,59 @@ const styles = StyleSheet.create({
     color: colors.background,
     fontWeight: '600',
   },
-  itemDetails: {  
-    marginTop: 0,
+  itemDetails: {
+    marginBottom: 0, // 장소 아래 간격 제거
   },
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 4,
+    alignItems: 'center',
+    marginBottom: 0,
     marginTop: 0,
   },
   detailLabel: {
     ...typography.body,
     color: colors.text.secondary,
+    flex: 1,
+    textAlign: 'left',
   },
   detailValue: {
     ...typography.body,
     color: colors.text.primary,
-    flex: 1,
-    textAlign: 'right',
+    flex: 2,
+    textAlign: 'left',
   },
   itemFooter: {
-    paddingTop: 4,
+    marginTop: 0,
+    marginBottom: 0,
+    paddingBottom: 0,
   },
   tagContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
-    justifyContent: 'flex-end',
+    gap: TAG_GAP,
+    justifyContent: 'flex-end', // 오른쪽 정렬
+    alignItems: 'center',
+    marginBottom: 0,
+    paddingBottom: 0,
+    minHeight: 0,
   },
   tag: {
     paddingHorizontal: 8,
     paddingVertical: 4,
+    marginRight: 4,
+    marginBottom: 0,
+    minHeight: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   tagText: {
     ...typography.caption,
     color: colors.primary,
     fontWeight: '500',
+    lineHeight: 20,
+    padding: 0,
+    margin: 0,
   },
   emptyState: {
     flex: 1,

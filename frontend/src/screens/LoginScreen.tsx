@@ -79,7 +79,7 @@ const LoginScreen = () => {
         <Button
           label={BUTTON_TEXTS.LOGIN}
           style={[styles.loginBtn, !isLoginEnabled && styles.loginBtnDisabled]}
-          labelStyle={styles.loginBtnLabel}
+          labelStyle={isLoginEnabled ? styles.loginBtnLabel : { ...styles.loginBtnLabel, color: '#222' }}
           onPress={handleLogin}
           fullWidth
           disabled={!isLoginEnabled}
@@ -155,9 +155,10 @@ const styles = StyleSheet.create({
   },
   loginBtnDisabled: {
     backgroundColor: colors.disabled,
+    color: colors.primary,
   },
   loginBtnLabel: {
-    color: colors.surface,
+    color: colors.background,
     fontWeight: 'bold',
     fontSize: 16,
   },

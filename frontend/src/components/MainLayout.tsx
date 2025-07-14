@@ -49,7 +49,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
   content: { 
     flexGrow: 1, 
-    paddingBottom: 80,
+    paddingBottom: 10,
     width: '90%', // 90% 너비 직접 적용
     alignSelf: 'center' // 중앙 정렬
   },

@@ -34,15 +34,14 @@ export const POINTS_POLICY = {
 // 매칭 상태
 export const MATCHING_STATUS = {
   WAITING: 'waiting',
-  PROPOSED: 'proposed',
   MATCHED: 'matched',
   CONFIRMED: 'confirmed',
   SCHEDULED: 'scheduled',
   COMPLETED: 'completed',
   EXCHANGED: 'exchanged',
-  FINISHED: 'finished',
   FAILED: 'failed',
-} as const;
+  FINISHED: 'finished',
+};
 
 // 사용자 등급
 export const USER_GRADES = {

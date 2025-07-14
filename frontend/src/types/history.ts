@@ -1,37 +1,17 @@
 // 히스토리 관련 타입 정의
 
 export interface HistoryItem {
+  id: string;
   userId: string;
-  timestamp: string;
-  matchPairId: string;
   partnerId: string;
   status: 'completed' | 'exchanged' | 'finished';
-  scheduleDate: string;
-  dateLocation: string;
-  contactShared: boolean;
-  bothInterested: boolean;
-  reviewSubmitted: boolean;
-  pointsUsed: number;
-  pointsRefunded: number;
-  partner?: {
-    name: string;
-    age: number;
-    location: {
-      city: string;
-      district: string;
-    };
-    photos: string[];
-  };
-  // 추가 상세 정보
-  matchAId?: string;
-  matchBId?: string;
-  isProposed?: boolean;
-  confirmProposed?: boolean;
-  attemptCount?: number;
-  createdAt?: string;
-  updatedAt?: string;
+  createdAt: string;
+  updatedAt: string;
   userRequest?: any;
   partnerRequest?: any;
+  review?: any; // 내가 남긴 후기/평점 정보 추가
+  matchPairId?: string;
+  match_pair_id?: string;
 }
 
 export interface HistoryResponse {

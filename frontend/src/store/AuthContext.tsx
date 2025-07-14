@@ -121,25 +121,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // 사용자 정보 업데이트
   const updateUser = async (userData: Partial<User>) => {
-    if (__DEV__) {
-      console.log('updateUser 호출됨:', { userData, currentUser: state.user });
-    }
     if (state.user) {
       try {
         const updatedUser = { ...state.user, ...userData };
-        if (__DEV__) {
-          console.log('업데이트된 user:', updatedUser);
-        }
         await saveUser(updatedUser);
         dispatch({ type: 'UPDATE_USER', payload: userData });
         logger.success('사용자 업데이트 및 저장됨', { userId: updatedUser.userId });
       } catch (error) {
         logger.error('사용자 업데이트 실패', { error });
         dispatch({ type: 'UPDATE_USER', payload: userData }); // Context는 업데이트하되 저장 실패 로그
-      }
-    } else {
-      if (__DEV__) {
-        console.log('updateUser: state.user가 null입니다');
       }
     }
   };

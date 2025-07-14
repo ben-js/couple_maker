@@ -300,5 +300,13 @@ functions:
           rate: rate(1 day)
           enabled: true
 
+  getHistoryDetail:
+    handler: handler.getHistoryDetail
+    events:
+      - httpApi:
+          path: /history/detail/{matchPairId}
+          method: get
+          cors: true
+
 plugins:
   - serverless-offline 

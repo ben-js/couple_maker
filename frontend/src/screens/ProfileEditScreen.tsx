@@ -128,13 +128,10 @@ const ProfileEditScreen = () => {
 
       
       try {
-        console.log('프로필 로딩 시작:', { userId: user.userId, isEditMode });
         const existingProfile = await getUserProfile(user.userId);
-        console.log('API 응답:', existingProfile);
         
         if (existingProfile) {
           // 백엔드에서 이미 camelCase로 변환된 데이터를 그대로 사용
-          console.log('프로필 데이터 (변환 없음):', existingProfile);
           
           // 폼에 기존 데이터 설정
           Object.keys(existingProfile).forEach(key => {
@@ -144,10 +141,8 @@ const ProfileEditScreen = () => {
               // height 필드는 문자열을 숫자로 변환
               if (key === 'height' && typeof value === 'string') {
                 value = parseInt(value, 10);
-                console.log(`height 문자열을 숫자로 변환: ${(existingProfile as any)[key]} → ${value}`);
               }
               
-              console.log(`폼 필드 설정: ${key} =`, value);
               setValue(key, value);
             }
           });
@@ -159,12 +154,9 @@ const ProfileEditScreen = () => {
             setPhotos(photoArray.slice(0, 5));
           }
           
-          logger.info('기존 프로필 로드 성공', { userId: user.userId, profileData: existingProfile });
         } else {
-          console.log('프로필 데이터가 없음');
         }
       } catch (error) {
-        console.error('프로필 로드 에러:', error);
         logger.error('기존 프로필 로드 실패', { error, userId: user.userId });
       } finally {
         setIsLoading(false);
@@ -245,7 +237,6 @@ const ProfileEditScreen = () => {
         setPhotoActionIndex(null);
       });
     } catch (error) {
-      console.error('이미지 크롭 에러:', error);
       Alert.alert('이미지 처리 실패', '이미지를 처리하는 중 오류가 발생했습니다.');
     }
   };

@@ -18,7 +18,6 @@ const useInsight = (userId?: string) =>
   });
 
 const InsightCardComponent = ({ card }: { card: InsightCard }) => {
-  console.log('인사이트 카드 렌더링:', card);
   
   if (card.isLocked) {
     return (
@@ -125,13 +124,6 @@ const InsightScreen: React.FC = () => {
   const { user } = useAuth();
   const { data: insightData, refetch, isLoading, error } = useInsight(user?.userId);
   const [refreshing, setRefreshing] = useState(false);
-  
-  console.log('인사이트 화면 렌더링:', {
-    userId: user?.userId,
-    isLoading,
-    error,
-    insightData
-  });
   
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);

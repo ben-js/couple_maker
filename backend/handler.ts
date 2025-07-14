@@ -1,19 +1,11 @@
-// 더미 데이터
-// User 타입을 email 기반으로 통일
-// 회원가입/로그인 모두 email, password만 사용
-
-// 탈퇴 회원 관리 정책
-// - status: "black"은 블랙리스트(제재)만 의미, 탈퇴는 is_deleted로 구분
-// - is_deleted: true면 모든 서비스 이용 불가, 개인정보는 일정 기간 후 삭제/익명화
-// - 탈퇴 이력은 UserStatusHistory에 기록
-// - 탈퇴 시 포인트는 소멸, 연락처 공유 불가
-
 import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { camelToSnakeCase, snakeToCamelCase } from './utils/caseUtils';
-import { User, UserProfile, UserPreferences, MatchingRequest, MatchPair, Review, ReviewStats, UserStatusHistory, PointsHistory, ApiResponse } from './types';
-import { UserStatus } from './types';
+import { User, UserProfile, UserPreferences } from './types';
+import { PutCommand, ScanCommand, GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import bcrypt from 'bcryptjs';
+const ddbDocClient = require('./utils/dynamoClient');
 
 const usersPath = path.join(__dirname, 'data/users.json');
 const profilesPath = path.join(__dirname, 'data/profiles.json');
@@ -22,10 +14,7 @@ const matchingRequestsPath = path.join(__dirname, 'data/matching-requests.json')
 const matchPairsPath = path.join(__dirname, 'data/match-pairs.json');
 const proposePath = path.join(__dirname, 'data/propose.json');
 const reviewsPath = path.join(__dirname, 'data/reviews.json');
-const reviewStatsPath = path.join(__dirname, 'data/review-stats.json');
-const userStatusHistoryPath = path.join(__dirname, 'data/user-status-history.json');
 const pointsHistoryPath = path.join(__dirname, 'data/points-history.json');
-const logsPath = path.join(__dirname, 'data/logs.json');
 const termsPath = path.join(__dirname, 'data/terms.json');
 const privacyPath = path.join(__dirname, 'data/privacy.json');
 const customerServicePath = path.join(__dirname, 'data/customer-service.json');
@@ -79,7 +68,8 @@ async function appendLog({
   sessionId = '',
   action = '',
   screen = '',
-  component = ''
+  component = '',
+  logLevel = 'info'
 }: {
   type: string;
   userId?: string;
@@ -102,6 +92,7 @@ async function appendLog({
   action?: string;
   screen?: string;
   component?: string;
+  logLevel?: string;
 }) {  
   ensureLogDirectory();
   
@@ -148,6 +139,9 @@ async function appendLog({
     // 상세 데이터
     detail: typeof detail === 'object' ? JSON.stringify(detail, null, 2) : detail,
     
+    // 로그 레벨
+    logLevel,
+    
     // 분석용 태그
     tags: {
       isError: result === 'fail' || responseStatus >= 400,
@@ -177,13 +171,9 @@ async function appendLog({
     
     // 파일에 저장
     fs.writeFileSync(logFilePath, JSON.stringify(logs, null, 2));
-    
-    // 콘솔에도 출력 (개발용)
-    const logLevel = logEntry.tags.isError ? 'ERROR' : logEntry.tags.isSuccess ? 'SUCCESS' : 'INFO';
-    console.log(`${logLevel} [${logEntry.type}] ${logEntry.action || logEntry.message} - User: ${logEntry.userId} - Time: ${logEntry.executionTime}ms`);
-    console.log('appendLog called:', logEntry); // 디버깅용
-  } catch (error) {
-    console.error('Log write error:', error);
+  } catch (e) {
+    // 로그 기록 실패 시 콘솔에만 에러 출력
+    console.error('appendLog 기록 실패:', e);
   }
 }
 
@@ -201,26 +191,41 @@ export const hello = async (event: any) => {
   };
 };
 
-// 회원가입
+// 회원가입 (DynamoDB 연동)
 export const signup = async (event: any) => {
   const req = camelToSnakeCase(JSON.parse(event.body || '{}'));
   const { email, password } = req;
-  const users: User[] = readJson(usersPath);
-  const user_id = `user-${users.length + 1}`;
-  const newUser: User = {
+  // 이메일 중복 체크
+  const scanResult = await ddbDocClient.send(
+    new ScanCommand({
+      TableName: 'users',
+      FilterExpression: 'email = :email',
+      ExpressionAttributeValues: { ':email': email }
+    })
+  );
+  if (scanResult.Items && scanResult.Items.length > 0) {
+    return { statusCode: 409, body: JSON.stringify({ error: '이미 가입된 이메일입니다.' }) };
+  }
+  const user_id = `user-${uuidv4()}`;
+  const hashedPassword = await bcrypt.hash(password, 10);
+  const newUser = {
     user_id,
     email,
-    password, // 실제로는 해시화해야 함
+    password: hashedPassword, // 해시된 비밀번호 저장
     is_verified: false,
     has_profile: false,
     has_preferences: false,
     grade: 'general',
     status: 'green',
-    points: 100, // 회원가입 시 기본 100 지급
+    points: 100,
     created_at: new Date().toISOString()
   };
-  users.push(newUser);
-  writeJson(usersPath, users);
+  await ddbDocClient.send(
+    new PutCommand({
+      TableName: 'users',
+      Item: newUser
+    })
+  );
   await appendLog({
     type: 'signup',
     userId: user_id,
@@ -228,38 +233,40 @@ export const signup = async (event: any) => {
     ip: event?.requestContext?.identity?.sourceIp || '',
     result: 'success',
     detail: {},
+    logLevel: 'info'
   });
   return { statusCode: 201, body: JSON.stringify(snakeToCamelCase(newUser)) };
 };
 
-// 로그인
+// 로그인 (DynamoDB 연동)
 export const login = async (event: any) => {
   const req = camelToSnakeCase(JSON.parse(event.body || '{}'));
   const { email, password } = req;
   const startTime = Date.now();
   const sessionId = uuidv4();
-  
+
   console.log('\n=== 🔐 로그인 API 호출됨 ===');
   console.log('시간:', new Date().toISOString());
   console.log('🌐 요청 경로:', event.requestContext?.http?.path || 'unknown');
   console.log('📋 요청 메서드:', event.requestContext?.http?.method || 'unknown');
   console.log('📦 원본 요청 바디:', event.body);
   console.log('🔧 파싱된 요청:', req);
-  
+
   try {
     console.log('📧 로그인 시도:', { email, password: password ? '***' : 'empty' });
-    
-    const users: User[] = readJson(usersPath);
-    console.log('👥 등록된 사용자 수:', users.length);
-    console.log('👥 등록된 사용자들:', users.map(u => ({ email: u.email, has_profile: u.has_profile })));
-    
-    const user = users.find(u => u.email === email && u.password === password);
+    // DynamoDB에서 사용자 조회 (이메일로만)
+    const scanResult = await ddbDocClient.send(
+      new ScanCommand({
+        TableName: 'users',
+        FilterExpression: 'email = :email',
+        ExpressionAttributeValues: { ':email': email }
+      })
+    );
+    const user = scanResult.Items && scanResult.Items.length > 0 ? scanResult.Items[0] : null;
     const ip = event?.requestContext?.identity?.sourceIp || '';
-    
+
     console.log('🔍 사용자 검색 결과:', user ? '찾음' : '찾지 못함');
     if (!user) {
-      console.log('❌ 이메일 매칭 실패:', users.some(u => u.email === email));
-      console.log('❌ 비밀번호 매칭 실패:', users.some(u => u.password === password));
       const executionTime = Date.now() - startTime;
       const errorMessage = '잘못된 이메일 또는 비밀번호';
       const responseBody = JSON.stringify({ 
@@ -267,8 +274,6 @@ export const login = async (event: any) => {
         input: { email, password: password ? '***' : 'empty' } 
       });
 
-      console.log('❌ 로그인 실패: 사용자를 찾을 수 없음');
-      
       await appendLog({
         type: 'login',
         userId: '',
@@ -279,8 +284,6 @@ export const login = async (event: any) => {
         detail: {
           reason: 'invalid_credentials',
           attemptedEmail: email,
-          userExists: users.some(u => u.email === email),
-          totalUsers: users.length
         },
         requestMethod: event.requestContext?.http?.method || 'POST',
         requestPath: event.requestContext?.http?.path || '/login',
@@ -291,21 +294,56 @@ export const login = async (event: any) => {
         sessionId,
         action: '로그인 시도',
         screen: 'AuthScreen',
-        component: 'login'
+        component: 'login',
+        logLevel: 'error'
       });
-      
+
       return { statusCode: 401, body: responseBody };
     }
-    
+
+    // 비밀번호 비교
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      const executionTime = Date.now() - startTime;
+      const errorMessage = '잘못된 이메일 또는 비밀번호';
+      const responseBody = JSON.stringify({ 
+        error: 'Invalid credentials', 
+        input: { email, password: password ? '***' : 'empty' } 
+      });
+      await appendLog({
+        type: 'login',
+        userId: '',
+        email,
+        ip,
+        result: 'fail',
+        message: errorMessage,
+        detail: {
+          reason: 'invalid_credentials',
+          attemptedEmail: email,
+        },
+        requestMethod: event.requestContext?.http?.method || 'POST',
+        requestPath: event.requestContext?.http?.path || '/login',
+        requestBody: JSON.stringify({ email, password: '***' }),
+        responseStatus: 401,
+        responseBody,
+        executionTime,
+        sessionId,
+        action: '로그인 시도',
+        screen: 'AuthScreen',
+        component: 'login',
+        logLevel: 'error'
+      });
+      return { statusCode: 401, body: responseBody };
+    }
+
+    // 프로필/이상형 정보는 기존대로 파일에서 조회(추후 DynamoDB로 이전 필요)
     const profiles: UserProfile[] = readJson(profilesPath);
     const preferences: UserPreferences[] = readJson(preferencesPath);
     const hasProfile = user.has_profile;
     const hasPreferences = user.has_preferences;
-    
-    // 프로필에서 사용자 이름 가져오기
     const userProfile = profiles.find(p => p.user_id === user.user_id);
     const userName = userProfile?.name || '사용자';
-    
+
     console.log('✅ 로그인 성공:');
     console.log('   - User ID:', user.user_id);
     console.log('   - Email:', user.email);
@@ -314,10 +352,9 @@ export const login = async (event: any) => {
     console.log('   - Has Preferences:', hasPreferences);
     console.log('   - Profile count:', profiles.length);
     console.log('   - Preferences count:', preferences.length);
-    
+
     const executionTime = Date.now() - startTime;
-    
-    // 기본 사용자 정보
+
     const userResponse: any = {
       user_id: user.user_id,
       email: user.email,
@@ -328,12 +365,9 @@ export const login = async (event: any) => {
       status: user.status,
       points: user.points
     };
-    
-    // 프로필이 있으면 이름도 포함
     if (hasProfile && userProfile) {
       userResponse.name = userProfile.name;
     }
-    
     const responseBody = JSON.stringify(snakeToCamelCase(userResponse));
 
     await appendLog({
@@ -357,12 +391,12 @@ export const login = async (event: any) => {
       responseStatus: 200,
       responseBody,
       executionTime,
-      sessionId,
       action: '로그인 성공',
       screen: 'AuthScreen',
-      component: 'login'
+      component: 'login',
+      logLevel: 'info'
     });
-    
+
     return {
       statusCode: 200,
       body: responseBody
@@ -399,7 +433,8 @@ export const login = async (event: any) => {
       sessionId,
       action: '로그인 시도',
       screen: 'AuthScreen',
-      component: 'login'
+      component: 'login',
+      logLevel: 'error'
     });
 
     return { 
@@ -409,98 +444,69 @@ export const login = async (event: any) => {
   }
 };
 
-// 프로필 저장
+// 프로필 저장 (DynamoDB 기반)
 export const saveProfile = async (event: any) => {
   const req = camelToSnakeCase(JSON.parse(event.body || '{}'));
   const { user_id, ...profile } = req;
-  const profiles: UserProfile[] = readJson(profilesPath);
-  const idx = profiles.findIndex(p => p.user_id === user_id);
-  if (idx >= 0) profiles[idx] = { user_id, ...profile };
-  else profiles.push({ user_id, ...profile });
-  writeJson(profilesPath, profiles);
 
-  // users.json의 has_profile true로 변경
-  const users = readJson(usersPath);
-  const userIdx = users.findIndex((u: any) => u.user_id === user_id);
-  let email = '';
-  if (userIdx >= 0) {
-    users[userIdx].has_profile = true;
-    email = users[userIdx].email;
-    writeJson(usersPath, users);
-  }
+  // DynamoDB에 프로필 저장
+  await ddbDocClient.send(
+    new PutCommand({
+      TableName: 'profiles',
+      Item: { user_id, ...profile }
+    })
+  );
+
+  // users 테이블의 has_profile true로 변경
+  await ddbDocClient.send(
+    new UpdateCommand({
+      TableName: 'users',
+      Key: { user_id },
+      UpdateExpression: 'set has_profile = :val',
+      ExpressionAttributeValues: { ':val': true }
+    })
+  );
 
   await appendLog({
     type: 'profile_save',
     userId: user_id,
-    email,
-    ip: event?.requestContext?.identity?.sourceIp || '',
     result: 'success',
     detail: { profile, photosUpdated: profile.photos ? true : false },
+    logLevel: 'info'
   });
 
   return { statusCode: 200, body: JSON.stringify({ ok: true }) };
 };
 
-// 이상형 저장
+// 이상형 저장 (DynamoDB 기반)
 export const saveUserPreferences = async (event: any) => {
   const req = camelToSnakeCase(JSON.parse(event.body || '{}'));
   const { user_id, ...prefs } = req;
   const startTime = Date.now();
   const sessionId = uuidv4();
-  
-  console.log('\n=== 🎯 이상형 저장 API 호출됨 ===');
-  console.log('시간:', new Date().toISOString());
-  console.log('🌐 요청 경로:', event.requestContext?.http?.path || 'unknown');
-  console.log('📋 요청 메서드:', event.requestContext?.http?.method || 'unknown');
-  console.log('원본 Event body:');
-  console.log('Event 전체:', JSON.stringify(event, null, 2));
-  
-  try {
-    console.log('✅ 파싱된 데이터:');
-    console.log('   - userId:', user_id);
-    console.log('   - userId 타입:', typeof user_id);
-    console.log('   - preferences:', JSON.stringify(prefs, null, 2));
-    console.log('   - preferences 키들:', Object.keys(prefs));
-    
-    if (!user_id) {
-      console.error('❌ userId가 없습니다');
-      return { 
-        statusCode: 400, 
-        body: JSON.stringify({ error: 'Missing userId' }) 
-      };
-    }
-    
-    const preferences: UserPreferences[] = readJson(preferencesPath);
-    console.log('📁 기존 preferences.json 내용:', preferences);
-    
-    const idx = preferences.findIndex(p => p.user_id === user_id);
-    if (idx >= 0) {
-      preferences[idx] = { user_id, ...prefs };
-      console.log('🔄 기존 사용자 데이터 업데이트 (인덱스:', idx, ')');
-    } else {
-      preferences.push({ user_id, ...prefs });
-      console.log('➕ 새 사용자 데이터 추가');
-    }
-    
-    writeJson(preferencesPath, preferences);
-    console.log('💾 preferences.json 저장 완료');
-    console.log('📁 저장된 preferences.json 내용:', preferences);
 
-    // users.json의 has_preferences true로 변경
-    const users = readJson(usersPath);
-    console.log('👥 기존 users.json 내용:', users);
-    
-    const userIdx = users.findIndex((u: any) => u.user_id === user_id);
-    let email = '';
-    if (userIdx >= 0) {
-      users[userIdx].has_preferences = true;
-      email = users[userIdx].email;
-      writeJson(usersPath, users);
-      console.log('✅ users.json 업데이트 완료 - has_preferences: true');
-      console.log('✅ 업데이트된 사용자:', users[userIdx]);
-    } else {
-      console.log('❌ 사용자를 찾을 수 없음:', user_id);
+  try {
+    if (!user_id) {
+      return { statusCode: 400, body: JSON.stringify({ error: 'Missing userId' }) };
     }
+
+    // DynamoDB에 이상형 저장
+    await ddbDocClient.send(
+      new PutCommand({
+        TableName: 'preferences',
+        Item: { user_id, ...prefs }
+      })
+    );
+
+    // users 테이블의 has_preferences true로 변경
+    await ddbDocClient.send(
+      new UpdateCommand({
+        TableName: 'users',
+        Key: { user_id },
+        UpdateExpression: 'set has_preferences = :val',
+        ExpressionAttributeValues: { ':val': true }
+      })
+    );
 
     const executionTime = Date.now() - startTime;
     const responseBody = JSON.stringify({ ok: true });
@@ -508,145 +514,93 @@ export const saveUserPreferences = async (event: any) => {
     await appendLog({
       type: 'preferences_save',
       userId: user_id,
-      email,
-      ip: event?.requestContext?.identity?.sourceIp || '',
       result: 'success',
       message: '이상형 저장 성공',
-      detail: { 
-        preferencesCount: preferences.length,
-        updatedUserIndex: userIdx,
-        hasPreferencesUpdated: userIdx >= 0,
-        preferencesData: prefs
-      },
-      requestMethod: event.requestContext?.http?.method || 'POST',
-      requestPath: event.requestContext?.http?.path || '/user-preferences',
-      requestBody: event.body || '',
+      detail: { preferencesData: prefs },
       responseStatus: 200,
       responseBody,
       executionTime,
       sessionId,
       action: '이상형 저장',
       screen: 'PreferenceSetupScreen',
-      component: 'saveUserPreferences'
+      component: 'saveUserPreferences',
+      logLevel: 'info'
     });
 
-    console.log('🎉 === 이상형 저장 완료 ===\n');
     return { statusCode: 200, body: responseBody };
   } catch (error: any) {
     const executionTime = Date.now() - startTime;
     const errorMessage = `이상형 저장 실패: ${error.message}`;
-    const responseBody = JSON.stringify({ 
-      error: '이상형 저장 실패', 
-      message: error.message 
-    });
-
-    console.error('이상형 저장 중 에러 발생:', error);
-    console.error('에러 스택:', error.stack);
+    const responseBody = JSON.stringify({ error: '이상형 저장 실패', message: error.message });
 
     await appendLog({
       type: 'preferences_save',
       userId: '',
-      email: '',
-      ip: event?.requestContext?.identity?.sourceIp || '',
       result: 'fail',
       message: errorMessage,
-      detail: { 
-        errorType: error.constructor.name,
-        errorMessage: error.message
-      },
-      requestMethod: event.requestContext?.http?.method || 'POST',
-      requestPath: event.requestContext?.http?.path || '/user-preferences',
-      requestBody: event.body || '',
+      detail: { errorType: error.constructor.name, errorMessage: error.message },
       responseStatus: 500,
       responseBody,
-      errorStack: error.stack,
       executionTime,
       sessionId,
       action: '이상형 저장',
       screen: 'PreferenceSetupScreen',
-      component: 'saveUserPreferences'
+      component: 'saveUserPreferences',
+      logLevel: 'error'
     });
 
-    return { 
-      statusCode: 500, 
-      body: responseBody
-    };
+    return { statusCode: 500, body: responseBody };
   }
 };
 
-// 프로필 조회
-function getBaseUrl(event: any) {
-  const host = event.headers?.['host'] || event.requestContext?.domainName || 'localhost:3000';
-  const protocol = event.headers?.['x-forwarded-proto'] || 'http';
-  return `${protocol}://${host}`;
-}
-
+// 프로필 조회 (DynamoDB 기반)
 export const getProfile = async (event: any) => {
   const { userId } = event.pathParameters || {};
-  console.log('프로필 조회 요청:', { userId, path: event.requestContext?.http?.path });
-  const profiles: UserProfile[] = readJson(profilesPath);
-  const users: User[] = readJson(usersPath);
-  const profile = profiles.find(p => p.user_id === userId);
-  const user = users.find(u => u.user_id === userId);
+
+  // DynamoDB에서 프로필 조회
+  const { Item: profile } = await ddbDocClient.send(
+    new GetCommand({
+      TableName: 'profiles',
+      Key: { user_id: userId }
+    })
+  );
+
   if (profile) {
-    const baseUrl = getBaseUrl(event);
-    // matching-requests에서 일정/장소, 확정 일정 정보 가져오기
-    const matchingRequestsPath = path.join(__dirname, 'data/matching-requests.json');
-    const matchingRequests = fs.existsSync(matchingRequestsPath) ? readJson(matchingRequestsPath) : [];
-    const myRequest = matchingRequests.find((req: any) => req.requester_id === userId);
-    const dateChoices = myRequest?.date_choices || null;
-    const finalDate = myRequest?.final_date || null;
-    const finalLocation = myRequest?.final_location || null;
-    // photos의 각 경로 앞에 baseUrl 붙이기
-    const transformedProfile = snakeToCamelCase({
-      ...profile,
-      points: user?.points ?? 0,
-      photos: (profile.photos || []).map((url: string) =>
-        url && url.startsWith('/files/') ? `${baseUrl}${url}` : url
-      ),
-      dateChoices,
-      finalDate,
-      finalLocation,
-    });
-    const responseBody = JSON.stringify(transformedProfile);
+    const responseBody = JSON.stringify(snakeToCamelCase(profile));
     await appendLog({
       type: 'profile_get',
       userId: userId,
       result: 'success',
       message: '프로필 조회 성공',
       detail: { userId, profile },
-      requestMethod: event.requestContext?.http?.method || 'GET',
-      requestPath: event.requestContext?.http?.path || `/profile/${userId}`,
-      responseStatus: 200,
-      responseBody,
-      action: '프로필 조회',
-      screen: 'ProfileScreen',
-      component: 'getProfile'
+      logLevel: 'info'
     });
     return { statusCode: 200, body: responseBody };
   }
+
   await appendLog({
     type: 'profile_get',
     userId: userId,
     result: 'fail',
     message: '프로필 조회 실패',
     detail: { userId },
-    requestMethod: event.requestContext?.http?.method || 'GET',
-    requestPath: event.requestContext?.http?.path || `/profile/${userId}`,
-    responseStatus: 404,
-    responseBody: JSON.stringify({ error: 'Profile not found', userId }),
-    action: '프로필 조회',
-    screen: 'ProfileScreen',
-    component: 'getProfile'
+    logLevel: 'error'
   });
   return { statusCode: 404, body: JSON.stringify({ error: 'Profile not found', userId }) };
 };
 
-// 이상형 조회
+// 이상형 조회 (DynamoDB 기반)
 export const getUserPreferences = async (event: any) => {
   const { userId } = event.pathParameters || {};
-  const preferences: UserPreferences[] = readJson(preferencesPath);
-  const pref = preferences.find(p => p.user_id === userId);
+
+  // DynamoDB에서 이상형 조회
+  const { Item: pref } = await ddbDocClient.send(
+    new GetCommand({
+      TableName: 'preferences',
+      Key: { user_id: userId }
+    })
+  );
+
   if (pref) {
     return { statusCode: 200, body: JSON.stringify(snakeToCamelCase(pref)) };
   }
@@ -702,6 +656,7 @@ export const requestMatching = async (event: any) => {
     ip: event?.requestContext?.identity?.sourceIp || '',
     result: 'success',
     detail: { match_id: newRequest.match_id, points_deducted: 100 },
+    logLevel: 'info'
   });
   
   return { statusCode: 200, body: JSON.stringify({ match_id: newRequest.match_id }) };
@@ -753,6 +708,7 @@ export const confirmMatching = async (event: any) => {
     userId: user_a_id,
     result: 'success',
     detail: { match_id, user_a_id, user_b_id },
+    logLevel: 'info'
   });
   
   
@@ -795,6 +751,7 @@ export const finalizeMatching = async (event: any) => {
       result: 'success',
       detail: { match_pair_id, final_date, final_location, photo_visible_at },
       action: '매칭 최종 확정',
+      logLevel: 'info'
     });
     
     return {
@@ -981,6 +938,7 @@ export const submitChoices = async (event: any) => {
       final_date: currentRequest?.final_date,
       photo_visible_at: currentRequest?.photo_visible_at 
     },
+    logLevel: 'info'
   });
 
   return { 
@@ -992,7 +950,8 @@ export const submitChoices = async (event: any) => {
     body: JSON.stringify({ 
       ok: true, 
       status: currentRequest?.status,
-      message: currentRequest?.status === 'mismatched' ? '일정이 맞지 않습니다. 다시 일정을 선택해주세요.' : '일정이 제출되었습니다.'
+      message: currentRequest?.status === 'mismatched' ? '일정이 맞지 않습니다. 다시 일정을 선택해주세요.' : '일정이 제출되었습니다.',
+      logLevel: 'info'
     }) 
   };
 };
@@ -1129,6 +1088,7 @@ export const saveReview = async (event: any) => {
     userId: reviewer_id,
     result: 'success',
     detail: { review_id: newReview.review_id, target_id, rating },
+    logLevel: 'info'
   });
   
   // 리뷰 저장 후 매칭 상태 확인 및 변경
@@ -1212,6 +1172,7 @@ export const chargePoints = async (event: any) => {
       userId,
       result: 'success',
       detail: { amount, type, new_balance: users[userIndex].points },
+      logLevel: 'info'
     });
     
     return { statusCode: 200, body: JSON.stringify({ points: users[userIndex].points }) };
@@ -1255,7 +1216,8 @@ export const updateUserStatus = async (event: any) => {
       detail: { from_status: oldStatus, to_status: new_status, reason },
       action: '사용자 상태 변경',
       screen: 'AdminScreen',
-      component: 'user_status'
+      component: 'user_status',
+      logLevel: 'info'
     });
     
     return { statusCode: 200, body: JSON.stringify({ status: new_status }) };
@@ -1361,7 +1323,8 @@ export const getCards = async (event: any) => {
     },
     action: '카드함 조회',
     screen: 'CardsScreen',
-    component: 'cards_list'
+    component: 'cards_list',
+    logLevel: 'info'
   });
   
   return { 
@@ -1401,7 +1364,8 @@ export const getReviews = async (event: any) => {
     detail: { page, pageSize, total: myReviews.length, returned: paged.length },
     action: '후기 조회',
     screen: 'ReviewsScreen',
-    component: 'reviews_list'
+    component: 'reviews_list',
+    logLevel: 'info'
   });
   return { statusCode: 200, body: JSON.stringify(paged.map(snakeToCamelCase)) };
 };
@@ -1436,7 +1400,8 @@ export const getMainCard = async (event: any) => {
     detail: { status },
     action: '메인카드 조회',
     screen: 'MainScreen',
-    component: 'main_card'
+    component: 'main_card',
+    logLevel: 'info'
   });
   return { statusCode: 200, body: JSON.stringify({ matchingStatus: status }) };
 };
@@ -1460,7 +1425,8 @@ export const getCardDetail = async (event: any) => {
       detail: { requestedUserId: userId },
       action: '카드 상세 조회',
       screen: 'UserDetailScreen',
-      component: 'card_detail'
+      component: 'card_detail',
+      logLevel: 'error'
     });
     return { statusCode: 404, body: JSON.stringify({ error: 'Profile not found' }) };
   }
@@ -1472,11 +1438,19 @@ export const getCardDetail = async (event: any) => {
     detail: { profileFound: true },
     action: '카드 상세 조회',
     screen: 'UserDetailScreen',
-    component: 'card_detail'
+    component: 'card_detail',
+    logLevel: 'info'
   });
   
   return { statusCode: 200, body: JSON.stringify(snakeToCamelCase(profile)) };
 };
+
+// 프로필 조회
+function getBaseUrl(event: any) {
+  const host = event.headers?.['host'] || event.requestContext?.domainName || 'localhost:3000';
+  const protocol = event.headers?.['x-forwarded-proto'] || 'http';
+  return `${protocol}://${host}`;
+}
 
 // 이미지 업로드
 export const uploadImage = async (event: any) => {
@@ -1543,7 +1517,8 @@ export const uploadImage = async (event: any) => {
       },
       action: '이미지 업로드',
       screen: 'ProfileEditScreen',
-      component: 'image_upload'
+      component: 'image_upload',
+      logLevel: 'info'
     });
 
     return { 
@@ -1567,7 +1542,8 @@ export const uploadImage = async (event: any) => {
       detail: { error: error.message },
       action: '이미지 업로드',
       screen: 'ProfileEditScreen',
-      component: 'image_upload'
+      component: 'image_upload',
+      logLevel: 'error'
     });
 
     return { 
@@ -1695,7 +1671,8 @@ export const migrateImages = async (event: any) => {
       },
       action: '이미지 마이그레이션',
       screen: 'AdminScreen',
-      component: 'image_migration'
+      component: 'image_migration',
+      logLevel: 'info'
     });
     return { 
       statusCode: 200, 
@@ -1715,7 +1692,8 @@ export const migrateImages = async (event: any) => {
       detail: { error: error.message },
       action: '이미지 마이그레이션',
       screen: 'AdminScreen',
-      component: 'image_migration'
+      component: 'image_migration',
+      logLevel: 'error'
     });
     return { 
       statusCode: 500, 
@@ -1789,7 +1767,8 @@ export const cleanupTempFiles = async (event: any) => {
       detail: { deletedCount },
       action: '파일 정리',
       screen: 'AdminScreen',
-      component: 'file_cleanup'
+      component: 'file_cleanup',
+      logLevel: 'info'
     });
     
     return { 
@@ -1810,7 +1789,8 @@ export const cleanupTempFiles = async (event: any) => {
       detail: { error: error.message },
       action: '파일 정리',
       screen: 'AdminScreen',
-      component: 'file_cleanup'
+      component: 'file_cleanup',
+      logLevel: 'error'
     });
     
     return { 
@@ -1865,7 +1845,8 @@ export const getMatchDetail = async (event: any) => {
       detail: { requestedMatchId: matchId },
       action: '매칭 상세 조회',
       screen: 'UserDetailScreen',
-      component: 'match_detail'
+      component: 'match_detail',
+      logLevel: 'error'
     });
     return { statusCode: 404, body: JSON.stringify({ error: 'Match not found' }) };
   }
@@ -1889,7 +1870,8 @@ export const getMatchDetail = async (event: any) => {
       detail: { requestedMatchId: matchId, userA: matchA?.requester_id, userB: matchB?.requester_id },
       action: '매칭 상세 조회',
       screen: 'UserDetailScreen',
-      component: 'match_detail'
+      component: 'match_detail',
+      logLevel: 'error'
     });
     return { statusCode: 403, body: JSON.stringify({ error: 'User not authorized for this match' }) };
   }
@@ -1986,7 +1968,8 @@ export const getMatchDetail = async (event: any) => {
     },
     action: '매칭 상세 조회',
     screen: 'UserDetailScreen',
-    component: 'match_detail'
+    component: 'match_detail',
+    logLevel: 'info'
   });
   
   return { statusCode: 200, body: JSON.stringify(snakeToCamelCase(result)) };
@@ -2085,7 +2068,8 @@ export const getMatchingStatus = async (event: any) => {
     },
     action: '매칭상태 조회',
     screen: 'MainScreen',
-    component: 'matching_status'
+    component: 'matching_status',
+    logLevel: 'info'
   });
 
   let otherUserChoices = null;
@@ -2160,7 +2144,8 @@ export const getMatchingStatus = async (event: any) => {
       contactReady,
       review: myReview, // 내가 작성한 리뷰 데이터 추가
       otherUserContact // 상대방 연락처 정보 추가
-    }) 
+    }),
+    logLevel: 'info'
   };
 }; 
 
@@ -2408,7 +2393,8 @@ export const getInsight = async (event: any) => {
       },
       action: '인사이트 조회',
       screen: 'InsightScreen',
-      component: 'insight_list'
+      component: 'insight_list',
+      logLevel: 'info'
     });
     
     // 응답 데이터를 프론트엔드 타입에 맞게 구성
@@ -2433,7 +2419,8 @@ export const getInsight = async (event: any) => {
     
     return { 
       statusCode: 200, 
-      body: JSON.stringify(response)
+      body: JSON.stringify(response),
+      logLevel: 'info'
     };
   } catch (error) {
     console.error('인사이트 조회 오류:', error);
@@ -2446,12 +2433,14 @@ export const getInsight = async (event: any) => {
       errorStack: error instanceof Error ? error.stack : '',
       action: '인사이트 조회',
       screen: 'InsightScreen',
-      component: 'insight_list'
+      component: 'insight_list',
+      logLevel: 'error'
     });
     
     return { 
       statusCode: 500, 
-      body: JSON.stringify({ error: '인사이트 조회 중 오류가 발생했습니다.' }) 
+      body: JSON.stringify({ error: '인사이트 조회 중 오류가 발생했습니다.' }),
+      logLevel: 'error'
     };
   }
 }; 
@@ -2497,7 +2486,9 @@ export const getHistory = async (event: any) => {
           // finished 상태일 때는 기본 정보만 제공 (연락처 정보 제외)
           partnerInfo = {
             name: partnerProfile.name,
-            age: partnerProfile.age,
+            birthDate: partnerProfile.birth_date,
+            job: partnerProfile.job,
+            mbti: partnerProfile.mbti,
             location: partnerProfile.location,
             photos: [] // 사진도 제외
           };
@@ -2505,7 +2496,9 @@ export const getHistory = async (event: any) => {
           // 다른 상태일 때는 모든 정보 제공
           partnerInfo = {
             name: partnerProfile.name,
-            age: partnerProfile.age,
+            birthDate: partnerProfile.birth_date,
+            job: partnerProfile.job,
+            mbti: partnerProfile.mbti,
             location: partnerProfile.location,
             photos: partnerProfile.photos || []
           };
@@ -2578,7 +2571,8 @@ export const getHistory = async (event: any) => {
       },
       action: '히스토리 조회',
       screen: 'HistoryScreen',
-      component: 'history_list'
+      component: 'history_list',
+      logLevel: 'info'
     });
     
     return { 
@@ -2604,12 +2598,14 @@ export const getHistory = async (event: any) => {
       errorStack: error instanceof Error ? error.stack : '',
       action: '히스토리 조회',
       screen: 'HistoryScreen',
-      component: 'history_list'
+      component: 'history_list',
+      logLevel: 'error'
     });
     
     return { 
       statusCode: 500, 
-      body: JSON.stringify({ error: '히스토리 조회 중 오류가 발생했습니다.' }) 
+      body: JSON.stringify({ error: '히스토리 조회 중 오류가 발생했습니다.' }),
+      logLevel: 'error'
     };
   }
 }; 
@@ -2671,7 +2667,8 @@ export const getReward = async (event: any) => {
       },
       action: '리워드 조회',
       screen: 'RewardScreen',
-      component: 'reward'
+      component: 'reward',
+      logLevel: 'info'
     });
 
     return {
@@ -2694,7 +2691,8 @@ export const getReward = async (event: any) => {
       detail: { error: error.message },
       action: '리워드 조회',
       screen: 'RewardScreen',
-      component: 'reward'
+      component: 'reward',
+      logLevel: 'error'
     });
 
     return {
@@ -2845,7 +2843,8 @@ export const respondToProposal = async (event: any) => {
         action: '제안 수락',
         screen: 'MainScreen',
         component: 'proposal_modal',
-        executionTime: Date.now() - startTime
+        executionTime: Date.now() - startTime,
+        logLevel: 'info'
       });
 
       return {
@@ -2857,7 +2856,8 @@ export const respondToProposal = async (event: any) => {
         body: JSON.stringify({ 
           message: '매칭 제안이 수락되었습니다.',
           status: 'matched'
-        })
+        }),
+        logLevel: 'info'
       };
 
     } else {
@@ -2898,7 +2898,8 @@ export const respondToProposal = async (event: any) => {
         action: '제안 거절',
         screen: 'MainScreen',
         component: 'proposal_modal',
-        executionTime: Date.now() - startTime
+        executionTime: Date.now() - startTime,
+        logLevel: 'info'
       });
 
       return {
@@ -2910,7 +2911,8 @@ export const respondToProposal = async (event: any) => {
         body: JSON.stringify({ 
           message: '매칭 제안이 거절되었습니다.',
           status: 'finished'
-        })
+        }),
+        logLevel: 'info'
       };
     }
 
@@ -2925,7 +2927,8 @@ export const respondToProposal = async (event: any) => {
       detail: { error: error.message },
       action: '제안 응답',
       screen: 'MainScreen',
-      component: 'proposal_modal'
+      component: 'proposal_modal',
+      logLevel: 'error'
     });
 
     return {
@@ -2934,7 +2937,8 @@ export const respondToProposal = async (event: any) => {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*'
       },
-      body: JSON.stringify({ error: 'Internal server error' })
+      body: JSON.stringify({ error: 'Internal server error' }),
+      logLevel: 'error'
     };
   }
 };
@@ -3100,7 +3104,8 @@ export const processMatchingStatus = async (event: any) => {
         updated: updated
       },
       action: '매칭 상태 처리',
-      executionTime: Date.now() - startTime
+      executionTime: Date.now() - startTime,
+      logLevel: 'info'
     });
 
     return {
@@ -3112,7 +3117,8 @@ export const processMatchingStatus = async (event: any) => {
       body: JSON.stringify({ 
         message: '매칭 상태 처리 완료',
         updated: updated
-      })
+      }),
+      logLevel: 'info'
     };
 
   } catch (error: any) {
@@ -3123,7 +3129,8 @@ export const processMatchingStatus = async (event: any) => {
       result: 'fail',
       message: '매칭 상태 자동 처리 실패',
       detail: { error: error.message },
-      action: '매칭 상태 처리'
+      action: '매칭 상태 처리',
+      logLevel: 'error'
     });
 
     return {
@@ -3132,7 +3139,8 @@ export const processMatchingStatus = async (event: any) => {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*'
       },
-      body: JSON.stringify({ error: 'Internal server error' })
+      body: JSON.stringify({ error: 'Internal server error' }),
+      logLevel: 'error'
     };
   }
 };
@@ -3187,6 +3195,7 @@ export const shareContact = async (event: any) => {
       result: 'success',
       detail: { match_pair_id, want_to_meet_again, contact_shared: match.contact_shared },
       action: '연락처 공유 처리',
+      logLevel: 'info'
     });
     
     return {
@@ -3198,7 +3207,8 @@ export const shareContact = async (event: any) => {
       body: JSON.stringify({ 
         contact_shared: match.contact_shared,
         both_interested: match.both_interested
-      })
+      }),
+      logLevel: 'info'
     };
   }
   
@@ -3208,7 +3218,8 @@ export const shareContact = async (event: any) => {
       'Content-Type': 'application/json',
       'Access-Control-Allow-Origin': '*'
     },
-    body: JSON.stringify({ error: 'Match pair not found' })
+    body: JSON.stringify({ error: 'Match pair not found' }),
+    logLevel: 'error'
   };
 };
 
@@ -3336,7 +3347,8 @@ export const respondToProposalByProposeId = async (event: any) => {
         action: '제안 수락',
         screen: 'MainScreen',
         component: 'proposal_modal',
-        executionTime: Date.now() - startTime
+        executionTime: Date.now() - startTime,
+        logLevel: 'info'
       });
 
       return {
@@ -3348,7 +3360,8 @@ export const respondToProposalByProposeId = async (event: any) => {
         body: JSON.stringify({ 
           message: '매칭 제안이 수락되었습니다.',
           status: 'matched'
-        })
+        }),
+        logLevel: 'info'
       };
 
     } else {
@@ -3375,7 +3388,8 @@ export const respondToProposalByProposeId = async (event: any) => {
         action: '제안 거절',
         screen: 'MainScreen',
         component: 'proposal_modal',
-        executionTime: Date.now() - startTime
+        executionTime: Date.now() - startTime,
+        logLevel: 'info'
       });
 
       return {
@@ -3387,7 +3401,8 @@ export const respondToProposalByProposeId = async (event: any) => {
         body: JSON.stringify({ 
           message: '매칭 제안이 거절되었습니다.',
           status: 'refused'
-        })
+        }),
+        logLevel: 'info'
       };
     }
 
@@ -3402,7 +3417,8 @@ export const respondToProposalByProposeId = async (event: any) => {
       detail: { error: error.message },
       action: '제안 응답',
       screen: 'MainScreen',
-      component: 'proposal_modal'
+      component: 'proposal_modal',
+      logLevel: 'error'
     });
 
     return {
@@ -3411,7 +3427,8 @@ export const respondToProposalByProposeId = async (event: any) => {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*'
       },
-      body: JSON.stringify({ error: 'Internal server error' })
+      body: JSON.stringify({ error: 'Internal server error' }),
+      logLevel: 'error'
     };
   }
 }; 
@@ -3457,6 +3474,7 @@ export const saveReviewContact = async (event: any) => {
     userId: reviewer_id,
     result: 'success',
     detail: { match_id, reviewer_id, contact },
+    logLevel: 'info'
   });
 
   return { statusCode: 200, body: JSON.stringify({ ok: true }) };
@@ -3518,7 +3536,8 @@ export const getContactDetail = async (event: any) => {
       detail: { matchId, otherUserId: otherRequest.requester_id },
       action: '연락처 상세 조회',
       screen: 'ContactDetailScreen',
-      component: 'contact_detail'
+      component: 'contact_detail',
+      logLevel: 'info'
     });
 
     // 실제 photos 배열 사용
@@ -3546,7 +3565,8 @@ export const getContactDetail = async (event: any) => {
           photoUrl: otherProfile.photos?.[0] || null,
           photos: photos, // 실제 photos 배열 사용
         } : null
-      })
+      }),
+      logLevel: 'info'
     };
 
   } catch (error: any) {
@@ -3560,7 +3580,8 @@ export const getContactDetail = async (event: any) => {
       detail: { error: error.message, matchId },
       action: '연락처 상세 조회',
       screen: 'ContactDetailScreen',
-      component: 'contact_detail'
+      component: 'contact_detail',
+      logLevel: 'error'
     });
 
     return {
@@ -3569,7 +3590,8 @@ export const getContactDetail = async (event: any) => {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*'
       },
-      body: JSON.stringify({ error: 'Internal server error' })
+      body: JSON.stringify({ error: 'Internal server error' }),
+      logLevel: 'error'
     };
   }
 };
@@ -3673,6 +3695,7 @@ export const finishMeeting = async (event: any) => {
         both_finished: otherRequest && otherRequest.status === 'finished',
         history_saved: historySaved
       },
+      logLevel: 'info'
     });
 
     return { statusCode: 200, body: JSON.stringify({ ok: true }) };
@@ -3685,9 +3708,10 @@ export const finishMeeting = async (event: any) => {
       result: 'fail',
       message: '소개팅 종료 실패',
       detail: { error: error.message, match_id },
+      logLevel: 'error'
     });
 
-    return { statusCode: 500, body: JSON.stringify({ error: 'Internal server error' }) };
+    return { statusCode: 500, body: JSON.stringify({ error: 'Internal server error' }), logLevel: 'error' };
   }
 };
 
@@ -3775,6 +3799,7 @@ export const cleanupFinishedRequests = async (event: any) => {
             finished_at: request.updated_at,
             cleanup_reason: '3일 경과 - 매칭 쌍 없음'
           },
+          logLevel: 'warn'
         });
       }
       
@@ -3788,6 +3813,7 @@ export const cleanupFinishedRequests = async (event: any) => {
           finished_at: request.updated_at,
           cleanup_reason: '3일 경과'
         },
+        logLevel: 'info'
       });
     }
     
@@ -3820,6 +3846,7 @@ export const cleanupFinishedRequests = async (event: any) => {
           remaining_requests: updatedRequests.length,
           history_saved: true
         },
+        logLevel: 'info'
       });
     }
     
@@ -3831,7 +3858,8 @@ export const cleanupFinishedRequests = async (event: any) => {
         total_requests: matchingRequests.length,
         remaining_requests: updatedRequests.length,
         history_saved: requestsToDelete.length > 0
-      }) 
+      }),
+      logLevel: 'info'
     };
   } catch (error: any) {
     console.error('cleanupFinishedRequests error:', error);
@@ -3841,8 +3869,72 @@ export const cleanupFinishedRequests = async (event: any) => {
       result: 'fail',
       message: '자동 삭제 실패',
       detail: { error: error.message },
+      logLevel: 'error'
     });
 
+    return { statusCode: 500, body: JSON.stringify({ error: 'Internal server error' }), logLevel: 'error' };
+  }
+};
+
+// 히스토리 상세 조회
+export const getHistoryDetail = async (event: any) => {
+  const { matchPairId } = event.pathParameters || {};
+  if (!matchPairId) {
+    return { statusCode: 400, body: JSON.stringify({ error: 'matchPairId required' }) };
+  }
+  try {
+    const matchingHistoryPath = path.join(__dirname, 'data/matching-history.json');
+    const matchingHistory = readJson(matchingHistoryPath);
+    const profiles = readJson(profilesPath);
+    const history = matchingHistory.find((h: any) => h.match_pair_id === matchPairId);
+    if (!history) {
+      return { statusCode: 404, body: JSON.stringify({ error: 'History not found' }) };
+    }
+    // 파트너 정보 추가 (getHistory와 동일하게)
+    const isUserA = true; // 상세에서는 프론트에서 userId를 넘겨주면 더 정확하게 구분 가능
+    const userRequest = history.request_a;
+    const partnerRequest = history.request_b;
+    const partnerId = userRequest?.partner_id;
+    const partnerProfile = profiles.find((p: any) => p.user_id === partnerId);
+    let partnerInfo = null;
+    if (partnerProfile) {
+      if (history.final_status === 'finished') {
+        partnerInfo = {
+          name: partnerProfile.name,
+          birthDate: partnerProfile.birth_date,
+          job: partnerProfile.job,
+          mbti: partnerProfile.mbti,
+          location: partnerProfile.location,
+          photos: []
+        };
+      } else {
+        partnerInfo = {
+          name: partnerProfile.name,
+          birthDate: partnerProfile.birth_date,
+          job: partnerProfile.job,
+          mbti: partnerProfile.mbti,
+          location: partnerProfile.location,
+          photos: partnerProfile.photos || []
+        };
+      }
+    }
+    // 타임라인 생성
+    const matchTimeline = [];
+    if (history.request_a?.created_at) matchTimeline.push({ label: '신청일', date: history.request_a.created_at });
+    if (history.request_a?.final_date) matchTimeline.push({ label: '매칭 확정일', date: history.request_a.final_date });
+    if (history.review_a?.created_at) matchTimeline.push({ label: '후기 작성일', date: history.review_a.created_at });
+    if (history.review_a?.contact_shared_at) matchTimeline.push({ label: '연락처 교환일', date: history.review_a.contact_shared_at });
+    // 필요시 review_b 등도 추가 가능
+    const detail = {
+      ...history,
+      partner: partnerInfo,
+      matchTimeline
+    };
+    return {
+      statusCode: 200,
+      body: JSON.stringify(snakeToCamelCase(detail))
+    };
+  } catch (error) {
     return { statusCode: 500, body: JSON.stringify({ error: 'Internal server error' }) };
   }
 };

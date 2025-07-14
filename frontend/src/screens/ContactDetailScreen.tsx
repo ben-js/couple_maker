@@ -25,11 +25,9 @@ const ContactDetailScreen: React.FC = () => {
       try {
         setLoading(true);
         const res = await apiGet(`/contact-detail?matchId=${matchId}`, undefined, user?.userId);
-        console.log('[ContactDetailScreen] API 응답:', JSON.stringify(res, null, 2));
         setContact(res.contact);
         setProfile(res.profile);
       } catch (e) {
-        console.error('[ContactDetailScreen] API 에러:', e);
         Alert.alert('오류', '연락처 정보를 불러오지 못했습니다.');
       } finally {
         setLoading(false);
@@ -60,7 +58,6 @@ const ContactDetailScreen: React.FC = () => {
                 }
               ]);
             } catch (e) {
-              console.error('[ContactDetailScreen] 소개팅 종료 에러:', e);
               Alert.alert('오류', '소개팅 종료에 실패했습니다.');
             } finally {
               setFinishing(false);

@@ -121,7 +121,7 @@ const MenuScreen = () => {
       title: '알림 설정',
       subtitle: '푸시 알림 관리',
       icon: 'bell',
-      action: () => console.log('알림 설정')
+      action: () => {}
     },
     {
       id: 6,

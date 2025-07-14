@@ -15,13 +15,7 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({ onChargePress }) => {
   const { user } = useAuth();
   const { getProfilePhoto, getUserDisplayName, getUserInitial, userProfile } = useUserProfile();
 
-  // 디버깅용 로그 (개발 중에만 사용)
-  if (__DEV__) {
-    console.log('ProfileHeader Debug:', {
-      userPoints: user?.points,
-      userProfilePoints: userProfile?.points
-    });
-  }
+  // 모든 console.log 삭제
 
   return (
     <View style={styles.header}>

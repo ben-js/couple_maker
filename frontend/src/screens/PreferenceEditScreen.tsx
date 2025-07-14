@@ -239,14 +239,12 @@ const PreferenceSetupScreen = () => {
       // 소개팅 신청 API 호출
       await apiPost('/matching-requests', { userId: user.userId }, user.userId);
       
-      console.log('소개팅 신청 전 user points:', user.points);
       
       // 서버에서 최신 사용자 정보 가져오기
       const { data: refetchUserData } = await refetchUser();
       if (refetchUserData) {
         // AuthContext 업데이트
         await updateUser(refetchUserData);
-        console.log('소개팅 신청 후 서버에서 가져온 사용자 정보:', refetchUserData);
       }
       
       await refetchStatus();
