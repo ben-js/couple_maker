@@ -9,6 +9,20 @@ provider:
   region: ap-northeast-2
   httpApi:
     cors: true
+  environment:
+    S3_BUCKET_NAME: ${env:S3_BUCKET_NAME, 'date-sense'}
+    S3_REGION: ${env:S3_REGION, 'ap-northeast-2'}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - s3:PutObject
+            - s3:GetObject
+            - s3:DeleteObject
+            - s3:PutObjectAcl
+          Resource: 
+            - "arn:aws:s3:::${env:S3_BUCKET_NAME, 'date-sense'}/*"
 
 functions:
   hello:
@@ -23,6 +37,20 @@ functions:
     events:
       - httpApi:
           path: /signup
+          method: post
+
+  confirmSignup:
+    handler: handler.confirmSignup
+    events:
+      - httpApi:
+          path: /confirm-signup
+          method: post
+
+  resendConfirmationCode:
+    handler: handler.resendConfirmationCode
+    events:
+      - httpApi:
+          path: /resend-confirmation-code
           method: post
 
   login:
@@ -159,6 +187,13 @@ functions:
     events:
       - httpApi:
           path: /upload-image
+          method: post
+
+  getUploadUrl:
+    handler: handler.getUploadUrl
+    events:
+      - httpApi:
+          path: /get-upload-url
           method: post
 
   serveFile:
@@ -306,7 +341,20 @@ functions:
       - httpApi:
           path: /history/detail/{matchPairId}
           method: get
-          cors: true
+
+  migrateToDynamoDB:
+    handler: handler.migrateToDynamoDB
+    events:
+      - httpApi:
+          path: /migrate-to-dynamodb
+          method: post
+
+  createDynamoDBTables:
+    handler: handler.createDynamoDBTables
+    events:
+      - httpApi:
+          path: /create-dynamodb-tables
+          method: post
 
 plugins:
   - serverless-offline 

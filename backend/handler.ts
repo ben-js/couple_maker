@@ -6,6 +6,11 @@ import { User, UserProfile, UserPreferences } from './types';
 import { PutCommand, ScanCommand, GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import bcrypt from 'bcryptjs';
 const ddbDocClient = require('./utils/dynamoClient');
+const cognitoService = require('./utils/cognitoService');
+
+// AWS SDK v3 import 추가
+const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
 const usersPath = path.join(__dirname, 'data/users.json');
 const profilesPath = path.join(__dirname, 'data/profiles.json');
@@ -191,54 +196,149 @@ export const hello = async (event: any) => {
   };
 };
 
-// 회원가입 (DynamoDB 연동)
+// 회원가입 (Cognito 연동)
 export const signup = async (event: any) => {
+  const startTime = Date.now();
   const req = camelToSnakeCase(JSON.parse(event.body || '{}'));
-  const { email, password } = req;
-  // 이메일 중복 체크
-  const scanResult = await ddbDocClient.send(
-    new ScanCommand({
-      TableName: 'users',
-      FilterExpression: 'email = :email',
-      ExpressionAttributeValues: { ':email': email }
-    })
-  );
-  if (scanResult.Items && scanResult.Items.length > 0) {
-    return { statusCode: 409, body: JSON.stringify({ error: '이미 가입된 이메일입니다.' }) };
+  const { email, password, name } = req;
+  
+  try {
+    // Cognito를 통한 회원가입
+    const result = await cognitoService.signUp(email, password, name);
+    
+    if (result.success) {
+      // DynamoDB에 사용자 기본 정보 저장
+      const userId = result.userSub;
+      const userData = {
+        user_id: userId,
+        email: email,
+        is_verified: false,
+        has_profile: false,
+        has_preferences: false,
+        grade: 'general',
+        status: 'green',
+        is_deleted: false,
+        points: 100, // 회원가입 보너스
+        created_at: new Date().toISOString()
+      };
+
+      await ddbDocClient.send(
+        new PutCommand({
+          TableName: 'Users',
+          Item: userData
+        })
+      );
+
+      // 포인트 히스토리 기록
+      await ddbDocClient.send(
+        new PutCommand({
+          TableName: 'PointsHistory',
+          Item: {
+            user_id: userId,
+            timestamp: new Date().toISOString(),
+            type: 'signup',
+            points: 100,
+            description: '회원가입 보너스',
+            related_id: null
+          }
+        })
+      );
+
+      await appendLog({
+        type: 'signup',
+        email,
+        ip: event.requestContext?.identity?.sourceIp || '',
+        result: 'success',
+        message: '회원가입 성공',
+        detail: { userId, email },
+        requestMethod: event.httpMethod,
+        requestPath: event.path,
+        requestBody: JSON.stringify(req),
+        responseStatus: 200,
+        responseBody: JSON.stringify({ success: true, message: result.message }),
+        executionTime: Date.now() - startTime
+      });
+
+      return {
+        statusCode: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Headers': 'Content-Type',
+          'Access-Control-Allow-Methods': 'POST, OPTIONS'
+        },
+        body: JSON.stringify({
+          success: true,
+          message: result.message,
+          userId: userId
+        })
+      };
+    } else {
+      await appendLog({
+        type: 'signup',
+        email,
+        ip: event.requestContext?.identity?.sourceIp || '',
+        result: 'fail',
+        message: result.message,
+        detail: { email },
+        requestMethod: event.httpMethod,
+        requestPath: event.path,
+        requestBody: JSON.stringify(req),
+        responseStatus: 400,
+        responseBody: JSON.stringify({ success: false, message: result.message }),
+        executionTime: Date.now() - startTime
+      });
+
+      return {
+        statusCode: 400,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Headers': 'Content-Type',
+          'Access-Control-Allow-Methods': 'POST, OPTIONS'
+        },
+        body: JSON.stringify({
+          success: false,
+          message: result.message
+        })
+      };
+    }
+  } catch (error) {
+    console.error('Signup error:', error);
+    
+    await appendLog({
+      type: 'signup',
+      email,
+      ip: event.requestContext?.identity?.sourceIp || '',
+      result: 'fail',
+      message: '회원가입 중 오류 발생',
+      detail: { email, error: error.message },
+      requestMethod: event.httpMethod,
+      requestPath: event.path,
+      requestBody: JSON.stringify(req),
+      responseStatus: 500,
+      responseBody: JSON.stringify({ success: false, message: '서버 오류가 발생했습니다.' }),
+      errorStack: error.stack,
+      executionTime: Date.now() - startTime
+    });
+
+    return {
+      statusCode: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS'
+      },
+      body: JSON.stringify({
+        success: false,
+        message: '서버 오류가 발생했습니다.'
+      })
+    };
   }
-  const user_id = `user-${uuidv4()}`;
-  const hashedPassword = await bcrypt.hash(password, 10);
-  const newUser = {
-    user_id,
-    email,
-    password: hashedPassword, // 해시된 비밀번호 저장
-    is_verified: false,
-    has_profile: false,
-    has_preferences: false,
-    grade: 'general',
-    status: 'green',
-    points: 100,
-    created_at: new Date().toISOString()
-  };
-  await ddbDocClient.send(
-    new PutCommand({
-      TableName: 'users',
-      Item: newUser
-    })
-  );
-  await appendLog({
-    type: 'signup',
-    userId: user_id,
-    email,
-    ip: event?.requestContext?.identity?.sourceIp || '',
-    result: 'success',
-    detail: {},
-    logLevel: 'info'
-  });
-  return { statusCode: 201, body: JSON.stringify(snakeToCamelCase(newUser)) };
 };
 
-// 로그인 (DynamoDB 연동)
+// 로그인 (Cognito 연동)
 export const login = async (event: any) => {
   const req = camelToSnakeCase(JSON.parse(event.body || '{}'));
   const { email, password } = req;
@@ -254,23 +354,126 @@ export const login = async (event: any) => {
 
   try {
     console.log('📧 로그인 시도:', { email, password: password ? '***' : 'empty' });
-    // DynamoDB에서 사용자 조회 (이메일로만)
-    const scanResult = await ddbDocClient.send(
-      new ScanCommand({
-        TableName: 'users',
-        FilterExpression: 'email = :email',
-        ExpressionAttributeValues: { ':email': email }
+    
+    // Cognito를 통한 로그인
+    const cognitoResult = await cognitoService.signIn(email, password);
+    
+    // 이메일 인증이 필요한 경우 특별 처리
+    if (cognitoResult.requiresEmailVerification && cognitoResult.user) {
+      const executionTime = Date.now() - startTime;
+      const userResponse = {
+        user_id: cognitoResult.user.username,
+        email: email,
+        hasProfile: false,
+        hasPreferences: false,
+        isVerified: false,
+        grade: 'general',
+        status: 'green',
+        points: 100
+      };
+      const responseBody = JSON.stringify(snakeToCamelCase(userResponse));
+
+      await appendLog({
+        type: 'login',
+        userId: cognitoResult.user.username,
+        email,
+        ip: event?.requestContext?.identity?.sourceIp || '',
+        result: 'success',
+        message: '이메일 인증이 필요한 사용자',
+        detail: { requiresEmailVerification: true },
+        requestMethod: event.requestContext?.http?.method || 'POST',
+        requestPath: event.requestContext?.http?.path || '/login',
+        requestBody: JSON.stringify({ email, password: '***' }),
+        responseStatus: 200,
+        responseBody,
+        executionTime,
+        sessionId,
+        action: '로그인 시도 (이메일 인증 필요)',
+        screen: 'AuthScreen',
+        component: 'login',
+        logLevel: 'info'
+      });
+
+      return {
+        statusCode: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Headers': 'Content-Type',
+          'Access-Control-Allow-Methods': 'POST, OPTIONS'
+        },
+        body: responseBody
+      };
+    }
+    
+    if (!cognitoResult.success) {
+      const executionTime = Date.now() - startTime;
+      const responseBody = JSON.stringify({ 
+        error: cognitoResult.message, 
+        input: { email, password: password ? '***' : 'empty' } 
+      });
+
+      await appendLog({
+        type: 'login',
+        userId: '',
+        email,
+        ip: event?.requestContext?.identity?.sourceIp || '',
+        result: 'fail',
+        message: cognitoResult.message,
+        detail: {
+          reason: 'cognito_auth_failed',
+          attemptedEmail: email,
+        },
+        requestMethod: event.requestContext?.http?.method || 'POST',
+        requestPath: event.requestContext?.http?.path || '/login',
+        requestBody: JSON.stringify({ email, password: '***' }),
+        responseStatus: 401,
+        responseBody,
+        executionTime,
+        sessionId,
+        action: '로그인 시도',
+        screen: 'AuthScreen',
+        component: 'login',
+        logLevel: 'error'
+      });
+
+      return { 
+        statusCode: 401, 
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Headers': 'Content-Type',
+          'Access-Control-Allow-Methods': 'POST, OPTIONS'
+        },
+        body: responseBody 
+      };
+    }
+
+    // JWT 토큰에서 사용자 정보 추출
+    const tokenInfo = cognitoService.parseToken(cognitoResult.idToken);
+    const userId = tokenInfo?.sub;
+    
+    if (!userId) {
+      throw new Error('토큰에서 사용자 ID를 추출할 수 없습니다.');
+    }
+
+    // DynamoDB에서 사용자 정보 조회
+    const userResult = await ddbDocClient.send(
+      new GetCommand({
+        TableName: 'Users',
+        Key: { user_id: userId }
       })
     );
-    const user = scanResult.Items && scanResult.Items.length > 0 ? scanResult.Items[0] : null;
+    
+    const user = userResult.Item;
     const ip = event?.requestContext?.identity?.sourceIp || '';
 
     console.log('🔍 사용자 검색 결과:', user ? '찾음' : '찾지 못함');
     if (!user) {
       const executionTime = Date.now() - startTime;
-      const errorMessage = '잘못된 이메일 또는 비밀번호';
+      const errorMessage = '사용자 정보를 찾을 수 없습니다.';
       const responseBody = JSON.stringify({ 
-        error: 'Invalid credentials', 
+        error: errorMessage, 
         input: { email, password: password ? '***' : 'empty' } 
       });
 
@@ -282,13 +485,14 @@ export const login = async (event: any) => {
         result: 'fail',
         message: errorMessage,
         detail: {
-          reason: 'invalid_credentials',
+          reason: 'user_not_found_in_dynamodb',
           attemptedEmail: email,
+          cognitoUserId: userId
         },
         requestMethod: event.requestContext?.http?.method || 'POST',
         requestPath: event.requestContext?.http?.path || '/login',
         requestBody: JSON.stringify({ email, password: '***' }),
-        responseStatus: 401,
+        responseStatus: 404,
         responseBody,
         executionTime,
         sessionId,
@@ -298,51 +502,54 @@ export const login = async (event: any) => {
         logLevel: 'error'
       });
 
-      return { statusCode: 401, body: responseBody };
-    }
-
-    // 비밀번호 비교
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      const executionTime = Date.now() - startTime;
-      const errorMessage = '잘못된 이메일 또는 비밀번호';
-      const responseBody = JSON.stringify({ 
-        error: 'Invalid credentials', 
-        input: { email, password: password ? '***' : 'empty' } 
-      });
-      await appendLog({
-        type: 'login',
-        userId: '',
-        email,
-        ip,
-        result: 'fail',
-        message: errorMessage,
-        detail: {
-          reason: 'invalid_credentials',
-          attemptedEmail: email,
+      return { 
+        statusCode: 404, 
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Headers': 'Content-Type',
+          'Access-Control-Allow-Methods': 'POST, OPTIONS'
         },
-        requestMethod: event.requestContext?.http?.method || 'POST',
-        requestPath: event.requestContext?.http?.path || '/login',
-        requestBody: JSON.stringify({ email, password: '***' }),
-        responseStatus: 401,
-        responseBody,
-        executionTime,
-        sessionId,
-        action: '로그인 시도',
-        screen: 'AuthScreen',
-        component: 'login',
-        logLevel: 'error'
-      });
-      return { statusCode: 401, body: responseBody };
+        body: responseBody 
+      };
     }
 
-    // 프로필/이상형 정보는 기존대로 파일에서 조회(추후 DynamoDB로 이전 필요)
-    const profiles: UserProfile[] = readJson(profilesPath);
-    const preferences: UserPreferences[] = readJson(preferencesPath);
-    const hasProfile = user.has_profile;
-    const hasPreferences = user.has_preferences;
-    const userProfile = profiles.find(p => p.user_id === user.user_id);
-    const userName = userProfile?.name || '사용자';
+    // DynamoDB에서 프로필/이상형 정보 조회
+    let hasProfile = user.has_profile;
+    let hasPreferences = user.has_preferences;
+    let userProfile = null;
+    let userName = '사용자';
+
+    if (hasProfile) {
+      try {
+        const profileResult = await ddbDocClient.send(
+          new GetCommand({
+            TableName: 'Profiles',
+            Key: { user_id: user.user_id }
+          })
+        );
+        userProfile = profileResult.Item;
+        userName = userProfile?.name || '사용자';
+      } catch (profileError) {
+        console.error('프로필 조회 실패:', profileError);
+        hasProfile = false;
+      }
+    }
+
+    if (hasPreferences) {
+      try {
+        const preferenceResult = await ddbDocClient.send(
+          new GetCommand({
+            TableName: 'Preferences',
+            Key: { user_id: user.user_id }
+          })
+        );
+        // preferences는 조회만 하고 변수에 저장하지 않음 (현재 로그인에서는 사용하지 않음)
+      } catch (preferenceError) {
+        console.error('이상형 조회 실패:', preferenceError);
+        hasPreferences = false;
+      }
+    }
 
     console.log('✅ 로그인 성공:');
     console.log('   - User ID:', user.user_id);
@@ -350,8 +557,7 @@ export const login = async (event: any) => {
     console.log('   - Name:', userName);
     console.log('   - Has Profile:', hasProfile);
     console.log('   - Has Preferences:', hasPreferences);
-    console.log('   - Profile count:', profiles.length);
-    console.log('   - Preferences count:', preferences.length);
+    console.log('   - Profile found:', !!userProfile);
 
     const executionTime = Date.now() - startTime;
 
@@ -380,10 +586,9 @@ export const login = async (event: any) => {
       result: 'success',
       message: '로그인 성공',
       detail: {
-        userProfileCount: profiles.length,
-        userPreferencesCount: preferences.length,
-        userProfileExists: profiles.some(p => p.user_id === user.user_id),
-        userPreferencesExists: preferences.some(p => p.user_id === user.user_id)
+        userProfileExists: !!userProfile,
+        userPreferencesExists: hasPreferences,
+        profileFound: !!userProfile
       },
       requestMethod: event.requestContext?.http?.method || 'POST',
       requestPath: event.requestContext?.http?.path || '/login',
@@ -452,7 +657,7 @@ export const saveProfile = async (event: any) => {
   // DynamoDB에 프로필 저장
   await ddbDocClient.send(
     new PutCommand({
-      TableName: 'profiles',
+      TableName: 'Profiles',
       Item: { user_id, ...profile }
     })
   );
@@ -460,7 +665,7 @@ export const saveProfile = async (event: any) => {
   // users 테이블의 has_profile true로 변경
   await ddbDocClient.send(
     new UpdateCommand({
-      TableName: 'users',
+      TableName: 'Users',
       Key: { user_id },
       UpdateExpression: 'set has_profile = :val',
       ExpressionAttributeValues: { ':val': true }
@@ -493,7 +698,7 @@ export const saveUserPreferences = async (event: any) => {
     // DynamoDB에 이상형 저장
     await ddbDocClient.send(
       new PutCommand({
-        TableName: 'preferences',
+        TableName: 'Preferences',
         Item: { user_id, ...prefs }
       })
     );
@@ -501,7 +706,7 @@ export const saveUserPreferences = async (event: any) => {
     // users 테이블의 has_preferences true로 변경
     await ddbDocClient.send(
       new UpdateCommand({
-        TableName: 'users',
+        TableName: 'Users',
         Key: { user_id },
         UpdateExpression: 'set has_preferences = :val',
         ExpressionAttributeValues: { ':val': true }
@@ -557,36 +762,55 @@ export const saveUserPreferences = async (event: any) => {
 export const getProfile = async (event: any) => {
   const { userId } = event.pathParameters || {};
 
-  // DynamoDB에서 프로필 조회
-  const { Item: profile } = await ddbDocClient.send(
-    new GetCommand({
-      TableName: 'profiles',
-      Key: { user_id: userId }
-    })
-  );
+  try {
+    // DynamoDB에서 프로필 조회
+    const { Item: profile } = await ddbDocClient.send(
+      new GetCommand({
+        TableName: 'Profiles',
+        Key: { user_id: userId }
+      })
+    );
 
-  if (profile) {
-    const responseBody = JSON.stringify(snakeToCamelCase(profile));
+    if (profile) {
+      const responseBody = JSON.stringify(snakeToCamelCase(profile));
+      await appendLog({
+        type: 'profile_get',
+        userId: userId,
+        result: 'success',
+        message: '프로필 조회 성공',
+        detail: { userId, profile },
+        logLevel: 'info'
+      });
+      return { statusCode: 200, body: responseBody };
+    }
+
     await appendLog({
       type: 'profile_get',
       userId: userId,
-      result: 'success',
-      message: '프로필 조회 성공',
-      detail: { userId, profile },
-      logLevel: 'info'
+      result: 'fail',
+      message: '프로필 조회 실패',
+      detail: { userId },
+      logLevel: 'error'
     });
-    return { statusCode: 200, body: responseBody };
+    return { statusCode: 404, body: JSON.stringify({ error: 'Profile not found', userId }) };
+  } catch (error: any) {
+    console.error('getProfile 에러:', error);
+    
+    // 스키마 에러인 경우 빈 프로필 반환 (프로필이 없는 것으로 처리)
+    if (error.name === 'ValidationException') {
+      await appendLog({
+        type: 'profile_get',
+        userId: userId,
+        result: 'fail',
+        message: '프로필 테이블 스키마 에러',
+        detail: { userId, error: error.message },
+        logLevel: 'error'
+      });
+      return { statusCode: 404, body: JSON.stringify({ error: 'Profile not found', userId }) };
+    }
+    
+    return { statusCode: 500, body: JSON.stringify({ error: 'Internal server error', message: error.message }) };
   }
-
-  await appendLog({
-    type: 'profile_get',
-    userId: userId,
-    result: 'fail',
-    message: '프로필 조회 실패',
-    detail: { userId },
-    logLevel: 'error'
-  });
-  return { statusCode: 404, body: JSON.stringify({ error: 'Profile not found', userId }) };
 };
 
 // 이상형 조회 (DynamoDB 기반)
@@ -596,7 +820,7 @@ export const getUserPreferences = async (event: any) => {
   // DynamoDB에서 이상형 조회
   const { Item: pref } = await ddbDocClient.send(
     new GetCommand({
-      TableName: 'preferences',
+      TableName: 'Preferences',
       Key: { user_id: userId }
     })
   );
@@ -1229,12 +1453,29 @@ export const updateUserStatus = async (event: any) => {
 // 사용자 정보 조회
 export const getUser = async (event: any) => {
   const { userId } = event.pathParameters || {};
-  const users: User[] = readJson(usersPath);
-  const user = users.find(u => u.user_id === userId);
-  if (user) {
-    return { statusCode: 200, body: JSON.stringify(snakeToCamelCase(user)) };
+  
+  if (!userId) {
+    return { statusCode: 400, body: JSON.stringify({ error: 'userId required' }) };
   }
-  return { statusCode: 404, body: JSON.stringify({ error: 'User not found', userId }) };
+
+  try {
+    // DynamoDB에서 사용자 조회
+    const result = await ddbDocClient.send(
+      new GetCommand({
+        TableName: 'Users',
+        Key: { user_id: userId }
+      })
+    );
+
+    if (result.Item) {
+      return { statusCode: 200, body: JSON.stringify(snakeToCamelCase(result.Item)) };
+    }
+    
+    return { statusCode: 404, body: JSON.stringify({ error: 'User not found', userId }) };
+  } catch (error: any) {
+    console.error('getUser 에러:', error);
+    return { statusCode: 500, body: JSON.stringify({ error: 'Internal server error', message: error.message }) };
+  }
 };
 
 // 카드(소개팅 상대) 목록 조회
@@ -1452,7 +1693,14 @@ function getBaseUrl(event: any) {
   return `${protocol}://${host}`;
 }
 
-// 이미지 업로드
+// S3 클라이언트 초기화
+const s3Client = new S3Client({
+  region: 'ap-northeast-2'
+});
+
+const S3_BUCKET_NAME = process.env.S3_BUCKET_NAME || 'date-sense';
+
+// 이미지 업로드 (S3 연동)
 export const uploadImage = async (event: any) => {
   const { userId, imageData, fileName } = JSON.parse(event.body || '{}');
   
@@ -1483,25 +1731,30 @@ export const uploadImage = async (event: any) => {
     // S3 구조: images/profile/{year}/{month}/{day}/{userId}/
     const s3Path = generateS3Path(userId, '', 'profile');
     const localPath = `${year}/${month}/${day}/${userId}`;
-    const filesDir = path.join(__dirname, 'files', localPath);
     
-    // 디렉토리 생성
-    if (!fs.existsSync(filesDir)) {
-      fs.mkdirSync(filesDir, { recursive: true });
-    }
-
     // 파일명 생성 (타임스탬프 + 원본 확장자)
     const timestamp = Date.now();
     const extension = fileName ? fileName.split('.').pop()?.toLowerCase() : 'jpg';
     const savedFileName = `${timestamp}.${extension}`;
-    const filePath = path.join(filesDir, savedFileName);
+    const s3Key = `${s3Path}/${savedFileName}`;
 
-    // 파일 저장
-    fs.writeFileSync(filePath, buffer);
+    // S3에 파일 업로드
+    const uploadCommand = new PutObjectCommand({
+      Bucket: S3_BUCKET_NAME,
+      Key: s3Key,
+      Body: buffer,
+      ContentType: getContentType(savedFileName),
+      Metadata: {
+        userId: userId,
+        uploadDate: now.toISOString(),
+        originalFileName: fileName || 'unknown'
+      }
+    });
 
-    // URL 생성 (S3 구조를 고려한 경로)
-    const imageUrl = `/files/${localPath}/${savedFileName}`;
-    const s3FullPath = `${s3Path}/${savedFileName}`;
+    await s3Client.send(uploadCommand);
+
+    // S3 URL 생성
+    const s3Url = `https://${S3_BUCKET_NAME}.s3.ap-northeast-2.amazonaws.com/${s3Key}`;
     const baseUrl = getBaseUrl(event);
 
     await appendLog({
@@ -1511,9 +1764,10 @@ export const uploadImage = async (event: any) => {
       detail: { 
         fileName: savedFileName, 
         localPath,
-        s3Path: s3FullPath,
+        s3Key: s3Key,
+        s3Url: s3Url,
         fileSize: buffer.length,
-        fullPath: imageUrl
+        bucket: S3_BUCKET_NAME
       },
       action: '이미지 업로드',
       screen: 'ProfileEditScreen',
@@ -1524,11 +1778,11 @@ export const uploadImage = async (event: any) => {
     return { 
       statusCode: 200, 
       body: JSON.stringify({ 
-        imageUrl: `${baseUrl}${imageUrl}`,
+        imageUrl: s3Url,
         fileName: savedFileName,
         localPath,
-        s3Path: s3FullPath,
-        fullPath: imageUrl
+        s3Key: s3Key,
+        bucket: S3_BUCKET_NAME
       }) 
     };
   } catch (error: any) {
@@ -1539,7 +1793,7 @@ export const uploadImage = async (event: any) => {
       userId,
       result: 'fail',
       message: error.message,
-      detail: { error: error.message },
+      detail: { error: error.message, bucket: S3_BUCKET_NAME },
       action: '이미지 업로드',
       screen: 'ProfileEditScreen',
       component: 'image_upload',
@@ -1553,38 +1807,98 @@ export const uploadImage = async (event: any) => {
   }
 };
 
-// 정적 파일 서빙 (개발용)
-export const serveFile = async (event: any) => {
-  const { year, month, day, userId, fileName } = event.pathParameters || {};
+// S3 Presigned URL 생성 (프론트엔드에서 직접 업로드용)
+export const getUploadUrl = async (event: any) => {
+  const { userId, fileName, contentType } = JSON.parse(event.body || '{}');
   
-  if (!year || !month || !day || !userId || !fileName) {
-    return { statusCode: 404, body: 'File not found' };
+  if (!userId || !fileName) {
+    return { statusCode: 400, body: JSON.stringify({ error: 'userId and fileName required' }) };
   }
 
   try {
-    // 구조화된 경로로 파일 찾기
-    const filePath = path.join(__dirname, 'files', year, month, day, userId, fileName);
+    // AWS S3 구조를 고려한 경로 생성
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
     
-    if (!fs.existsSync(filePath)) {
-      return { statusCode: 404, body: 'File not found' };
-    }
+    // S3 구조: images/profile/{year}/{month}/{day}/{userId}/
+    const s3Path = generateS3Path(userId, '', 'profile');
+    const timestamp = Date.now();
+    const extension = fileName.split('.').pop()?.toLowerCase() || 'jpg';
+    const savedFileName = `${timestamp}.${extension}`;
+    const s3Key = `${s3Path}/${savedFileName}`;
 
-    const fileContent = fs.readFileSync(filePath);
-    const contentType = getContentType(fileName);
+    // Presigned URL 생성
+    const putObjectCommand = new PutObjectCommand({
+      Bucket: S3_BUCKET_NAME,
+      Key: s3Key,
+      ContentType: contentType || getContentType(savedFileName),
+      Metadata: {
+        userId: userId,
+        uploadDate: now.toISOString(),
+        originalFileName: fileName
+      }
+    });
 
-    return {
-      statusCode: 200,
-      headers: {
-        'Content-Type': contentType,
-        'Cache-Control': 'public, max-age=31536000'
+    const presignedUrl = await getSignedUrl(s3Client, putObjectCommand, { expiresIn: 3600 }); // 1시간 유효
+
+    await appendLog({
+      type: 'presigned_url_generated',
+      userId,
+      result: 'success',
+      detail: { 
+        fileName: savedFileName, 
+        s3Key: s3Key,
+        expiresIn: 3600,
+        bucket: S3_BUCKET_NAME
       },
-      body: fileContent.toString('base64'),
-      isBase64Encoded: true
+      action: 'Presigned URL 생성',
+      screen: 'ProfileEditScreen',
+      component: 'image_upload',
+      logLevel: 'info'
+    });
+
+    return { 
+      statusCode: 200, 
+      body: JSON.stringify({ 
+        uploadUrl: presignedUrl,
+        fileName: savedFileName,
+        s3Key: s3Key,
+        s3Url: `https://${S3_BUCKET_NAME}.s3.ap-northeast-2.amazonaws.com/${s3Key}`,
+        expiresIn: 3600
+      }) 
     };
-  } catch (error) {
-    console.error('파일 서빙 에러:', error);
-    return { statusCode: 500, body: 'Internal server error' };
+  } catch (error: any) {
+    console.error('Presigned URL 생성 에러:', error);
+    
+    await appendLog({
+      type: 'presigned_url_generated',
+      userId,
+      result: 'fail',
+      message: error.message,
+      detail: { error: error.message, bucket: S3_BUCKET_NAME },
+      action: 'Presigned URL 생성',
+      screen: 'ProfileEditScreen',
+      component: 'image_upload',
+      logLevel: 'error'
+    });
+
+    return { 
+      statusCode: 500, 
+      body: JSON.stringify({ error: 'Failed to generate upload URL' }) 
+    };
   }
+};
+
+// 정적 파일 서빙 (S3 사용으로 대체됨)
+export const serveFile = async (event: any) => {
+  return { 
+    statusCode: 410, 
+    body: JSON.stringify({ 
+      error: 'This endpoint is deprecated. Use S3 URLs directly.' 
+    }) 
+  };
 };
 
 // 파일 확장자에 따른 Content-Type 반환
@@ -1605,101 +1919,14 @@ function getContentType(fileName: string): string {
   }
 }
 
-// 기존 이미지 마이그레이션 (개발용)
+// 기존 이미지 마이그레이션 (S3 사용으로 대체됨)
 export const migrateImages = async (event: any) => {
-  try {
-    const profiles = readJson(profilesPath);
-    const migratedCount = { success: 0, failed: 0 };
-    
-    for (const profile of profiles) {
-      if (profile.photos && Array.isArray(profile.photos)) {
-        const newPhotos = [];
-        
-        for (const photoUrl of profile.photos) {
-          // 기존 로컬 파일 경로인지 확인
-          if (photoUrl && photoUrl.startsWith('file:///')) {
-            try {
-              // 실제 파일 경로 추출
-              const localPath = photoUrl.replace('file://', '');
-              if (!fs.existsSync(localPath)) {
-                // 파일이 없으면 기존 경로 유지
-                newPhotos.push(photoUrl);
-                migratedCount.failed++;
-                continue;
-              }
-              // 새 경로 생성
-              const now = new Date();
-              const year = now.getFullYear();
-              const month = String(now.getMonth() + 1).padStart(2, '0');
-              const day = String(now.getDate()).padStart(2, '0');
-              const timestamp = Date.now();
-              const ext = localPath.split('.').pop() || 'jpg';
-              const newFileName = `${timestamp}.${ext}`;
-              const newDir = path.join(__dirname, 'files', `${year}`, `${month}`, `${day}`, profile.user_id);
-              if (!fs.existsSync(newDir)) {
-                fs.mkdirSync(newDir, { recursive: true });
-              }
-              const newFilePath = path.join(newDir, newFileName);
-              fs.copyFileSync(localPath, newFilePath);
-              const newPhotoUrl = `/files/${year}/${month}/${day}/${profile.user_id}/${newFileName}`;
-              newPhotos.push(newPhotoUrl);
-              migratedCount.success++;
-            } catch (error) {
-              console.error(`이미지 마이그레이션 실패: ${photoUrl}`, error);
-              migratedCount.failed++;
-              // 실패 시 기존 URL 유지
-              newPhotos.push(photoUrl);
-            }
-          } else {
-            // 이미 올바른 형식이거나 외부 URL인 경우 그대로 유지
-            newPhotos.push(photoUrl);
-          }
-        }
-        // 프로필 업데이트
-        profile.photos = newPhotos;
-      }
-    }
-    // 업데이트된 프로필 저장
-    writeJson(profilesPath, profiles);
-    await appendLog({
-      type: 'image_migration',
-      userId: '',
-      result: 'success',
-      detail: { 
-        migratedCount,
-        totalProfiles: profiles.length
-      },
-      action: '이미지 마이그레이션',
-      screen: 'AdminScreen',
-      component: 'image_migration',
-      logLevel: 'info'
-    });
-    return { 
-      statusCode: 200, 
-      body: JSON.stringify({ 
-        message: 'Image migration completed',
-        migratedCount,
-        totalProfiles: profiles.length
-      }) 
-    };
-  } catch (error: any) {
-    console.error('이미지 마이그레이션 에러:', error);
-    await appendLog({
-      type: 'image_migration',
-      userId: '',
-      result: 'fail',
-      message: error.message,
-      detail: { error: error.message },
-      action: '이미지 마이그레이션',
-      screen: 'AdminScreen',
-      component: 'image_migration',
-      logLevel: 'error'
-    });
-    return { 
-      statusCode: 500, 
-      body: JSON.stringify({ error: 'Image migration failed' }) 
-    };
-  }
+  return { 
+    statusCode: 410, 
+    body: JSON.stringify({ 
+      error: 'This endpoint is deprecated. Use S3 for image storage.' 
+    }) 
+  };
 };
 
 // AWS S3 구조를 고려한 파일 경로 생성 함수
@@ -1726,78 +1953,14 @@ function validateImageFormat(fileName: string): boolean {
   return extension ? allowedExtensions.includes(extension) : false;
 }
 
-// 파일 정리 함수 (오래된 임시 파일 삭제)
+// 파일 정리 함수 (S3 사용으로 대체됨)
 export const cleanupTempFiles = async (event: any) => {
-  try {
-    const tempDir = path.join(__dirname, 'files');
-    const maxAge = 24 * 60 * 60 * 1000; // 24시간
-    const now = Date.now();
-    let deletedCount = 0;
-    
-    function cleanupDirectory(dirPath: string) {
-      if (!fs.existsSync(dirPath)) return;
-      
-      const items = fs.readdirSync(dirPath);
-      for (const item of items) {
-        const itemPath = path.join(dirPath, item);
-        const stats = fs.statSync(itemPath);
-        
-        if (stats.isDirectory()) {
-          cleanupDirectory(itemPath);
-          // 빈 디렉토리 삭제
-          if (fs.readdirSync(itemPath).length === 0) {
-            fs.rmdirSync(itemPath);
-          }
-        } else if (stats.isFile()) {
-          // 임시 파일이고 24시간 이상 된 경우 삭제
-          if (now - stats.mtime.getTime() > maxAge) {
-            fs.unlinkSync(itemPath);
-            deletedCount++;
-          }
-        }
-      }
-    }
-    
-    cleanupDirectory(tempDir);
-    
-    await appendLog({
-      type: 'file_cleanup',
-      userId: '',
-      result: 'success',
-      detail: { deletedCount },
-      action: '파일 정리',
-      screen: 'AdminScreen',
-      component: 'file_cleanup',
-      logLevel: 'info'
-    });
-    
-    return { 
-      statusCode: 200, 
-      body: JSON.stringify({ 
-        message: 'File cleanup completed',
-        deletedCount 
-      }) 
-    };
-  } catch (error: any) {
-    console.error('파일 정리 에러:', error);
-    
-    await appendLog({
-      type: 'file_cleanup',
-      userId: '',
-      result: 'fail',
-      message: error.message,
-      detail: { error: error.message },
-      action: '파일 정리',
-      screen: 'AdminScreen',
-      component: 'file_cleanup',
-      logLevel: 'error'
-    });
-    
-    return { 
-      statusCode: 500, 
-      body: JSON.stringify({ error: 'File cleanup failed' }) 
-    };
-  }
+  return { 
+    statusCode: 410, 
+    body: JSON.stringify({ 
+      error: 'This endpoint is deprecated. Use S3 lifecycle policies for file cleanup.' 
+    }) 
+  };
 };
 
 export const getTerms = async () => {
@@ -3936,5 +4099,205 @@ export const getHistoryDetail = async (event: any) => {
     };
   } catch (error) {
     return { statusCode: 500, body: JSON.stringify({ error: 'Internal server error' }) };
+  }
+};
+
+// DynamoDB 테이블 생성 함수
+export const createDynamoDBTables = async (event: any) => {
+  try {
+    console.log('=== DynamoDB 테이블 생성 시작 ===');
+    
+    const { DynamoDBClient, CreateTableCommand } = require('@aws-sdk/client-dynamodb');
+    const dynamoClient = new DynamoDBClient({
+      region: 'ap-northeast-2',
+      endpoint: 'http://localhost:8000' // DynamoDB Local
+    });
+    
+    // 1. users 테이블 생성
+    try {
+      await dynamoClient.send(new CreateTableCommand({
+        TableName: 'Users',
+        KeySchema: [
+          { AttributeName: 'user_id', KeyType: 'HASH' }
+        ],
+        AttributeDefinitions: [
+          { AttributeName: 'user_id', AttributeType: 'S' }
+        ],
+        BillingMode: 'PAY_PER_REQUEST'
+      }));
+      console.log('Users 테이블 생성 완료');
+    } catch (error: any) {
+      if (error.name === 'ResourceInUseException') {
+        console.log('Users 테이블이 이미 존재합니다');
+      } else {
+        console.error('Users 테이블 생성 실패:', error);
+      }
+    }
+    
+    // 2. profiles 테이블 생성
+    try {
+      await dynamoClient.send(new CreateTableCommand({
+        TableName: 'Profiles',
+        KeySchema: [
+          { AttributeName: 'user_id', KeyType: 'HASH' }
+        ],
+        AttributeDefinitions: [
+          { AttributeName: 'user_id', AttributeType: 'S' }
+        ],
+        BillingMode: 'PAY_PER_REQUEST'
+      }));
+      console.log('Profiles 테이블 생성 완료');
+    } catch (error: any) {
+      if (error.name === 'ResourceInUseException') {
+        console.log('Profiles 테이블이 이미 존재합니다');
+      } else {
+        console.error('Profiles 테이블 생성 실패:', error);
+      }
+    }
+    
+    // 3. Preferences 테이블 생성
+    try {
+      await dynamoClient.send(new CreateTableCommand({
+        TableName: 'Preferences',
+        KeySchema: [
+          { AttributeName: 'user_id', KeyType: 'HASH' }
+        ],
+        AttributeDefinitions: [
+          { AttributeName: 'user_id', AttributeType: 'S' }
+        ],
+        BillingMode: 'PAY_PER_REQUEST'
+      }));
+      console.log('Preferences 테이블 생성 완료');
+    } catch (error: any) {
+      if (error.name === 'ResourceInUseException') {
+        console.log('Preferences 테이블이 이미 존재합니다');
+      } else {
+        console.error('Preferences 테이블 생성 실패:', error);
+      }
+    }
+    
+    console.log('=== DynamoDB 테이블 생성 완료 ===');
+    
+    return {
+      statusCode: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      },
+      body: JSON.stringify({
+        message: 'DynamoDB 테이블 생성 완료'
+      })
+    };
+  } catch (error: any) {
+    console.error('DynamoDB 테이블 생성 에러:', error);
+    return {
+      statusCode: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      },
+      body: JSON.stringify({ error: '테이블 생성 실패', message: error.message })
+    };
+  }
+};
+
+// 파일 데이터를 DynamoDB로 마이그레이션하는 함수
+export const migrateToDynamoDB = async (event: any) => {
+  try {
+    console.log('=== DynamoDB 마이그레이션 시작 ===');
+    
+    // 1. 사용자 데이터 마이그레이션
+    const users = readJson(usersPath);
+    let migratedUsers = 0;
+    
+    for (const user of users) {
+      try {
+        await ddbDocClient.send(
+          new PutCommand({
+            TableName: 'Users',
+            Item: user
+          })
+        );
+        migratedUsers++;
+        console.log(`사용자 마이그레이션 완료: ${user.user_id}`);
+      } catch (error) {
+        console.error(`사용자 마이그레이션 실패: ${user.user_id}`, error);
+      }
+    }
+    
+    // 2. 프로필 데이터 마이그레이션
+    const profiles = readJson(profilesPath);
+    let migratedProfiles = 0;
+    
+    for (const profile of profiles) {
+      try {
+        await ddbDocClient.send(
+          new PutCommand({
+            TableName: 'Profiles',
+            Item: profile
+          })
+        );
+        migratedProfiles++;
+        console.log(`프로필 마이그레이션 완료: ${profile.user_id}`);
+      } catch (error) {
+        console.error(`프로필 마이그레이션 실패: ${profile.user_id}`, error);
+      }
+    }
+    
+    // 3. 이상형 데이터 마이그레이션
+    const preferences = readJson(preferencesPath);
+    let migratedPreferences = 0;
+    
+    for (const preference of preferences) {
+      try {
+        await ddbDocClient.send(
+          new PutCommand({
+            TableName: 'Preferences',
+            Item: preference
+          })
+        );
+        migratedPreferences++;
+        console.log(`이상형 마이그레이션 완료: ${preference.user_id}`);
+      } catch (error) {
+        console.error(`이상형 마이그레이션 실패: ${preference.user_id}`, error);
+      }
+    }
+    
+    console.log('=== DynamoDB 마이그레이션 완료 ===');
+    console.log(`마이그레이션 결과:`);
+    console.log(`- 사용자: ${migratedUsers}/${users.length}`);
+    console.log(`- 프로필: ${migratedProfiles}/${profiles.length}`);
+    console.log(`- 이상형: ${migratedPreferences}/${preferences.length}`);
+    
+    return {
+      statusCode: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      },
+      body: JSON.stringify({
+        message: 'DynamoDB 마이그레이션 완료',
+        migrated: {
+          users: migratedUsers,
+          profiles: migratedProfiles,
+          preferences: migratedPreferences
+        },
+        total: {
+          users: users.length,
+          profiles: profiles.length,
+          preferences: preferences.length
+        }
+      })
+    };
+  } catch (error: any) {
+    console.error('DynamoDB 마이그레이션 에러:', error);
+    return {
+      statusCode: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      },
+      body: JSON.stringify({ error: '마이그레이션 실패', message: error.message })
+    };
   }
 };

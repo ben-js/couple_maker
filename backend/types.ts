@@ -60,6 +60,7 @@ export interface UserPreferences {
   smoking: string;
   drinking: string;
   religion: string;
+  priority: string;
   preferred_meetup_types: string[];
   priority_fields: string[];
   priority_order: string[];
