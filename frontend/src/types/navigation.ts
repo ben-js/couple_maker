@@ -12,6 +12,7 @@ export type RootStackParamList = {
   Loading: undefined;
   Signup: undefined;
   Login: undefined;
+  EmailVerification: { email: string } | undefined;
   Onboarding: undefined;
   Terms: { type?: 'terms' | 'privacy' | 'customer' } | undefined;
   Auth?: undefined;

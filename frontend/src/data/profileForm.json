@@ -127,22 +127,13 @@
     "errorMessage": "종교를 선택해 주세요"
   },
   {
-    "name": "maritalStatus",
-    "label": "혼인상태",
+    "name": "childrenDesire",
+    "label": "자녀 계획",
     "type": "picker",
-    "optionsKey": "maritalStatuses",
-    "placeholder": "혼인상태를 선택하세요",
+    "optionsKey": "childrenDesire",
+    "placeholder": "자녀 계획을 선택하세요",
     "required": true,
-    "errorMessage": "혼인상태를 선택해 주세요"
-  },
-  {
-    "name": "hasChildren",
-    "label": "자녀",
-    "type": "picker",
-    "optionsKey": "hasChildren",
-    "placeholder": "자녀 여부를 선택하세요",
-    "required": true,
-    "errorMessage": "자녀 여부를 선택해 주세요"
+    "errorMessage": "자녀 계획을 선택해 주세요"
   },
   {
     "name": "marriagePlans",
@@ -152,6 +143,24 @@
     "placeholder": "결혼 계획을 선택하세요",
     "required": true,
     "errorMessage": "결혼 계획을 선택해 주세요"
+  },
+  {
+    "name": "salary",
+    "label": "연봉",
+    "type": "picker",
+    "optionsKey": "salary",
+    "placeholder": "연봉을 선택하세요",
+    "required": true,
+    "errorMessage": "연봉을 선택해 주세요"
+  },
+  {
+    "name": "asset",
+    "label": "자산",
+    "type": "picker",
+    "optionsKey": "asset",
+    "placeholder": "자산을 선택하세요",
+    "required": true,
+    "errorMessage": "자산을 선택해 주세요"
   },
   {
     "name": "introduction",

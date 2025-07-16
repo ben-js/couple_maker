@@ -1,9 +1,8 @@
 import React, { useEffect } from 'react';
-import { createStackNavigator, StackNavigationProp } from '@react-navigation/stack';
+import { createStackNavigator } from '@react-navigation/stack';
 import { useAuth } from '@/store/AuthContext';
 import { RootStackParamList } from '@/types/navigation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation } from '@react-navigation/native';
 import { NAVIGATION_ROUTES } from '@/constants';
 import { ActivityIndicator } from 'react-native';
 
@@ -20,12 +19,12 @@ import ReviewWriteScreen from '@/screens/ReviewWriteScreen';
 import ContactDetailScreen from '../screens/ContactDetailScreen';
 import HistoryDetailScreen from '../screens/HistoryDetailScreen';
 import SignupScreen from '../screens/SignupScreen';
+import EmailVerificationScreen from '../screens/EmailVerificationScreen';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
 const RootNavigator: React.FC = () => {
   const { isAuthenticated, isLoading, user } = useAuth();
-  const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const [isOnboardingShown, setIsOnboardingShown] = React.useState<boolean | null>(null);
   const [showLoading, setShowLoading] = React.useState(true);
 
@@ -49,13 +48,21 @@ const RootNavigator: React.FC = () => {
     setIsOnboardingShown(true);
   }, []);
 
-  // 온보딩을 이미 본 사용자는 바로 로그인으로
-  useEffect(() => {
-    if (showLoading || isOnboardingShown === null) return;
-    if (isOnboardingShown) {
-      navigation.navigate(NAVIGATION_ROUTES.LOGIN);
-    }
-  }, [showLoading, isOnboardingShown, navigation]);
+  // 온보딩을 이미 본 사용자는 바로 로그인으로 이동 (네비게이션은 각 화면에서 처리)
+  // useEffect(() => {
+  //   if (showLoading || isOnboardingShown === null) return;
+  //   if (isOnboardingShown) {
+  //     navigation.navigate(NAVIGATION_ROUTES.LOGIN);
+  //   }
+  // }, [showLoading, isOnboardingShown, navigation]);
+
+  // 인증된 사용자의 이메일 인증 상태 확인 (네비게이션은 각 화면에서 처리)
+  // useEffect(() => {
+  //   if (isAuthenticated && user && !user.isVerified && user.email) {
+  //     // 이메일 인증이 완료되지 않은 사용자는 이메일 인증 화면으로 이동
+  //     navigation.navigate(NAVIGATION_ROUTES.EMAIL_VERIFICATION, { email: user.email });
+  //   }
+  // }, [isAuthenticated, user, navigation]);
 
   if (showLoading || isOnboardingShown === null) {
     return (
@@ -83,6 +90,7 @@ const RootNavigator: React.FC = () => {
       <Stack.Screen name={NAVIGATION_ROUTES.CONTACT_DETAIL} component={ContactDetailScreen} options={{ title: '연락처 상세' }} />
       <Stack.Screen name="HistoryDetail" component={HistoryDetailScreen} />
       <Stack.Screen name={NAVIGATION_ROUTES.SIGNUP} component={SignupScreen} />
+      <Stack.Screen name={NAVIGATION_ROUTES.EMAIL_VERIFICATION} component={EmailVerificationScreen} />
     </Stack.Navigator>
   );
 };

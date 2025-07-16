@@ -412,6 +412,11 @@
 - 동적 폼 렌더링 (preferenceForm.json 기반)
 - 다중 선택 (chips, range slider 등)
 - 지역 선택 모달
+- 우선순위 선택 UI (FormOrderSelector 컴포넌트)
+  - 바텀시트 모달에서 순서대로 선택
+  - 선택된 항목에 번호 뱃지 표시
+  - 최대 3개까지 선택 가능
+  - 우선순위 배열로 저장 (예: ["외모", "성격", "직업"])
 
 **[카드함 시스템]**
 - 카드 목록 조회 API 연동
@@ -498,7 +503,7 @@
 
 ---
 
-# 🗃️ Couple Maker - DynamoDB 스키마 명세
+# 🗃️ DateSense - DynamoDB 스키마 명세
 
 소개팅 앱에 필요한 주요 테이블 및 속성 정의입니다.
 
@@ -529,7 +534,7 @@
 
 ---
 
-## 📄 UserProfiles Table
+## 📄 Profiles Table
 
 * `PK`: user_id (string)
 * Attributes:
@@ -548,9 +553,10 @@
   * smoking: 흡연 | 비흡연
   * drinking: 음주 | 비음주
   * religion: 무교 | 불교 | 천주교 | 기독교 | 기타
-  * marital_status: 미혼 | 이혼 | 사별
-  * has_children: 없음 | 있음
+  * children_desire: 딩크족 희망 | 자녀 희망 | 상관없음
   * marriage_plans: 1년 내 | 1-2년 내 | 2-3년 내 | 3년 후 | 미정
+  * salary: 4천만원 미만 | 4천만원 ~ 5천만원 | 5천만원 ~ 7천만원 | 7천만원 ~ 9천만원 | 1억원 ~ 1억5천만원 | 1억5천만원 ~ 2억원 | 2억원 이상
+  * asset: 5천만원 미만 | 5천만원 ~ 1억원 | 1억원 ~ 2억원 | 2억원 ~ 3억원 | 3억원 ~ 5억원 | 5억원 ~ 10억원 | 10억원 ~ 15억원 | 15억원 ~ 20억원 | 20억원 이상
   * introduction: (string)
   * photos: (list of S3 urls)
 
@@ -568,12 +574,15 @@
   * education_levels: (list of strings)
   * body_types: (list of strings)
   * mbti_types: (list of strings)
-  * hobbies: (list of strings)
+  * interests: (list of strings)
   * smoking: 흡연 | 비흡연 | 상관없음
   * drinking: 음주 | 비음주 | 상관없음
   * religion: 무교 | 불교 | 천주교 | 기독교 | 기타 | 상관없음
   * children_desire: 딩크족 희망 | 자녀 희망 | 상관없음
   * marriage_plan: 1년 내 | 1-2년 내 | 2-3년 내 | 3년 후 | 미정
+  * salary: 2000만원 미만 | 2000-3000만원 | 3000-5000만원 | 5000-7000만원 | 7000만원 이상
+  * asset: 5000만원 미만 | 5000만-1억 | 1억-3억 | 3억-5억 | 5억 이상
+  * priority: (list of strings) // 우선순위 배열 (예: ["외모", "성격", "직업"])
 
 ---
 

@@ -8,6 +8,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAuth } from '../store/AuthContext';
 import { saveProfile, getUserProfile } from '../services/userService';
+import { useUserProfile } from '../hooks/useUserProfile';
 import optionsRaw from '../data/options.json';
 import { Options } from '../types/options';
 import { useForm, Controller } from 'react-hook-form';
@@ -102,6 +103,7 @@ const ProfileEditScreen = () => {
 
   const navigation = useNavigation<any>();
   const { user, setUser } = useAuth();
+  const { refreshProfile, userProfile } = useUserProfile();
   const route = useRoute<any>();
   const isEditMode = route?.params?.isEditMode ?? false;
   
@@ -118,58 +120,45 @@ const ProfileEditScreen = () => {
     }, {} as any),
   });
 
-  // 기존 프로필 데이터 로딩 (수정 모드일 때)
+  // 기존 프로필 데이터 로딩 (수정 모드일 때) - Context에서 관리되므로 제거
   React.useEffect(() => {
-    const loadExistingProfile = async () => {
-      if (!user?.userId || !isEditMode) {
-        setIsLoading(false);
-        return;
-      }
+    if (!user?.userId || !isEditMode) {
+      setIsLoading(false);
+      return;
+    }
 
-      
-      try {
-        const existingProfile = await getUserProfile(user.userId);
-        
-        if (existingProfile) {
-          // 백엔드에서 이미 camelCase로 변환된 데이터를 그대로 사용
+    if (userProfile) {
+      // 폼에 기존 데이터 설정
+      Object.keys(userProfile).forEach(key => {
+        if (key !== 'id' && key !== 'photos') {
+          let value = (userProfile as any)[key];
           
-          // 폼에 기존 데이터 설정
-          Object.keys(existingProfile).forEach(key => {
-            if (key !== 'id' && key !== 'photos') {
-              let value = (existingProfile as any)[key];
-              
-              // height 필드는 문자열을 숫자로 변환
-              if (key === 'height' && typeof value === 'string') {
-                value = parseInt(value, 10);
-              }
-              
-              setValue(key, value);
-            }
-          });
-          
-          // 사진 설정
-          if (existingProfile.photos && existingProfile.photos.length > 0) {
-            const photoArray: (string | null)[] = [...existingProfile.photos];
-            while (photoArray.length < 5) photoArray.push(null);
-            setPhotos(photoArray.slice(0, 5));
+          // height 필드는 문자열을 숫자로 변환
+          if (key === 'height' && typeof value === 'string') {
+            value = parseInt(value, 10);
           }
           
-        } else {
+          setValue(key, value);
         }
-      } catch (error) {
-        logger.error('기존 프로필 로드 실패', { error, userId: user.userId });
-      } finally {
-        setIsLoading(false);
+      });
+      
+      // 사진 설정
+      if (userProfile.photos && userProfile.photos.length > 0) {
+        const photoArray: (string | null)[] = [...userProfile.photos];
+        while (photoArray.length < 5) photoArray.push(null);
+        setPhotos(photoArray.slice(0, 5));
       }
-    };
-
-    loadExistingProfile();
-  }, [user?.userId, isEditMode, setValue]);
+    }
+    
+    setIsLoading(false);
+  }, [user?.userId, isEditMode, userProfile, setValue]);
 
   // 사진 관련 핸들러들
+  const cleanPhotos = (arr: (string|null)[]) => arr.filter((p): p is string => !!p && typeof p === 'string');
+
   const handleCamera = async (idx: number|null) => {
     if (idx === null) return;
-    const result = await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8 });
+    const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.8 });
     if (!result.canceled && result.assets && result.assets.length > 0) {
       const newPhotos = [...photos];
       newPhotos[idx] = result.assets[0].uri;
@@ -181,7 +170,7 @@ const ProfileEditScreen = () => {
   const handleGallery = async (idx: number|null) => {
     if (idx === null) return;
     setPhotoActionIndex(null);
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8 });
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 });
     if (!result.canceled && result.assets && result.assets.length > 0) {
       setPreviewUri(result.assets[0].uri);
       setPreviewTargetIdx(idx);
@@ -208,7 +197,6 @@ const ProfileEditScreen = () => {
 
   const handleSaveCrop = async () => {
     if (!previewUri || previewTargetIdx === null) return;
-    
     try {
       Image.getSize(previewUri, async (width, height) => {
         const size = Math.min(width, height);
@@ -218,14 +206,11 @@ const ProfileEditScreen = () => {
           width: size,
           height: size,
         };
-        
         const manipResult = await ImageManipulator.manipulateAsync(
           previewUri,
           [{ crop: cropRegion }],
           { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
         );
-
-        // 로컬에서만 이미지 URI 저장 (백엔드 업로드는 프로필 저장 시 수행)
         const newPhotos = [...photos];
         if (previewTargetIdx >= 0 && previewTargetIdx < newPhotos.length) {
           newPhotos[previewTargetIdx] = manipResult.uri;
@@ -246,8 +231,7 @@ const ProfileEditScreen = () => {
       Alert.alert('오류', '로그인 정보가 올바르지 않습니다. 다시 로그인 해주세요.');
       return;
     }
-    
-    const filteredPhotos = photos.filter(p => !!p);
+    const filteredPhotos = cleanPhotos(photos);
     if (filteredPhotos.length < 1) {
       if (Platform.OS === 'android') {
         ToastAndroid.show(TOAST_MESSAGES.PROFILE_PHOTO_REQUIRED, ToastAndroid.SHORT);
@@ -256,41 +240,47 @@ const ProfileEditScreen = () => {
       }
       return;
     }
-    
     const profile = {
       id: user.userId,
+      userId: user.userId,
       ...data,
       photos: filteredPhotos,
     };
-    
     try {
       const success = await saveProfile(profile);
-      
       if (success) {
-        // 프로필 저장 성공 시 최신 프로필 fetch 후 setUser로 갱신
         const latestProfile = await getUserProfile(user.userId);
         if (latestProfile) {
-          setUser(latestProfile);
+          setUser({
+            ...user,
+            ...latestProfile,
+            hasProfile: true,
+            photos: latestProfile.photos
+          });
+        } else {
+          setUser({
+            ...user,
+            hasProfile: true,
+            photos: filteredPhotos as string[]
+          });
         }
+        refreshProfile();
       }
-      
       if (Platform.OS === 'android') {
         ToastAndroid.show(TOAST_MESSAGES.PROFILE_SAVED, ToastAndroid.SHORT);
       } else {
         Alert.alert(TOAST_MESSAGES.PROFILE_SAVED);
       }
-      
       if (!user.hasProfile && !isEditMode) {
         logger.navigation.navigate('ProfileEditScreen', NAVIGATION_ROUTES.PREFERENCE_EDIT);
         navigation.navigate(NAVIGATION_ROUTES.PREFERENCE_EDIT, { isEditMode: false });
       } else {
-        // 메뉴에서 온 경우 메뉴로 돌아가기
         if (route?.params?.fromMenu) {
-          logger.navigation.navigate('ProfileEditScreen', NAVIGATION_ROUTES.MENU);
-          navigation.navigate(NAVIGATION_ROUTES.MENU);
-      } else {
-        logger.navigation.navigate('ProfileSetupScreen', NAVIGATION_ROUTES.MAIN);
-        navigation.navigate(NAVIGATION_ROUTES.MAIN, { screen: NAVIGATION_ROUTES.MAIN });
+          logger.navigation.navigate('ProfileEditScreen', NAVIGATION_ROUTES.MAIN);
+          navigation.navigate(NAVIGATION_ROUTES.MAIN, { screen: 'Menu' });
+        } else {
+          logger.navigation.navigate('ProfileSetupScreen', NAVIGATION_ROUTES.MAIN);
+          navigation.navigate(NAVIGATION_ROUTES.MAIN, { screen: NAVIGATION_ROUTES.MAIN });
         }
       }
     } catch (e) {
@@ -308,12 +298,17 @@ const ProfileEditScreen = () => {
   }
 
   return (
-    <View style={{ flex: 1, position: 'relative' }}>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
+    >
       <PageLayout title={isEditMode ? "프로필 수정" : "프로필 등록"}>
         <View style={{ flex: 1 }}>
           <ScrollView
             style={{ flex: 1 }}
             contentContainerStyle={{ paddingBottom: BUTTON_HEIGHT + 32 }}
+            keyboardShouldPersistTaps="handled"
           >
         {/* 대표 이미지 */}
         <View style={styles.profileImageWrap}>
@@ -464,6 +459,8 @@ const ProfileEditScreen = () => {
                     onChange={onChange}
                     error={error?.message}
                     placeholder={field.placeholder}
+                    formType="profile"
+                    optionsKey={field.optionsKey}
                   />
                 )}
               />
@@ -630,8 +627,8 @@ const ProfileEditScreen = () => {
           left: 0, right: 0, bottom: 0,
           alignItems: 'center',
           zIndex: 100,
-          paddingBottom: 24,
           backgroundColor: colors.background,
+          paddingBottom: 16,
           width: '100%',
         }}>
           <TouchableOpacity style={{
@@ -640,7 +637,6 @@ const ProfileEditScreen = () => {
             borderRadius: 20,
             paddingVertical: 18,
             alignItems: 'center',
-            height: BUTTON_HEIGHT,
           }} onPress={handleSubmit(
             (data) => onSubmit(data),
             (formErrors) => {
@@ -656,7 +652,7 @@ const ProfileEditScreen = () => {
             <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 18 }}>저장</Text>
           </TouchableOpacity>
         </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 };
 

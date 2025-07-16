@@ -1,7 +1,7 @@
 // LoginScreen.tsx (AuthScreen.tsx에서 이름만 변경)
 // ... (이전 AuthScreen.tsx의 최신 리팩토링된 코드 전체를 여기에 복사) ... 
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, Image, Platform, ToastAndroid, Alert } from 'react-native';
 import { View, Text, TextField, Button, Icon } from 'react-native-ui-lib';
 import { useNavigation } from '@react-navigation/native';
@@ -9,34 +9,61 @@ import { useAuth } from '../store/AuthContext';
 import { login } from '../services/userService';
 import { logger } from '@/utils/logger';
 import { TOAST_MESSAGES, NAVIGATION_ROUTES, BUTTON_TEXTS, colors, typography } from '@/constants';
+import { getUser } from '../db/user';
+import { apiGet } from '@/utils/apiUtils';
 
 const logo = require('../../assets/logo.png');
 
 const LoginScreen = () => {
-  const [email, setEmail] = useState('test@test.com');
-  const [password, setPassword] = useState('1234');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const navigation = useNavigation<any>();
   const { setUser } = useAuth();
+
+  // 최근 로그인한 이메일 자동 입력
+  useEffect(() => {
+    const loadLastEmail = async () => {
+      const user = await getUser();
+      if (user?.email) setEmail(user.email);
+    };
+    loadLastEmail();
+  }, []);
 
   const isLoginEnabled = email.length > 0 && password.length > 0;
 
   const handleLogin = async () => {
-    if (!isLoginEnabled) return;
+    if (!isLoginEnabled || isLoggingIn) return;
+    
+    setIsLoggingIn(true);
     try {
       logger.info('로그인 시도', { email, password: password ? '***' : 'empty' });
       logger.api.request('POST', '/login', { email });
       const user = await login({ email, password });
       if (!user || !user.userId) throw new Error('로그인에 실패했습니다. (user 정보 없음)');
       logger.api.response('POST', '/login', { success: true, userId: user.userId });
+      // 로그인 응답에 이미 필요한 정보가 포함되어 있으므로 추가 API 호출 제거
       await setUser(user);
       if (Platform.OS === 'android') {
         ToastAndroid.show(TOAST_MESSAGES.LOGIN_SUCCESS, ToastAndroid.SHORT);
       } else {
         Alert.alert(TOAST_MESSAGES.LOGIN_SUCCESS);
       }
-      // 프로필/선호정보 여부 분기 로직은 실제 구현에 맞게 수정 필요
-      navigation.navigate(NAVIGATION_ROUTES.MAIN, { screen: NAVIGATION_ROUTES.MAIN });
+      // 분기 처리도 user 기준으로!
+      if (!user.isVerified) {
+        logger.info('이메일 인증이 완료되지 않은 사용자', { userId: user.userId, email: user.email });
+        navigation.navigate(NAVIGATION_ROUTES.EMAIL_VERIFICATION, { email: user.email });
+      } else if (!user.hasProfile) {
+        logger.info('프로필이 없는 사용자', { userId: user.userId });
+        navigation.navigate(NAVIGATION_ROUTES.PROFILE_EDIT);
+      } else if (!user.hasPreferences) {
+        logger.info('이상형이 없는 사용자', { userId: user.userId });
+        navigation.navigate(NAVIGATION_ROUTES.PREFERENCE_EDIT);
+      } else {
+        logger.info('모든 설정이 완료된 사용자', { userId: user.userId });
+        navigation.navigate(NAVIGATION_ROUTES.MAIN, { screen: NAVIGATION_ROUTES.MAIN });
+      }
     } catch (e) {
       const errorMessage = (e as Error).message;
       logger.error('로그인 실패', { error: errorMessage, email });
@@ -45,6 +72,8 @@ const LoginScreen = () => {
       } else {
         Alert.alert(TOAST_MESSAGES.LOGIN_FAILED, errorMessage);
       }
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
@@ -53,6 +82,7 @@ const LoginScreen = () => {
       <Image source={logo} style={styles.logo} />
       <View style={styles.inputGroup}>
         <TextField
+          migrate
           style={styles.emailInput}
           placeholder="이메일"
           placeholderTextColor={colors.text.disabled}
@@ -65,6 +95,7 @@ const LoginScreen = () => {
           floatingPlaceholder={false}
         />
         <TextField
+          migrate
           style={styles.emailInput}
           placeholder="비밀번호"
           placeholderTextColor={colors.text.disabled}
@@ -77,12 +108,12 @@ const LoginScreen = () => {
           floatingPlaceholder={false}
         />
         <Button
-          label={BUTTON_TEXTS.LOGIN}
-          style={[styles.loginBtn, !isLoginEnabled && styles.loginBtnDisabled]}
-          labelStyle={isLoginEnabled ? styles.loginBtnLabel : { ...styles.loginBtnLabel, color: '#222' }}
+          label={isLoggingIn ? '로그인 중...' : BUTTON_TEXTS.LOGIN}
+          style={[styles.loginBtn, (!isLoginEnabled || isLoggingIn) && styles.loginBtnDisabled]}
+          labelStyle={isLoginEnabled && !isLoggingIn ? styles.loginBtnLabel : { ...styles.loginBtnLabel, color: '#222' }}
           onPress={handleLogin}
           fullWidth
-          disabled={!isLoginEnabled}
+          disabled={!isLoginEnabled || isLoggingIn}
         />
       </View>
       <Button

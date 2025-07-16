@@ -1,9 +1,0 @@
-[
-  {
-    "user_id": "user-1",
-    "timestamp": "2024-01-01T00:00:00.000Z",
-    "type": "signup",
-    "points": 100,
-    "description": "회원가입 보너스"
-  }
-] 

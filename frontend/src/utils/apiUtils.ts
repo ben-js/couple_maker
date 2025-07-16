@@ -1,6 +1,5 @@
 import { logger } from './logger';
-
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.219.100:3000';
+import { API_CONFIG } from '@/constants';
 
 // API 요청 기본 설정
 const getDefaultHeaders = (userId?: string) => ({
@@ -18,16 +17,22 @@ interface ApiResponse<T = any> {
 // API 요청 함수 (GET)
 export const apiGet = async <T = any>(url: string, params?: Record<string, any>, userId?: string): Promise<T> => {
   const fullUrl = params 
-    ? `${API_BASE_URL}${url}?${new URLSearchParams(params).toString()}`
-    : `${API_BASE_URL}${url}`;
+    ? `${API_CONFIG.BASE_URL}${url}?${new URLSearchParams(params).toString()}`
+    : `${API_CONFIG.BASE_URL}${url}`;
 
   try {
     logger.api.request('GET', fullUrl);
     
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), API_CONFIG.TIMEOUT);
+    
     const response = await fetch(fullUrl, {
       method: 'GET',
       headers: getDefaultHeaders(userId),
+      signal: controller.signal,
     });
+    
+    clearTimeout(timeoutId);
 
     const result: ApiResponse<T> = await response.json();
 
@@ -45,16 +50,22 @@ export const apiGet = async <T = any>(url: string, params?: Record<string, any>,
 
 // API 요청 함수 (POST)
 export const apiPost = async <T = any>(url: string, data?: any, userId?: string): Promise<T> => {
-  const fullUrl = `${API_BASE_URL}${url}`;
+  const fullUrl = `${API_CONFIG.BASE_URL}${url}`;
 
   try {
     logger.api.request('POST', fullUrl, data);
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), API_CONFIG.TIMEOUT);
     
     const response = await fetch(fullUrl, {
       method: 'POST',
       headers: getDefaultHeaders(userId),
       body: data ? JSON.stringify(data) : undefined,
+      signal: controller.signal,
     });
+    
+    clearTimeout(timeoutId);
 
     const result: ApiResponse<T> = await response.json();
 
@@ -72,7 +83,7 @@ export const apiPost = async <T = any>(url: string, data?: any, userId?: string)
 
 // API 요청 함수 (PUT)
 export const apiPut = async <T = any>(url: string, data?: any, userId?: string): Promise<T> => {
-  const fullUrl = `${API_BASE_URL}${url}`;
+  const fullUrl = `${API_CONFIG.BASE_URL}${url}`;
 
   try {
     logger.api.request('PUT', fullUrl, data);
@@ -99,7 +110,7 @@ export const apiPut = async <T = any>(url: string, data?: any, userId?: string):
 
 // API 요청 함수 (DELETE)
 export const apiDelete = async <T = any>(url: string, userId?: string): Promise<T> => {
-  const fullUrl = `${API_BASE_URL}${url}`;
+  const fullUrl = `${API_CONFIG.BASE_URL}${url}`;
 
   try {
     logger.api.request('DELETE', fullUrl);
@@ -125,7 +136,7 @@ export const apiDelete = async <T = any>(url: string, userId?: string): Promise<
 
 // 파일 업로드 함수
 export const apiUpload = async <T = any>(url: string, file: File, onProgress?: (progress: number) => void, userId?: string): Promise<T> => {
-  const fullUrl = `${API_BASE_URL}${url}`;
+  const fullUrl = `${API_CONFIG.BASE_URL}${url}`;
   const formData = new FormData();
   formData.append('file', file);
 

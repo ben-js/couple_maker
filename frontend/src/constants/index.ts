@@ -17,9 +17,9 @@ export const APP_CONFIG = {
   NAME: 'Date Sense',
   VERSION: '1.0.0',
   BUILD_NUMBER: '1',
-  SUPPORT_EMAIL: 'support@couplemaker.com',
-  PRIVACY_POLICY_URL: 'https://couplemaker.com/privacy',
-  TERMS_OF_SERVICE_URL: 'https://couplemaker.com/terms',
+  SUPPORT_EMAIL: 'support@datensense.com',
+  PRIVACY_POLICY_URL: 'https://datensense.com/privacy',
+  TERMS_OF_SERVICE_URL: 'https://datensense.com/terms',
 } as const;
 
 // 포인트 정책
@@ -109,6 +109,12 @@ export const MARITAL_STATUS = {
 export const CHILDREN_STATUS = {
   NONE: '없음',
   HAS: '있음',
+} as const;
+
+// API 설정
+export const API_CONFIG = {
+  BASE_URL: process.env.EXPO_PUBLIC_API_URL || 'http://192.168.219.100:3000',
+  TIMEOUT: 5000, // 5초로 단축
 } as const;
 
 // API 엔드포인트

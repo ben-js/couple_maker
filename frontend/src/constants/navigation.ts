@@ -4,6 +4,7 @@ export const NAVIGATION_ROUTES = {
   ONBOARDING: 'Onboarding',
   LOGIN: 'Login',
   SIGNUP: 'Signup',
+  EMAIL_VERIFICATION: 'EmailVerification',
   MAIN: 'Main',
   POINT_CHARGE: 'PointCharge',
   

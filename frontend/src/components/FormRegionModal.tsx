@@ -17,6 +17,21 @@ const FormRegionModal: React.FC<FormRegionModalProps> = ({ label, value, onChang
   const [showDistricts, setShowDistricts] = useState(false);
   const regionNames = Object.keys(regionData);
 
+  // 모달이 열릴 때 현재 값으로 초기화
+  const handleOpenModal = () => {
+    setSelectedRegion(value.region || '');
+    setSelectedDistrict(value.district || '');
+    setShowDistricts(false);
+    setModalVisible(true);
+  };
+
+  // 지역 선택 시 구/군 초기화
+  const handleRegionSelect = (region: string) => {
+    setSelectedRegion(region);
+    setSelectedDistrict(''); // 새로운 지역 선택 시 구/군 초기화
+    setShowDistricts(true);
+  };
+
   const handleSelect = () => {
     onChange({ region: selectedRegion, district: selectedDistrict });
     setModalVisible(false);
@@ -26,7 +41,7 @@ const FormRegionModal: React.FC<FormRegionModalProps> = ({ label, value, onChang
     <View style={{ marginBottom: 0 }}>
       <Text style={{ fontWeight: 'bold', marginBottom: 4 }}>{label}</Text>
       <TouchableOpacity
-        onPress={() => { setModalVisible(true); setShowDistricts(false); }}
+        onPress={handleOpenModal}
         activeOpacity={0.8}
         style={{ minHeight: 40, justifyContent: 'center', paddingHorizontal: 0, marginBottom: 16 }}
       >
@@ -56,7 +71,7 @@ const FormRegionModal: React.FC<FormRegionModalProps> = ({ label, value, onChang
                   <TouchableOpacity
                     key={r}
                     style={{ padding: 8, margin: 4, borderRadius: 8, backgroundColor: selectedRegion === r ? '#3B82F6' : '#eee', minWidth: 80, alignItems: 'center' }}
-                    onPress={() => { setSelectedRegion(r); setShowDistricts(true); }}
+                    onPress={() => handleRegionSelect(r)}
                   >
                     <Text style={{ color: selectedRegion === r ? '#fff' : '#222', fontWeight: 'bold', fontSize: 16 }}>{r}</Text>
                   </TouchableOpacity>
@@ -78,7 +93,7 @@ const FormRegionModal: React.FC<FormRegionModalProps> = ({ label, value, onChang
                   <TouchableOpacity
                     key={d}
                     style={{ padding: 8, margin: 4, borderRadius: 8, backgroundColor: selectedDistrict === d ? '#3B82F6' : '#eee', minWidth: 80, alignItems: 'center' }}
-                    onPress={() => { setSelectedDistrict(d); setModalVisible(false); handleSelect(); }}
+                    onPress={() => setSelectedDistrict(d)}
                   >
                     <Text style={{ color: selectedDistrict === d ? '#fff' : '#222', fontWeight: 'bold', fontSize: 16 }}>{d}</Text>
                   </TouchableOpacity>
@@ -87,7 +102,7 @@ const FormRegionModal: React.FC<FormRegionModalProps> = ({ label, value, onChang
               <View style={{ padding: 24, paddingTop: 0 }}>
                 <TouchableOpacity
                   style={{ backgroundColor: '#3B82F6', borderRadius: 12, paddingVertical: 14, alignItems: 'center' }}
-                  onPress={() => setModalVisible(false)}
+                  onPress={handleSelect}
                 >
                   <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>확인</Text>
                 </TouchableOpacity>

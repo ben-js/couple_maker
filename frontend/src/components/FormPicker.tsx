@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Modal, SafeAreaView, FlatList, StyleSheet } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { getOptionsByFormType, FormType } from '../utils/optionUtils';
 
 const CHECK_COLOR = '#3897F0';
 
@@ -11,10 +12,26 @@ interface FormPickerProps {
   onChange: (value: string) => void;
   error?: string;
   placeholder?: string;
+  formType?: FormType; // 폼 타입 추가
+  optionsKey?: string; // 옵션 키 추가 (formType과 함께 사용)
 }
 
-const FormPicker: React.FC<FormPickerProps> = ({ label, options, value, onChange, error, placeholder }) => {
+const FormPicker: React.FC<FormPickerProps> = ({ 
+  label, 
+  options, 
+  value, 
+  onChange, 
+  error, 
+  placeholder,
+  formType,
+  optionsKey 
+}) => {
   const [visible, setVisible] = useState(false);
+  
+  // 폼 타입과 옵션 키가 제공된 경우 동적으로 옵션 필터링
+  const displayOptions = formType && optionsKey 
+    ? getOptionsByFormType(optionsKey, formType)
+    : options;
   return (
     <View style={styles.container}>
       <View style={styles.labelRow}>
@@ -40,7 +57,7 @@ const FormPicker: React.FC<FormPickerProps> = ({ label, options, value, onChange
             </TouchableOpacity>
           </View>
           <FlatList
-            data={options}
+            data={displayOptions}
             keyExtractor={(item, idx) => `${item}-${idx}`}
             renderItem={({ item }) => (
               <TouchableOpacity

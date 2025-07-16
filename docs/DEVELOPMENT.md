@@ -949,3 +949,136 @@ An error occurred (InvalidSignatureException) when calling the CreateTable opera
 
 **질문/요청이 있으시면 언제든 말씀해 주세요!**  
 (예: DynamoDB 연동 코드, CRUD 예시, 테이블 설계 등) 
+
+
+✅ 0. 전체 목표 요약 (정리)
+항목	내용
+앱 목적	회사 이메일 기반 회원가입 → AI 매칭 + 인사이트 제공
+사용 플랫폼	React Native 앱 + 관리자용 React 웹
+주요 기능	회원가입/로그인, AI 매칭, 성향 인사이트 생성, 이미지 업로드, 푸시 알림, 관리자 페이지
+사용자 수	적음 (초기엔 수십~수백명 수준)
+우선순위	보안 강화, 서버리스, 비용 절감, AI 기능 포함
+
+✅ 1. 전체 AWS 서비스 구성표
+기능	AWS 서비스	설명
+회원가입/로그인	Amazon Cognito User Pool	회사 이메일만 허용, 인증메일 발송
+이메일 인증	Cognito 기본 or Amazon SES	커스텀 발신 주소 사용 가능
+도메인 제한 (@samsung.com 등)	Cognito PreSignUp Lambda	허용 도메인 체크
+사용자 정보 저장	DynamoDB	사용자 정보, 선호도, 매칭 기록 등
+프로필 이미지 업로드	Amazon S3	Presigned URL 이용 업로드
+이미지 제공	CloudFront + OAI	캐싱 + 보안강화 (S3 직접 접근 차단)
+REST API 백엔드	API Gateway + Lambda	서버리스 컨트롤러 역할
+AI 매칭	Amazon Personalize	추천 엔진 사용 (커스터마이징 가능)
+AI 인사이트 생성	Amazon Bedrock (Claude)	자연어 기반 리포트 생성
+푸시 알림	Amazon Pinpoint or SNS	알림 메시지 전송
+관리자 웹 호스팅	S3 + CloudFront	정적 React 앱, 보안 필요시 WAF 적용
+인증된 요청 제한	Cognito Authorizer (API Gateway)	JWT 토큰 검증 처리
+자동화/워크플로우	Step Functions or EventBridge	배치성 재매칭/인사이트 생성 스케줄링
+
+✅ 2. 전체 아키텍처 흐름도 (시각적)
+less
+복사
+편집
+[모바일 앱 (React Native)]
+        ↓
+ [회원가입: Cognito User Pool]
+        ├─> PreSignUp Lambda → 이메일 도메인 체크
+        └─> 인증 메일 발송 (기본 or SES)
+
+[로그인 후 받은 JWT 토큰]
+        ↓
+[API Gateway] ─── (Cognito Authorizer)
+        ↓
+     [Lambda Functions]
+        ├─ 사용자 데이터 CRUD (DynamoDB)
+        ├─ 이미지 Presigned URL 발급 (S3)
+        ├─ AI 매칭 요청 → Amazon Personalize
+        └─ 인사이트 생성 요청 → Amazon Bedrock
+
+[AI 결과 저장] → DynamoDB / S3
+
+[이미지 파일] → 업로드: S3, 제공: CloudFront + OAI
+
+[푸시 알림] → Pinpoint or SNS
+
+[관리자 웹]
+        └─ React 앱 → S3 + CloudFront (OAI + WAF)
+
+[자동화]
+        └─ Step Functions or EventBridge
+            ├─ 하루 1회 자동 매칭
+            └─ 주기적 인사이트 재생성
+✅ 3. 사용자가 겪는 흐름 (실제 UX 기반)
+💼 회원가입
+이메일 입력: test@samsung.com
+
+Cognito에서 PreSignUp Lambda 실행 → 도메인 확인
+
+인증메일 전송
+
+링크 클릭 → 회원가입 완료
+
+JWT 토큰 발급 → 앱 사용 시작
+
+❤️ 매칭 요청
+유저가 "AI 매칭하기" 클릭
+
+Lambda → Personalize에 사용자/아이템 데이터로 추천 요청
+
+매칭 결과 저장 → 사용자에게 보여줌
+
+📊 인사이트 보기
+유저가 "내 성향 보기" 클릭
+
+Lambda → Bedrock 호출 → 텍스트 생성
+
+결과 저장 & 앱에 표시
+
+🖼️ 프로필 사진 업로드
+앱에서 사진 선택
+
+Lambda에서 S3 Presigned URL 발급
+
+앱에서 직접 S3에 업로드
+
+CloudFront 통해 제공 (보안 적용)
+
+✅ 4. 각 서비스 장점 요약
+서비스	장점
+Cognito	보안 인증, 이메일 인증, JWT, 도메인 제한 가능
+Lambda	비용 효율 + 확장성, 코드로 모든 로직 제어
+API Gateway	RESTful 구조, 인증 연동 쉬움
+DynamoDB	빠르고 유연한 NoSQL 구조 (비용 효율적)
+S3 + CloudFront	이미지 보안 + 빠른 제공
+Bedrock	자연어 생성 (GPT처럼), 서버 없이 사용 가능
+Personalize	직접 모델 만들 필요 없이 AI 추천 기능
+Pinpoint	사용자 맞춤 푸시 / 알림 가능 (마케팅 메시지도 가능)
+
+✅ 5. 비용 요약 (초기 기준)
+항목	예시 수치	비용 (월간 예상)
+Cognito	사용자 < 50,000명	무료
+Lambda	수천 건 수준	무료 티어 포함
+API Gateway	수천 건 호출	약 $1~3
+DynamoDB	적은 용량	약 $1 이하
+S3 + CloudFront	수백 MB + 적은 트래픽	$0~$2
+Personalize	하루 몇 백 건 수준	$10~30
+Bedrock (Claude)	짧은 텍스트 몇천 건	$5~10
+Pinpoint (푸시)	월 5천건 이하	무료 티어
+총합	대부분 무료 + 일부 AI 기능 포함	$20~50 정도
+
+✅ 다음 단계 제안
+원하는 속도/목표에 따라 다음 단계부터 순차적으로 구축하면 돼:
+
+🔹 1단계: 사용자 인증 + 회원가입 제한
+Cognito User Pool + PreSignUp Lambda + 이메일 인증
+
+🔹 2단계: 이미지 업로드 + 기본 사용자 정보 저장
+S3 Presigned URL, DynamoDB 연동
+
+🔹 3단계: AI 매칭, 인사이트 생성 기능 구현
+Personalize 학습 → Lambda 호출
+
+Bedrock 텍스트 생성 → 앱에 표시
+
+🔹 4단계: 관리자 페이지 배포 (보안 설정 포함)
+S3 + CloudFront + OAI + WAF 설정

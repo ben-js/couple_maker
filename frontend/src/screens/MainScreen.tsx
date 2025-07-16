@@ -154,7 +154,21 @@ const MainScreen = () => {
       // console.log('[MainScreen] 화면 포커스 - 상태 새로고침 시작');
       refetchStatus();
       refetchUser();
-    }, [refetchStatus, refetchUser])
+      
+      // 사용자 상태 확인 및 분기 처리
+      if (user) {
+        if (!user.isVerified && user.email) {
+          // 이메일 인증이 필요한 경우
+          navigation.navigate(NAVIGATION_ROUTES.EMAIL_VERIFICATION, { email: user.email });
+        } else if (!user.hasProfile) {
+          // 프로필이 없는 경우
+          navigation.navigate(NAVIGATION_ROUTES.PROFILE_EDIT);
+        } else if (!user.hasPreferences) {
+          // 이상형이 없는 경우
+          navigation.navigate(NAVIGATION_ROUTES.PREFERENCE_EDIT);
+        }
+      }
+    }, [refetchStatus, refetchUser, user, navigation])
   );
 
   // 현재 매칭 상태와 매칭자 정보 로깅

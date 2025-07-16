@@ -19,16 +19,11 @@ export interface UserPreferences {
   educationLevels: string[];
   bodyTypes: string[];
   mbtiTypes: string[];
-  hobbies: string[];
-  personalityTags: string[];
-  valuesInLife: string[];
-  datingStyle: string[];
+  interests: string[];
   marriagePlan: string;
-  childrenDesire: string;
+  childrenDesire: '딩크족 희망' | '자녀 희망' | '상관없음';
   smoking: string;
   drinking: string;
   religion: string;
-  preferredMeetupTypes: string[];
-  priorityFields: string[];
-  priorityOrder: string[];
+  priority: string;
 } 

@@ -13,8 +13,10 @@ import FormPicker from '../components/FormPicker';
 import FormChips from '../components/FormChips';
 import { FormRangeSlider } from '../components/FormRangeSlider';
 import FormRegionChoiceModal from '../components/FormRegionChoiceModal';
+import FormOrderSelector from '../components/FormOrderSelector';
 import { Feather } from '@expo/vector-icons';
 import { getUserPreferences, saveUserPreferences } from '../services/userPreferencesService';
+import { getUserProfile } from '../services/userService';
 import { useAuth } from '../store/AuthContext';
 import { UserPreferences } from '../types';
 import { logger } from '@/utils/logger';
@@ -26,7 +28,10 @@ import PageLayout from '../components/PageLayout';
 const options = optionsRaw as Record<string, any>;
 
 // yup 스키마 동적 생성
-const schemaFields: any = {};
+const schemaFields: any = {
+  // 선호 성별은 자동 설정되므로 별도로 추가
+  preferredGender: yup.string().required('선호 성별이 필요합니다')
+};
 preferenceForm.forEach(field => {
   const errorMsg = field.errorMessage || `${field.label}을(를) 입력해 주세요`;
   if (field.type === 'picker') {
@@ -58,6 +63,11 @@ preferenceForm.forEach(field => {
       ? yup.number().min(field.min ?? 140, errorMsg).required(errorMsg)
       : yup.number();
   }
+  if (field.type === 'order_selector') {
+    schemaFields[field.name] = field.required
+      ? yup.array().of(yup.string()).min(1, errorMsg).required(errorMsg)
+      : yup.array().of(yup.string());
+  }
 });
 const schema = yup.object().shape(schemaFields);
 
@@ -75,50 +85,70 @@ const PreferenceSetupScreen = () => {
     mode: 'onChange',
     reValidateMode: 'onChange',
     resolver: yupResolver(schema),
-    defaultValues: preferenceForm.reduce((acc, cur) => {
-      if (cur.type === 'chips' || cur.type === 'region_choice') acc[cur.name] = [];
-      else if (cur.type === 'range_slider') acc[cur.name] = { min: cur.min, max: cur.max };
-      else if (cur.type === 'slider') acc[cur.name] = cur.min ?? 140;
-      else acc[cur.name] = '';
-      return acc;
-    }, {} as any),
+    defaultValues: {
+      preferredGender: '', // 선호 성별은 자동 설정됨
+      ...preferenceForm.reduce((acc, cur) => {
+        if (cur.type === 'chips' || cur.type === 'region_choice' || cur.type === 'order_selector') acc[cur.name] = [];
+        else if (cur.type === 'range_slider') acc[cur.name] = { min: cur.min, max: cur.max };
+        else if (cur.type === 'slider') acc[cur.name] = cur.min ?? 140;
+        else acc[cur.name] = '';
+        return acc;
+      }, {} as any),
+    },
   });
 
-  // 기존 이상형 데이터 로딩
+  // 기존 이상형 데이터 로딩 및 선호 성별 자동 설정
   useEffect(() => {
     const loadPreferences = async () => {
-      if (!user?.userId || !isEditMode) return;
+      if (!user?.userId) return;
+      
       try {
-        const preferences = await getUserPreferences(user.userId);
-        if (preferences) {
-          // 모든 필드에 대해 폼에 값 세팅 (매핑 적용)
-          preferenceForm.forEach(field => {
-            const key = field.name as keyof UserPreferences;
-            let value = preferences[key];
-            // range_slider 변환: [min, max] → {min, max}
-            if (
-              field.type === 'range_slider' &&
-              Array.isArray(value) &&
-              value.length === 2 &&
-              typeof value[0] === 'number' &&
-              typeof value[1] === 'number'
-            ) {
-              value = { min: value[0], max: value[1] };
-            }
-            // region_choice 변환 (기존 문자열 배열과의 호환성)
-            if (field.type === 'region_choice' && Array.isArray(value) && typeof value[0] === 'string') {
-              // 기존 데이터가 문자열 배열인 경우 객체 배열로 변환
-              value = (value as string[]).map(regionName => {
-                // "서울 강남구" 형태의 문자열을 파싱
-                const parts = regionName.split(' ');
-                if (parts.length >= 2) {
-                  return { region: parts[0], district: parts.slice(1).join(' ') };
-                }
-                return { region: regionName, district: regionName };
-              });
-            }
-            setValue(field.name, value);
-          });
+        // 사용자 프로필 가져오기 (선호 성별 설정용)
+        const profile = await getUserProfile(user.userId);
+        
+        // 선호 성별을 사용자 성별과 반대로 자동 설정
+        if (profile?.gender) {
+          const preferredGender = profile.gender === '남' ? '여' : '남';
+          setValue('preferredGender', preferredGender);
+        }
+        
+        // 기존 이상형 데이터가 있으면 로드
+        if (isEditMode) {
+          const preferences = await getUserPreferences(user.userId);
+          if (preferences) {
+            // 모든 필드에 대해 폼에 값 세팅 (매핑 적용)
+            preferenceForm.forEach(field => {
+              const key = field.name as keyof UserPreferences;
+              let value = preferences[key];
+              // range_slider 변환: [min, max] → {min, max}
+              if (
+                field.type === 'range_slider' &&
+                Array.isArray(value) &&
+                value.length === 2 &&
+                typeof value[0] === 'number' &&
+                typeof value[1] === 'number'
+              ) {
+                value = { min: value[0], max: value[1] };
+              }
+              // region_choice 변환 (기존 문자열 배열과의 호환성)
+              if (field.type === 'region_choice' && Array.isArray(value) && typeof value[0] === 'string') {
+                // 기존 데이터가 문자열 배열인 경우 객체 배열로 변환
+                value = (value as string[]).map(regionName => {
+                  // "서울 강남구" 형태의 문자열을 파싱
+                  const parts = regionName.split(' ');
+                  if (parts.length >= 2) {
+                    return { region: parts[0], district: parts.slice(1).join(' ') };
+                  }
+                  return { region: regionName, district: regionName };
+                });
+              }
+              // order_selector 변환 (문자열을 배열로 변환)
+              if (field.type === 'order_selector' && typeof value === 'string') {
+                value = value.split(',').filter(item => item.trim());
+              }
+              setValue(field.name, value);
+            });
+          }
         }
       } catch (error) {
         console.error('이상형 데이터 로드 실패:', error);
@@ -151,18 +181,13 @@ const PreferenceSetupScreen = () => {
                   educationLevels: data.educationLevels || [],
                   bodyTypes: data.bodyTypes || [],
                   mbtiTypes: data.mbtiTypes || [],
-        hobbies: data.hobbies || [],
-                  personalityTags: data.personalityTags || [],
-                  valuesInLife: data.valuesInLife || [],
-                  datingStyle: data.datingStyle || [],
+        interests: data.interests || [],
                   marriagePlan: data.marriagePlan || '',
                   childrenDesire: data.childrenDesire || '',
         smoking: data.smoking || '상관없음',
-        drinking: data.drinking || '',
-        religion: data.religion || '',
-                  preferredMeetupTypes: data.preferredMeetupTypes || [],
-          priorityFields: data.priorityFields || [],
-          priorityOrder: data.priorityOrder || [],
+        drinking: data.drinking || '상관없음',
+        religion: data.religion || '상관없음',
+        priority: Array.isArray(data.priority) ? data.priority.join(',') : (data.priority || '성격'),
       };
 
       logger.info('프론트엔드 이상형 저장 시작', { userId: user.userId, timestamp: new Date().toISOString() });
@@ -282,14 +307,16 @@ const PreferenceSetupScreen = () => {
                 control={control}
                 name={field.name}
                 render={({ field: { onChange, value }, fieldState: { error } }) => (
-                  <FormPicker
-                    label={field.label}
-                    options={field.optionsKey ? (options[field.optionsKey] as string[] ?? []) : []}
-                    value={value}
-                    onChange={onChange}
-                    error={error?.message}
-                    placeholder={field.placeholder}
-                  />
+                                <FormPicker
+                label={field.label}
+                options={field.optionsKey ? (options[field.optionsKey] as string[] ?? []) : []}
+                value={value}
+                onChange={onChange}
+                error={error?.message}
+                placeholder={field.placeholder}
+                formType="preference"
+                optionsKey={field.optionsKey}
+              />
                 )}
               />
             );
@@ -394,6 +421,26 @@ const PreferenceSetupScreen = () => {
               />
             );
           }
+          if (field.type === 'order_selector') {
+            return (
+              <Controller
+                key={field.name}
+                control={control}
+                name={field.name}
+                render={({ field: { onChange, value }, fieldState: { error } }) => (
+                  <FormOrderSelector
+                    label={field.label}
+                    value={value || []}
+                    onChange={onChange}
+                    error={error?.message}
+                    placeholder={field.placeholder}
+                    required={field.required}
+                    options={field.optionsKey ? (options[field.optionsKey] as any[] ?? []) : []}
+                  />
+                )}
+              />
+            );
+          }
           return null;
         })}
       </ScrollView>
@@ -435,7 +482,7 @@ const PreferenceSetupScreen = () => {
           left: 0, right: 0, bottom: 0,
           alignItems: 'center',
           zIndex: 100,
-          paddingBottom: 24,
+          paddingBottom: 16,
           backgroundColor: colors.background,
           width: '100%',
         }}>

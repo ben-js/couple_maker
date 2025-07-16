@@ -1,3 +1,9 @@
+export interface PriorityOption {
+  id: string;
+  label: string;
+  color: string;
+}
+
 export interface Options {
   bodyTypes: string[];
   jobs: string[];
@@ -8,5 +14,6 @@ export interface Options {
   genders?: string[];
   smoking?: string[];
   drinking?: string[];
-  [key: string]: string[] | undefined;
+  priority?: PriorityOption[];
+  [key: string]: string[] | PriorityOption[] | undefined;
 } 

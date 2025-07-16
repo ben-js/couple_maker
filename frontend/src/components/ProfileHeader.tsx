@@ -15,17 +15,26 @@ const ProfileHeader: React.FC<ProfileHeaderProps> = ({ onChargePress }) => {
   const { user } = useAuth();
   const { getProfilePhoto, getUserDisplayName, getUserInitial, userProfile } = useUserProfile();
 
-  // 모든 console.log 삭제
+  const profilePhotoUrl = getProfilePhoto();
+  
+  console.log('ProfileHeader 렌더링:', {
+    profilePhotoUrl,
+    userProfilePhotos: userProfile?.photos,
+    userPhotos: user?.photos,
+    hasProfilePhoto: !!profilePhotoUrl
+  });
 
   return (
     <View style={styles.header}>
       <View style={styles.headerLeft}>
-        {getProfilePhoto() ? (
+        {profilePhotoUrl ? (
           <Image
-            source={{ uri: getProfilePhoto() + '?v=' + Date.now() }}
+            source={{ uri: profilePhotoUrl }}
             style={styles.profileImage}
             resizeMode="cover"
-            key={getProfilePhoto() + '?v=' + Date.now()} // 강제 리렌더링을 위한 key 추가
+            key={`profile-${user?.userId}-${profilePhotoUrl}`} // 더 안정적인 key
+            onLoad={() => console.log('프로필 이미지 로드 성공:', profilePhotoUrl)}
+            onError={(error) => console.log('프로필 이미지 로드 실패:', error.nativeEvent.error, 'URL:', profilePhotoUrl)}
           />
         ) : (
           <Avatar
