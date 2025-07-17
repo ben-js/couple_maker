@@ -25,8 +25,33 @@ const LoginScreen = () => {
   // 최근 로그인한 이메일 자동 입력
   useEffect(() => {
     const loadLastEmail = async () => {
-      const user = await getUser();
-      if (user?.email) setEmail(user.email);
+      try {
+        console.log('=== 이메일 자동 입력 시작 ===');
+        const userData = await getUser();
+        console.log('getUser() 반환값:', userData);
+        console.log('데이터 타입:', typeof userData);
+        console.log('데이터 키들:', userData ? Object.keys(userData) : 'null');
+        
+        // userData가 객체이고 user 속성을 가지고 있는 경우
+        let user = userData;
+        if (userData && typeof userData === 'object' && 'user' in userData) {
+          user = userData.user;
+          console.log('user 속성에서 추출된 사용자:', user);
+        }
+        
+        console.log('최종 사용자 객체:', user);
+        console.log('사용자 이메일:', user?.email);
+        
+        if (user?.email) {
+          console.log('이메일 자동 입력:', user.email);
+          setEmail(user.email);
+        } else {
+          console.log('저장된 이메일 없음');
+        }
+        console.log('=== 이메일 자동 입력 완료 ===');
+      } catch (error) {
+        console.error('사용자 정보 로드 실패:', error);
+      }
     };
     loadLastEmail();
   }, []);
@@ -44,13 +69,24 @@ const LoginScreen = () => {
       if (!user || !user.userId) throw new Error('로그인에 실패했습니다. (user 정보 없음)');
       logger.api.response('POST', '/login', { success: true, userId: user.userId });
       // 로그인 응답에 이미 필요한 정보가 포함되어 있으므로 추가 API 호출 제거
-      await setUser(user);
+      console.log('로그인 성공 - 사용자 정보 저장 시작:', user);
+      await setUser(user); // 반드시 user만 넘김
+      console.log('사용자 정보 저장 완료');
+      
       if (Platform.OS === 'android') {
         ToastAndroid.show(TOAST_MESSAGES.LOGIN_SUCCESS, ToastAndroid.SHORT);
       } else {
         Alert.alert(TOAST_MESSAGES.LOGIN_SUCCESS);
       }
-      // 분기 처리도 user 기준으로!
+      
+      // 분기 처리 로직 개선
+      console.log('로그인 후 분기 처리:', {
+        userId: user.userId,
+        isVerified: user.isVerified,
+        hasProfile: user.hasProfile,
+        hasPreferences: user.hasPreferences
+      });
+      
       if (!user.isVerified) {
         logger.info('이메일 인증이 완료되지 않은 사용자', { userId: user.userId, email: user.email });
         navigation.navigate(NAVIGATION_ROUTES.EMAIL_VERIFICATION, { email: user.email });

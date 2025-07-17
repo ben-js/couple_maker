@@ -8,7 +8,6 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAuth } from '../store/AuthContext';
 import { saveProfile, getUserProfile } from '../services/userService';
-import { useUserProfile } from '../hooks/useUserProfile';
 import optionsRaw from '../data/options.json';
 import { Options } from '../types/options';
 import { useForm, Controller } from 'react-hook-form';
@@ -103,11 +102,10 @@ const ProfileEditScreen = () => {
 
   const navigation = useNavigation<any>();
   const { user, setUser } = useAuth();
-  const { refreshProfile, userProfile } = useUserProfile();
   const route = useRoute<any>();
   const isEditMode = route?.params?.isEditMode ?? false;
   
-  const { control, handleSubmit, formState: { errors }, setValue, trigger, reset } = useForm({
+  const { control, handleSubmit, formState: { errors }, setValue, trigger, reset, watch } = useForm({
     mode: 'onChange',
     reValidateMode: 'onChange',
     resolver: yupResolver(schema),
@@ -120,38 +118,66 @@ const ProfileEditScreen = () => {
     }, {} as any),
   });
 
-  // 기존 프로필 데이터 로딩 (수정 모드일 때) - Context에서 관리되므로 제거
-  React.useEffect(() => {
-    if (!user?.userId || !isEditMode) {
-      setIsLoading(false);
-      return;
-    }
+  // 폼 값 감시 (디버깅용)
+  const formValues = watch();
+  console.log('ProfileEditScreen - 현재 폼 값:', formValues);
 
-    if (userProfile) {
-      // 폼에 기존 데이터 설정
-      Object.keys(userProfile).forEach(key => {
-        if (key !== 'id' && key !== 'photos') {
-          let value = (userProfile as any)[key];
-          
-          // height 필드는 문자열을 숫자로 변환
-          if (key === 'height' && typeof value === 'string') {
-            value = parseInt(value, 10);
-          }
-          
-          setValue(key, value);
-        }
-      });
-      
-      // 사진 설정
-      if (userProfile.photos && userProfile.photos.length > 0) {
-        const photoArray: (string | null)[] = [...userProfile.photos];
-        while (photoArray.length < 5) photoArray.push(null);
-        setPhotos(photoArray.slice(0, 5));
+  // 기존 프로필 데이터 로딩 (수정 모드일 때)
+  React.useEffect(() => {
+    const loadProfile = async () => {
+      if (!user?.userId) {
+        setIsLoading(false);
+        return;
       }
-    }
-    
-    setIsLoading(false);
-  }, [user?.userId, isEditMode, userProfile, setValue]);
+
+      if (isEditMode) {
+        try {
+          console.log('ProfileEditScreen - 프로필 데이터 로드 시작');
+          const profile = await getUserProfile(user.userId);
+          console.log('ProfileEditScreen - 프로필 데이터 로드 완료:', profile);
+          
+          if (profile) {
+            // 폼에 기존 데이터 설정 - reset 사용
+            const resetData: any = {};
+            
+            // profileForm.json의 필드들에 대해서만 데이터 설정
+            formTemplate.forEach(field => {
+              const key = field.name;
+              let value = (profile as any)[key];
+              
+              // height 필드는 문자열을 숫자로 변환
+              if (key === 'height' && typeof value === 'string') {
+                value = parseInt(value, 10);
+              }
+              
+              // interests, favoriteFoods는 공백 제거
+              if ((key === 'interests' || key === 'favoriteFoods') && Array.isArray(value)) {
+                value = value.map((item: string) => item.trim());
+              }
+              
+              resetData[key] = value;
+            });
+            
+            console.log('ProfileEditScreen - reset 데이터:', resetData);
+            reset(resetData);
+            
+            // 사진 설정
+            if (profile.photos && profile.photos.length > 0) {
+              const photoArray: (string | null)[] = [...profile.photos];
+              while (photoArray.length < 5) photoArray.push(null);
+              setPhotos(photoArray.slice(0, 5));
+            }
+          }
+        } catch (error) {
+          console.error('ProfileEditScreen - 프로필 로드 실패:', error);
+        }
+      }
+      
+      setIsLoading(false);
+    };
+
+    loadProfile();
+  }, [user?.userId, isEditMode, reset]);
 
   // 사진 관련 핸들러들
   const cleanPhotos = (arr: (string|null)[]) => arr.filter((p): p is string => !!p && typeof p === 'string');
@@ -264,7 +290,6 @@ const ProfileEditScreen = () => {
             photos: filteredPhotos as string[]
           });
         }
-        refreshProfile();
       }
       if (Platform.OS === 'android') {
         ToastAndroid.show(TOAST_MESSAGES.PROFILE_SAVED, ToastAndroid.SHORT);

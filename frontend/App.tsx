@@ -10,9 +10,8 @@ import { View, Text } from 'react-native';
 import RootNavigator from '@/navigation/RootNavigator';
 
 // 상태 관리
-import { AuthProvider, useAuth } from '@/store/AuthContext';
+import { AuthProvider } from '@/store/AuthContext';
 import { UserProfileProvider } from '@/store/UserProfileContext';
-import { apiGet } from '@/utils/apiUtils';
 
 // 데이터베이스 초기화
 import { initDatabase } from '@/db/user';
@@ -68,27 +67,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const queryClient = new QueryClient();
 
-function SyncUserFromServer() {
-  const { user, setUser } = useAuth();
-  useEffect(() => {
-    const sync = async () => {
-      if (user?.userId) {
-        try {
-          const freshUser = await apiGet(`/user/${user.userId}`);
-          if (freshUser) {
-            await setUser(freshUser);
-            console.log('앱 진입 시 서버에서 최신 user 동기화:', freshUser);
-          }
-        } catch (e) {
-          console.log('user 동기화 실패:', e);
-        }
-      }
-    };
-    sync();
-    // userId가 바뀔 때마다 동기화
-  }, [user?.userId]);
-  return null;
-}
+
 
 export default function App() {
   const [isReady, setIsReady] = useState(false);
@@ -123,7 +102,6 @@ export default function App() {
             <UserProfileProvider>
               <NavigationContainer>
                 <StatusBar style="auto" />
-                <SyncUserFromServer />
                 <RootNavigator />
               </NavigationContainer>
             </UserProfileProvider>

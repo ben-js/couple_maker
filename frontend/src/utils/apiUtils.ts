@@ -20,12 +20,18 @@ export const apiGet = async <T = any>(url: string, params?: Record<string, any>,
     ? `${API_CONFIG.BASE_URL}${url}?${new URLSearchParams(params).toString()}`
     : `${API_CONFIG.BASE_URL}${url}`;
 
+  console.log('🌐 API GET 요청 시작:', { fullUrl, userId, params });
+
   try {
     logger.api.request('GET', fullUrl);
     
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), API_CONFIG.TIMEOUT);
+    const timeoutId = setTimeout(() => {
+      console.log('⏰ API GET 타임아웃 발생:', fullUrl);
+      controller.abort();
+    }, API_CONFIG.TIMEOUT);
     
+    console.log('📡 fetch 요청 전송 중...');
     const response = await fetch(fullUrl, {
       method: 'GET',
       headers: getDefaultHeaders(userId),
@@ -33,19 +39,31 @@ export const apiGet = async <T = any>(url: string, params?: Record<string, any>,
     });
     
     clearTimeout(timeoutId);
+    console.log('📡 fetch 응답 받음:', { status: response.status, ok: response.ok });
 
     const result: ApiResponse<T> = await response.json();
+    console.log('📄 JSON 파싱 완료:', result);
 
     if (!response.ok) {
       throw new Error(result.error || result.message || `HTTP ${response.status}`);
     }
 
     logger.api.response('GET', fullUrl, result);
+    console.log('✅ API GET 성공:', fullUrl);
     return (result.data || result) as T;
-  } catch (error) {
+  } catch (error: any) {
+    console.error('❌ API GET 오류:', { fullUrl, error: error.message, stack: error.stack });
     logger.api.error('GET', fullUrl, error);
     throw error;
   }
+};
+
+// API 요청 함수 (GET with userId in headers)
+export const apiGetWithAuth = async <T = any>(url: string, userId: string, params?: Record<string, any>): Promise<T> => {
+  console.log('apiGetWithAuth 호출:', { url, userId, params });
+  const result = await apiGet<T>(url, params, userId);
+  console.log('apiGetWithAuth 결과:', { url, result });
+  return result;
 };
 
 // API 요청 함수 (POST)

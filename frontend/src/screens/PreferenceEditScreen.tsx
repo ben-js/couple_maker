@@ -27,36 +27,42 @@ import PageLayout from '../components/PageLayout';
 
 const options = optionsRaw as Record<string, any>;
 
-// yup 스키마 동적 생성
-const schemaFields: any = {
-  // 선호 성별은 자동 설정되므로 별도로 추가
-  preferredGender: yup.string().required('선호 성별이 필요합니다')
-};
+// 폼 스키마 생성
+const schemaFields: { [key: string]: any } = {};
 preferenceForm.forEach(field => {
-  const errorMsg = field.errorMessage || `${field.label}을(를) 입력해 주세요`;
+  const errorMsg = field.errorMessage || `${field.label}이 필요합니다`;
+  
   if (field.type === 'picker') {
     schemaFields[field.name] = field.required
-      ? yup.string().trim().min(1, errorMsg).required(errorMsg)
+      ? yup.string().required(errorMsg)
       : yup.string();
   }
   if (field.type === 'chips') {
-    let s = yup.array().of(yup.string());
-    if (field.required) {
-      const minCount = field.minSelect || 1;
-      s = s.min(minCount, errorMsg);
-    }
-    if (field.maxSelect) s = s.max(field.maxSelect, `${field.label}은(는) 최대 ${field.maxSelect}개까지 선택 가능합니다`);
-    schemaFields[field.name] = s;
-  }
-  if (field.type === 'range_slider') {
     schemaFields[field.name] = field.required
-      ? yup.object({ min: yup.number(), max: yup.number() }).required(errorMsg)
-      : yup.object();
+      ? yup.array().of(yup.string()).min(field.minSelect || 1, errorMsg).required(errorMsg)
+      : yup.array().of(yup.string());
   }
   if (field.type === 'region_choice') {
     schemaFields[field.name] = field.required
-      ? yup.array().of(yup.object({ region: yup.string(), district: yup.string() })).min(1, errorMsg).required(errorMsg)
-      : yup.array();
+      ? yup.array().of(yup.object().shape({
+          region: yup.string().required(),
+          district: yup.string().required()
+        })).min(field.minSelect || 1, errorMsg).required(errorMsg)
+      : yup.array().of(yup.object().shape({
+          region: yup.string().required(),
+          district: yup.string().required()
+        }));
+  }
+  if (field.type === 'range_slider') {
+    schemaFields[field.name] = field.required
+      ? yup.object().shape({
+          min: yup.number().min(field.min ?? 18, errorMsg).required(errorMsg),
+          max: yup.number().max(field.max ?? 50, errorMsg).required(errorMsg)
+        }).required(errorMsg)
+      : yup.object().shape({
+          min: yup.number(),
+          max: yup.number()
+        });
   }
   if (field.type === 'slider') {
     schemaFields[field.name] = field.required
@@ -69,6 +75,8 @@ preferenceForm.forEach(field => {
       : yup.array().of(yup.string());
   }
 });
+
+// preferredGender는 자동 설정되므로 스키마에서 제외
 const schema = yup.object().shape(schemaFields);
 
 const PreferenceSetupScreen = () => {
@@ -81,12 +89,11 @@ const PreferenceSetupScreen = () => {
   const { refetch: refetchUser } = useUserInfo(user?.userId);
   const [activeChipsModalField, setActiveChipsModalField] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { control, handleSubmit, formState: { errors, isValid }, setValue, trigger } = useForm({
+  const { control, handleSubmit, formState: { errors, isValid }, setValue, trigger, reset } = useForm({
     mode: 'onChange',
     reValidateMode: 'onChange',
     resolver: yupResolver(schema),
     defaultValues: {
-      preferredGender: '', // 선호 성별은 자동 설정됨
       ...preferenceForm.reduce((acc, cur) => {
         if (cur.type === 'chips' || cur.type === 'region_choice' || cur.type === 'order_selector') acc[cur.name] = [];
         else if (cur.type === 'range_slider') acc[cur.name] = { min: cur.min, max: cur.max };
@@ -97,28 +104,20 @@ const PreferenceSetupScreen = () => {
     },
   });
 
-  // 기존 이상형 데이터 로딩 및 선호 성별 자동 설정
+  // 기존 이상형 데이터 로딩
   useEffect(() => {
     const loadPreferences = async () => {
       if (!user?.userId) return;
       
       try {
-        // 사용자 프로필 가져오기 (선호 성별 설정용)
-        const profile = await getUserProfile(user.userId);
-        
-        // 선호 성별을 사용자 성별과 반대로 자동 설정
-        if (profile?.gender) {
-          const preferredGender = profile.gender === '남' ? '여' : '남';
-          setValue('preferredGender', preferredGender);
-        }
-        
         // 기존 이상형 데이터가 있으면 로드
         if (isEditMode) {
           const preferences = await getUserPreferences(user.userId);
           if (preferences) {
-            // 모든 필드에 대해 폼에 값 세팅 (매핑 적용)
+            // 변환 로직 적용
+            const resetData: any = {};
             preferenceForm.forEach(field => {
-              const key = field.name as keyof UserPreferences;
+              const key = field.name as keyof typeof preferences;
               let value = preferences[key];
               // range_slider 변환: [min, max] → {min, max}
               if (
@@ -132,9 +131,7 @@ const PreferenceSetupScreen = () => {
               }
               // region_choice 변환 (기존 문자열 배열과의 호환성)
               if (field.type === 'region_choice' && Array.isArray(value) && typeof value[0] === 'string') {
-                // 기존 데이터가 문자열 배열인 경우 객체 배열로 변환
                 value = (value as string[]).map(regionName => {
-                  // "서울 강남구" 형태의 문자열을 파싱
                   const parts = regionName.split(' ');
                   if (parts.length >= 2) {
                     return { region: parts[0], district: parts.slice(1).join(' ') };
@@ -146,8 +143,27 @@ const PreferenceSetupScreen = () => {
               if (field.type === 'order_selector' && typeof value === 'string') {
                 value = value.split(',').filter(item => item.trim());
               }
-              setValue(field.name, value);
+              // birthDate 변환: 문자열/숫자 → { year, month, day }
+              if (field.name === 'birthDate' && value && typeof value === 'string') {
+                const [year, month, day] = value.split('-').map(Number);
+                value = { year, month, day };
+              }
+              // region 변환: 문자열 → { region, district }
+              if (field.name === 'region' && value && typeof value === 'string') {
+                const parts = value.split(' ');
+                if (parts.length >= 2) {
+                  value = { region: parts[0], district: parts.slice(1).join(' ') };
+                } else {
+                  value = { region: value, district: value };
+                }
+              }
+              // photos: undefined/null → 빈 배열
+              if (field.name === 'photos' && (!Array.isArray(value) || !value)) {
+                value = [];
+              }
+              resetData[field.name] = value as any;
             });
+            reset(resetData);
           }
         }
       } catch (error) {
@@ -155,10 +171,15 @@ const PreferenceSetupScreen = () => {
       }
     };
     loadPreferences();
-  }, [user?.userId, isEditMode, setValue]);
+  }, [user?.userId, isEditMode, reset]);
 
   const onSubmit = async (data: any) => {
+    console.log('PreferenceEditScreen - onSubmit called');
+    console.log('PreferenceEditScreen - form data:', data);
+    console.log('PreferenceEditScreen - user:', user);
+    
     if (!user) {
+      console.log('PreferenceEditScreen - No user found');
       if (Platform.OS === 'android') {
         ToastAndroid.show('사용자 정보를 찾을 수 없습니다.', ToastAndroid.SHORT);
       } else {
@@ -169,10 +190,16 @@ const PreferenceSetupScreen = () => {
 
     setIsSubmitting(true);
     try {
+      console.log('PreferenceEditScreen - Starting preferences save');
+      
+      // 사용자 프로필에서 선호 성별 자동 설정
+      const profile = await getUserProfile(user.userId);
+      const preferredGender = profile?.gender ? (profile.gender === '남' ? '여' : '남') : '';
+      
       // 데이터를 UserPreferences 형식으로 변환 (카멜케이스)
       const preferences: UserPreferences = {
         userId: user.userId,
-        preferredGender: data.preferredGender || '',
+        preferredGender: preferredGender,
                   ageRange: data.ageRange || { min: 20, max: 50 },
                   heightRange: data.heightRange || { min: 140, max: 190 },
         regions: data.regions || [],
@@ -189,6 +216,8 @@ const PreferenceSetupScreen = () => {
         religion: data.religion || '상관없음',
         priority: Array.isArray(data.priority) ? data.priority.join(',') : (data.priority || '성격'),
       };
+
+      console.log('PreferenceEditScreen - Converted preferences:', preferences);
 
       logger.info('프론트엔드 이상형 저장 시작', { userId: user.userId, timestamp: new Date().toISOString() });
       logger.debug('폼 데이터', data);
@@ -219,6 +248,7 @@ const PreferenceSetupScreen = () => {
       navigation.navigate(NAVIGATION_ROUTES.MAIN);
       logger.success('프론트엔드 이상형 저장 완료');
     } catch (error) {
+      console.error('PreferenceEditScreen - Save failed:', error);
       logger.error('이상형 저장 실패', error);
       if (Platform.OS === 'android') {
         ToastAndroid.show(TOAST_MESSAGES.PREFERENCES_SAVE_FAILED, ToastAndroid.SHORT);
@@ -230,7 +260,10 @@ const PreferenceSetupScreen = () => {
     }
   };
 
-  const onInvalid = () => {
+  const onInvalid = (errors: any) => {
+    console.log('PreferenceEditScreen - onInvalid called');
+    console.log('PreferenceEditScreen - form errors:', errors);
+    
     if (Platform.OS === 'android') {
       ToastAndroid.show('이상형을 모두 작성해주세요.', ToastAndroid.SHORT);
     } else {
@@ -372,7 +405,9 @@ const PreferenceSetupScreen = () => {
                               await trigger(field.name);
                             }}
                           >
-                            <Text style={value.length < (field.minSelect || 1) ? styles.modalConfirmButtonTextDisabled : styles.modalConfirmButtonText}>확인</Text>
+                            <Text style={value.length < (field.minSelect || 1) ? styles.modalConfirmButtonTextDisabled : styles.modalConfirmButtonText}>
+                              {value.length < (field.minSelect || 1) ? `${(field.minSelect || 1) - value.length}개 더 선택하세요` : '확인'}
+                            </Text>
                           </TouchableOpacity>
                         </View>
                       </SafeAreaView>
@@ -590,7 +625,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalConfirmButtonDisabled: {
-    backgroundColor: '#bbb',
+    backgroundColor: '#f3f4f6',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#d1d5db',
   },
   modalConfirmButtonText: {
     color: '#fff',
@@ -598,7 +638,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   modalConfirmButtonTextDisabled: {
-    color: '#bbb',
+    color: '#6b7280',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
   modalFooter: {
     padding: 24,

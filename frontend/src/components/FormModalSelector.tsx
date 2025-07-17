@@ -37,6 +37,11 @@ const FormModalSelector: React.FC<FormModalSelectorProps> = ({
   };
 
   const handleConfirm = () => {
+    console.log('FormModalSelector - handleConfirm called');
+    console.log('FormModalSelector - tempSelected:', tempSelected);
+    console.log('FormModalSelector - min:', min);
+    console.log('FormModalSelector - tempSelected.length >= min:', tempSelected.length >= min);
+    
     setModalVisible(false);
     onChange(tempSelected);
   };
@@ -103,10 +108,24 @@ const FormModalSelector: React.FC<FormModalSelectorProps> = ({
           </ScrollView>
           <View style={{ padding: 24, paddingTop: 0 }}>
             <TouchableOpacity
-              style={{ backgroundColor: '#3B82F6', borderRadius: 12, paddingVertical: 14, alignItems: 'center' }}
+              style={{ 
+                backgroundColor: tempSelected.length >= min ? '#3B82F6' : '#f3f4f6', 
+                borderRadius: 12, 
+                paddingVertical: 14, 
+                alignItems: 'center',
+                borderWidth: 0,
+                borderColor:'transparent'
+              }}
               onPress={handleConfirm}
+              disabled={tempSelected.length < min}
             >
-              <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>확인</Text>
+              <Text style={{ 
+                color: tempSelected.length >= min ? '#fff' : '#4b5563', 
+                fontWeight: 'bold', 
+                fontSize: 16 
+              }}>
+                {tempSelected.length >= min ? '확인' : `${min - tempSelected.length}개 더 선택하세요`}
+              </Text>
             </TouchableOpacity>
           </View>
         </SafeAreaView>

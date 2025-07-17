@@ -114,7 +114,7 @@ export const CHILDREN_STATUS = {
 // API 설정
 export const API_CONFIG = {
   BASE_URL: process.env.EXPO_PUBLIC_API_URL || 'http://192.168.219.100:3000',
-  TIMEOUT: 5000, // 5초로 단축
+  TIMEOUT: 30000, // 30초로 늘림
 } as const;
 
 // API 엔드포인트

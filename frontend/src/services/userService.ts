@@ -1,5 +1,5 @@
 import { UserProfile } from '../types/profile';
-import { apiGet, apiPost } from '../utils/apiUtils';
+import { apiGet, apiPost, apiGetWithAuth } from '../utils/apiUtils';
 import * as FileSystem from 'expo-file-system';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -43,12 +43,51 @@ export async function resendConfirmationCode(email: string): Promise<boolean> {
 // 로그인 (단일 책임)
 export async function login(credentials: { email: string; password: string }): Promise<UserProfile | null> {
   try {
-    const data = await apiPost<UserProfile>('/login', credentials);
-    const dataAny = data as any;
-    if (data && !dataAny.id && (data.userId || dataAny.user_id)) {
-      dataAny.id = data.userId || dataAny.user_id;
+    console.log('로그인 시도:', { email: credentials.email, password: '***' });
+    
+    const response = await apiPost<any>('/login', credentials);
+    console.log('로그인 응답 받음:', { 
+      hasResponse: !!response, 
+      success: response?.success, 
+      hasUser: !!response?.user,
+      userFields: response?.user ? Object.keys(response.user) : []
+    });
+    
+    // 백엔드 응답 구조: { success: true, message: string, user: UserProfile, matchingStatus?: any }
+    if (response && response.success && response.user) {
+      const user = response.user;
+      const userAny = user as any;
+      
+      // userId 필드 정규화
+      if (user && !userAny.id && (user.userId || userAny.user_id)) {
+        userAny.id = user.userId || userAny.user_id;
+      }
+      
+      console.log('로그인 성공 - 사용자 정보:', { 
+        id: userAny.id, 
+        userId: user.userId,
+        email: user.email,
+        hasProfile: user.hasProfile,
+        hasPreferences: user.hasPreferences,
+        isVerified: user.isVerified
+      });
+      
+      // 매칭 상태 정보가 있으면 로그
+      if (response.matchingStatus) {
+        console.log('로그인 성공 - 매칭 상태:', response.matchingStatus);
+      }
+      
+      // userId가 확실히 있는지 확인
+      if (!user.userId && !userAny.id) {
+        console.error('로그인 응답에 userId가 없습니다:', user);
+        throw new Error('사용자 ID가 없습니다.');
+      }
+      
+      return user; // 반드시 user만 반환
     }
-    return data;
+    
+    console.log('로그인 실패 - 응답에 user 정보 없음:', response);
+    return null;
   } catch (error) {
     console.error('로그인 실패:', error);
     return null;
@@ -59,7 +98,7 @@ export async function login(credentials: { email: string; password: string }): P
 export async function getUserProfile(userId: string): Promise<UserProfile | null> {
   try {
     console.log('프로필 조회 시작:', { userId });
-    const data = await apiGet<UserProfile>(`/profile/${userId}`);
+    const data = await apiGetWithAuth<UserProfile>(`/profile/${userId}`, userId);
     console.log('프로필 조회 결과:', { 
       hasData: !!data, 
       photos: data?.photos, 

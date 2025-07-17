@@ -131,8 +131,13 @@ class CognitoService {
       const result = await cognitoClient.send(command);
 
       if (result.AuthenticationResult) {
+        // ID 토큰에서 userSub 추출
+        const idToken = result.AuthenticationResult.IdToken;
+        const userSub = this.parseToken(idToken).sub;
+        
         return {
           success: true,
+          userSub: userSub,
           accessToken: result.AuthenticationResult.AccessToken,
           refreshToken: result.AuthenticationResult.RefreshToken,
           idToken: result.AuthenticationResult.IdToken,

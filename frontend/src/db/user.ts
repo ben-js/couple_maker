@@ -17,8 +17,13 @@ export const getUser = async (): Promise<User | null> => {
   try {
     const userData = await AsyncStorage.getItem(USER_STORAGE_KEY);
     if (userData) {
-      const user: User = JSON.parse(userData);
-      return user;
+      const parsed = JSON.parse(userData);
+      // 잘못된 구조라면 user만 반환하고, 올바른 구조로 덮어쓰기
+      if (parsed && typeof parsed === 'object' && 'user' in parsed) {
+        await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(parsed.user));
+        return parsed.user;
+      }
+      return parsed;
     }
     return null;
   } catch (error) {

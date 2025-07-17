@@ -8,5 +8,5 @@
     "forceConsistentCasingInFileNames": true,
     "outDir": "dist"
   },
-  "include": ["handler.ts"]
+  "include": ["lambda/**/*.ts", "utils/**/*.ts", "*.ts"]
 } 

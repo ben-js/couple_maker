@@ -29,12 +29,21 @@ export const UserProfileProvider: React.FC<{ children: ReactNode }> = ({ childre
         return;
       }
 
+      // 로그인 시 이미 프로필 정보를 가져왔으므로, 초기 로드 시에는 API 호출하지 않음
+      // refreshKey가 0이면 초기 로드, 0보다 크면 수동 새로고침
+      if (refreshKey === 0) {
+        console.log('UserProfileContext - 초기 로드 시 API 호출 건너뜀');
+        return;
+      }
+
       setIsLoading(true);
       setError(null);
       
       try {
+        console.log('UserProfileContext - 프로필 새로고침 시작:', { userId: user.userId });
         const profile = await getUserProfile(user.userId);
         setUserProfile(profile);
+        console.log('UserProfileContext - 프로필 새로고침 완료');
       } catch (err) {
         console.error('프로필 로드 실패:', err);
         setError('프로필을 불러오는데 실패했습니다.');

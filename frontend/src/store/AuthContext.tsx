@@ -80,6 +80,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const loadStoredUser = async () => {
       try {
         const storedUser = await getUser();
+        console.log('AuthContext - 저장된 사용자 데이터:', storedUser);
         dispatch({ type: 'INIT_USER', payload: storedUser });
         logger.info('저장된 사용자 로드됨', { userId: storedUser?.userId || 'none' });
       } catch (error) {
@@ -95,9 +96,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const setUser = async (user: User | null) => {
     if (user) {
       try {
+        console.log('AuthContext - 사용자 저장 시작:', {
+          userId: user.userId,
+          email: user.email,
+          hasProfile: user.hasProfile,
+          hasPreferences: user.hasPreferences,
+          isVerified: user.isVerified
+        });
+        
+        // 사용자 정보가 완전한지 확인
+        if (!user.userId || !user.email) {
+          console.error('AuthContext - 불완전한 사용자 정보:', user);
+          throw new Error('사용자 정보가 불완전합니다.');
+        }
+        
         await saveUser(user);
         dispatch({ type: 'SET_USER', payload: user });
         logger.success('사용자 설정 및 저장됨', { userId: user.userId });
+        
+        console.log('AuthContext - 사용자 저장 완료');
       } catch (error) {
         logger.error('사용자 저장 실패', { error });
         dispatch({ type: 'SET_USER', payload: user }); // Context는 업데이트하되 저장 실패 로그
