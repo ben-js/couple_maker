@@ -291,7 +291,7 @@ export default function Layout({ children }: LayoutProps) {
                     className={`
                       group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors
                       ${isActive 
-                        ? 'bg-primary-100 text-primary-900 dark:bg-primary-900 dark:text-primary-100' 
+                        ? 'bg-blue-100 text-blue-900 dark:bg-blue-900 dark:text-blue-100' 
                         : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white'
                       }
                     `}

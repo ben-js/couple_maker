@@ -180,10 +180,33 @@ export default function UserManagement() {
 
   const columns = [
     { key: 'email', header: '이메일', width: 'w-48' },
+    { key: 'name', header: '이름', width: 'w-24' },
+    {
+      key: 'role',
+      header: '역할',
+      width: 'w-24',
+      render: (value: string) => {
+        const roleNames: Record<string, string> = {
+          'customer_support': '고객지원',
+          'manager': '매니저',
+          'admin': '관리자'
+        };
+        const roleColors: Record<string, string> = {
+          'customer_support': 'text-green-600 bg-green-100',
+          'manager': 'text-blue-600 bg-blue-100',
+          'admin': 'text-red-600 bg-red-100'
+        };
+        return (
+          <span className={`px-2 py-1 rounded-full text-xs font-medium ${roleColors[value] || 'text-gray-600 bg-gray-100'}`}>
+            {roleNames[value] || value}
+          </span>
+        );
+      }
+    },
     {
       key: 'status',
       header: '상태',
-      width: 'w-24',
+      width: 'w-20',
       render: (value: string) => {
         const statusNames: Record<string, string> = {
           'active': '활성',
@@ -199,30 +222,8 @@ export default function UserManagement() {
       }
     },
     {
-      key: 'grade',
-      header: '등급',
-      width: 'w-24',
-      render: (value: string) => {
-        const gradeNames: Record<string, string> = {
-          'general': '일반',
-          'silver': '실버',
-          'gold': '골드',
-          'premium': '프리미엄',
-          'excellent': '우수',
-          'vip': 'VIP',
-          'vvip': 'VVIP'
-        };
-        return (
-          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getGradeColor(value)}`}>
-            {gradeNames[value] || value}
-          </span>
-        );
-      }
-    },
-    { key: 'points', header: '포인트', width: 'w-24' },
-    {
       key: 'created_at',
-      header: '가입일',
+      header: '생성일',
       width: 'w-32',
       render: (value: string) => {
         if (!value) return '-';
@@ -236,52 +237,16 @@ export default function UserManagement() {
     {
       key: 'actions',
       header: '작업',
-      width: 'w-80',
+      width: 'w-20',
       render: (_: any, user: User) => (
-        <div className="flex flex-col space-y-2">
-          <div className="flex space-x-2">
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => router.push(`/user-detail/${user.user_id}`)}
-            >
-              상세
-            </Button>
-          </div>
-          {hasPermission('user_management', 'write') && (
-            <div className="flex space-x-2">
-              <div className="flex-1">
-                <Select
-                  value={user.status}
-                  onChange={(value) => handleStatusChange(user.user_id, value)}
-                  options={[
-                    { value: 'active', label: '활성' },
-                    { value: 'inactive', label: '비활성' },
-                    { value: 'suspended', label: '정지' },
-                    { value: 'black', label: '블랙' }
-                  ]}
-                  placeholder="상태 선택"
-                />
-              </div>
-              <div className="flex-1">
-                <Select
-                  value={user.grade}
-                  onChange={(value) => handleGradeChange(user.user_id, value)}
-                  options={[
-                    { value: 'general', label: '일반' },
-                    { value: 'silver', label: '실버' },
-                    { value: 'gold', label: '골드' },
-                    { value: 'premium', label: '프리미엄' },
-                    { value: 'excellent', label: '우수' },
-                    { value: 'vip', label: 'VIP' },
-                    { value: 'vvip', label: 'VVIP' }
-                  ]}
-                  placeholder="등급 선택"
-                />
-              </div>
-            </div>
-          )}
-        </div>
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() => router.push(`/user-detail/${user.user_id}`)}
+          className="w-full text-xs px-2 py-1"
+        >
+          권한
+        </Button>
       )
     }
   ];
@@ -311,7 +276,7 @@ export default function UserManagement() {
               <Input
                 label="검색"
                 value={searchTerm}
-                onChange={setSearchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="이메일로 검색"
               />
               <Select
@@ -415,14 +380,14 @@ export default function UserManagement() {
           </div>
 
           {/* 사용자 테이블 */}
-          <div className="bg-white rounded-lg shadow">
-            <Table
-              data={filteredUsers}
-              columns={columns}
-              loading={loading}
-              emptyMessage="사용자가 없습니다."
-            />
-          </div>
+          <Table
+            title="사용자 목록"
+            data={filteredUsers}
+            columns={columns}
+            loading={loading}
+            emptyMessage="사용자가 없습니다."
+            maxHeight="max-h-[600px]"
+          />
         </div>
       </div>
 

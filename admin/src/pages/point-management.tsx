@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Layout from '../components/Layout';
 import Select from '../components/common/Select';
+import Table from '../components/common/Table';
+import Button from '../components/common/Button';
 import Toast from '../components/Toast';
 
 interface PointRecord {
@@ -24,6 +26,7 @@ export default function PointManagement() {
   const router = useRouter();
   const [pointHistory, setPointHistory] = useState<PointRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [typeFilter, setTypeFilter] = useState('all');
   const [toast, setToast] = useState<Toast | null>(null);
 
@@ -60,7 +63,11 @@ export default function PointManagement() {
     }
   };
 
-  const loadPointHistory = async () => {
+  const loadPointHistory = async (isRefresh = false) => {
+    if (isRefresh) {
+      setRefreshing(true);
+    }
+
     try {
       const token = localStorage.getItem('adminToken');
       const headers: HeadersInit = {};
@@ -76,75 +83,23 @@ export default function PointManagement() {
         const data = await response.json();
         console.log('포인트 히스토리 로드 성공:', data.length, '건');
         setPointHistory(data);
+        if (isRefresh) {
+          showToast('데이터가 새로고침되었습니다.');
+        }
       } else {
         console.error('포인트 히스토리 로드 실패:', response.status, response.statusText);
         showToast('포인트 히스토리를 불러오는데 실패했습니다.', 'error');
-        // API 호출 실패 시에도 페이지에 머무름
         setPointHistory([]);
       }
     } catch (error) {
       console.error('Error loading point history:', error);
       showToast('포인트 히스토리 로딩 중 오류가 발생했습니다.', 'error');
-      // 에러 발생 시에도 페이지에 머무름
       setPointHistory([]);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleAddPoints = async (userId: string, points: number, reason: string) => {
-    try {
-      const token = localStorage.getItem('adminToken');
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json'
-      };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
+      if (isRefresh) {
+        setRefreshing(false);
       }
-      
-      const response = await fetch('/api/points/add', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ userId, points, reason })
-      });
-
-      if (response.ok) {
-        showToast('포인트가 추가되었습니다.');
-        loadPointHistory();
-      } else {
-        showToast('포인트 추가에 실패했습니다.', 'error');
-      }
-    } catch (error) {
-      console.error('Add points error:', error);
-      showToast('포인트 추가 중 오류가 발생했습니다.', 'error');
-    }
-  };
-
-  const handleDeductPoints = async (userId: string, points: number, reason: string) => {
-    try {
-      const token = localStorage.getItem('adminToken');
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json'
-      };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-      
-      const response = await fetch('/api/points/deduct', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ userId, points, reason })
-      });
-
-      if (response.ok) {
-        showToast('포인트가 차감되었습니다.');
-        loadPointHistory();
-      } else {
-        showToast('포인트 차감에 실패했습니다.', 'error');
-      }
-    } catch (error) {
-      console.error('Deduct points error:', error);
-      showToast('포인트 차감 중 오류가 발생했습니다.', 'error');
     }
   };
 
@@ -177,6 +132,77 @@ export default function PointManagement() {
     return points > 0 ? 'text-green-600' : 'text-red-600';
   };
 
+  const columns = [
+    { 
+      key: 'user_email', 
+      header: '사용자', 
+      width: 'w-48',
+      render: (value: string) => (
+        <div className="text-sm font-medium text-gray-900">
+          {value}
+        </div>
+      )
+    },
+    {
+      key: 'points',
+      header: '포인트',
+      width: 'w-24',
+      render: (value: number) => (
+        <span className={`text-sm font-medium ${getPointsColor(value)}`}>
+          {value > 0 ? `+${value}` : value}
+        </span>
+      )
+    },
+    {
+      key: 'type',
+      header: '유형',
+      width: 'w-28',
+      render: (value: string) => (
+        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getTypeColor(value)}`}>
+          {getTypeText(value)}
+        </span>
+      )
+    },
+    {
+      key: 'reason',
+      header: '사유',
+      width: 'w-64',
+      render: (value: string) => (
+        <div className="text-sm text-gray-900">
+          {value || '-'}
+        </div>
+      )
+    },
+    {
+      key: 'createdAt',
+      header: '날짜',
+      width: 'w-32',
+      render: (value: string) => {
+        if (!value) return '-';
+        try {
+          return new Date(value).toLocaleDateString('ko-KR');
+        } catch (error) {
+          return '-';
+        }
+      }
+    },
+    {
+      key: 'actions',
+      header: '작업',
+      width: 'w-20',
+      render: (_: any, record: PointRecord) => (
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() => router.push(`/point-detail/${record.id}`)}
+          className="w-full text-xs px-2 py-1"
+        >
+          상세
+        </Button>
+      )
+    }
+  ];
+
   useEffect(() => {
     console.log('포인트 관리 페이지 로드 시작');
     checkAuth();
@@ -201,7 +227,7 @@ export default function PointManagement() {
         <div className="max-w-7xl mx-auto">
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-gray-900">포인트 관리</h1>
-            <p className="text-gray-600">사용자 포인트를 관리하고 히스토리를 확인할 수 있습니다.</p>
+            <p className="text-gray-600">포인트 히스토리를 관리하고 모니터링할 수 있습니다.</p>
           </div>
 
           {/* Filters */}
@@ -220,133 +246,26 @@ export default function PointManagement() {
                 ]}
               />
               <div className="flex items-end">
-                <button
-                  onClick={loadPointHistory}
-                  className="w-full bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-md transition-colors"
+                <Button
+                  onClick={() => loadPointHistory(true)}
+                  disabled={refreshing}
+                  className="w-full"
                 >
-                  새로고침
-                </button>
+                  {refreshing ? '새로고침 중...' : '새로고침'}
+                </Button>
               </div>
             </div>
           </div>
 
           {/* Point History Table */}
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">
-                포인트 히스토리 ({filteredHistory.length}건)
-              </h3>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      사용자
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      포인트
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      유형
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      사유
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      날짜
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      작업
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredHistory.map((record) => (
-                    <tr key={record.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10">
-                            <div className="h-10 w-10 rounded-full bg-green-300 flex items-center justify-center">
-                              <svg className="h-5 w-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                              </svg>
-                            </div>
-                          </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">
-                              {record.user_email}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              ID: {record.user_id}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className={`text-sm font-medium ${getPointsColor(record.points)}`}>
-                          {record.points > 0 ? '+' : ''}{record.points} P
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          잔액: {record.balance_after} P
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTypeColor(record.type)}`}>
-                          {getTypeText(record.type)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900">
-                          {record.reason || '-'}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(record.createdAt).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => {
-                              console.log('상세 버튼 클릭:', record.id);
-                              router.push(`/point-detail/${record.id}`);
-                            }}
-                            className="text-blue-600 hover:text-blue-900"
-                          >
-                            상세
-                          </button>
-                          <button
-                            onClick={() => {
-                              const points = prompt('추가할 포인트를 입력하세요:');
-                              const reason = prompt('사유를 입력하세요:');
-                              if (points && reason) {
-                                handleAddPoints(record.user_id, parseInt(points), reason);
-                              }
-                            }}
-                            className="text-green-600 hover:text-green-900"
-                          >
-                            추가
-                          </button>
-                          <button
-                            onClick={() => {
-                              const points = prompt('차감할 포인트를 입력하세요:');
-                              const reason = prompt('사유를 입력하세요:');
-                              if (points && reason) {
-                                handleDeductPoints(record.user_id, parseInt(points), reason);
-                              }
-                            }}
-                            className="text-red-600 hover:text-red-900"
-                          >
-                            차감
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <Table
+            title="포인트 히스토리"
+            data={filteredHistory}
+            columns={columns}
+            loading={loading}
+            emptyMessage="포인트 히스토리가 없습니다."
+            maxHeight="max-h-[600px]"
+          />
         </div>
       </div>
 

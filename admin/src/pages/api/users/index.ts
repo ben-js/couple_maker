@@ -43,19 +43,37 @@ export default async function handler(
     }
 
     // 사용자 데이터 가공
-    const processedUsers = users.map(user => ({
-      user_id: user.user_id,
-      email: user.email,
-      status: user.status === 'green' ? 'active' : user.status === 'yellow' ? 'inactive' : user.status === 'red' ? 'suspended' : user.status === 'black' ? 'black' : 'active',
-      grade: user.grade || 'general',
-      points: user.points || 0,
-      created_at: user.created_at,
-      updated_at: user.updated_at,
-      has_profile: user.has_profile || false,
-      has_preferences: user.has_preferences || false,
-      is_verified: user.is_verified || false,
-      is_deleted: user.is_deleted || false
-    }));
+    const processedUsers = users.map(user => {
+      // 이메일에서 이름 추출 (예: ben.js@datesense.app -> Ben Js)
+      const emailName = user.email.split('@')[0];
+      const name = emailName.includes('.') 
+        ? emailName.split('.').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' ')
+        : emailName.charAt(0).toUpperCase() + emailName.slice(1);
+      
+      // 역할 설정 (이메일 기반으로 임시 설정)
+      let role = 'customer_support';
+      if (user.email.includes('manager')) {
+        role = 'manager';
+      } else if (user.email.includes('admin') || user.email.includes('datesense.app')) {
+        role = 'admin';
+      }
+      
+      return {
+        user_id: user.user_id,
+        email: user.email,
+        name: name,
+        role: role,
+        status: user.status === 'green' ? 'active' : user.status === 'yellow' ? 'inactive' : user.status === 'red' ? 'suspended' : user.status === 'black' ? 'black' : 'active',
+        grade: user.grade || 'general',
+        points: user.points || 0,
+        created_at: user.created_at,
+        updated_at: user.updated_at,
+        has_profile: user.has_profile || false,
+        has_preferences: user.has_preferences || false,
+        is_verified: user.is_verified || false,
+        is_deleted: user.is_deleted || false
+      };
+    });
 
     console.log('Manager: 사용자 목록 조회 완료:', processedUsers.length, '명');
 

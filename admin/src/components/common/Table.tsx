@@ -1,90 +1,115 @@
 import React from 'react';
 
-interface Column<T> {
+interface Column {
   key: string;
   header: string;
-  render?: (value: any, item: T) => React.ReactNode;
   width?: string;
+  render?: (value: any, row: any) => React.ReactNode;
 }
 
-interface TableProps<T> {
-  data: T[];
-  columns: Column<T>[];
-  onRowClick?: (item: T) => void;
+interface TableProps {
+  title?: string;
+  data: any[];
+  columns: Column[];
   loading?: boolean;
   emptyMessage?: string;
   className?: string;
+  maxHeight?: string;
 }
 
-function Table<T>({
-  data,
-  columns,
-  onRowClick,
-  loading = false,
-  emptyMessage = '데이터가 없습니다.',
+const Table: React.FC<TableProps> = ({ 
+  title,
+  data, 
+  columns, 
+  loading = false, 
+  emptyMessage = "데이터가 없습니다.",
   className = '',
-}: TableProps<T>) {
+  maxHeight = 'max-h-96'
+}) => {
   if (loading) {
     return (
-      <div className={`bg-white rounded-lg shadow overflow-hidden ${className}`}>
-        <div className="animate-pulse">
-          <div className="h-12 bg-gray-200"></div>
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-16 bg-gray-100 border-t border-gray-200"></div>
-          ))}
+      <div className={`bg-white rounded-lg shadow-sm border border-gray-200 ${className}`}>
+        <div className="p-6">
+          <div className="animate-pulse">
+            <div className="h-4 bg-gray-200 rounded w-1/4 mb-4"></div>
+            <div className="space-y-3">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="h-12 bg-gray-200 rounded"></div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
-  if (data.length === 0) {
-    return (
-      <div className={`bg-white rounded-lg shadow p-8 text-center ${className}`}>
-        <div className="text-gray-500">{emptyMessage}</div>
-      </div>
-    );
-  }
-
   return (
-    <div className={`bg-white rounded-lg shadow overflow-hidden ${className}`}>
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              {columns.map((column) => (
-                <th
-                  key={column.key}
-                  scope="col"
-                  className={`px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${
-                    column.width || ''
-                  }`}
-                >
-                  {column.header}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {data.map((item, index) => (
-              <tr
-                key={index}
-                onClick={() => onRowClick?.(item)}
-                className={onRowClick ? 'cursor-pointer hover:bg-gray-50' : ''}
-              >
+    <div className={`bg-white rounded-lg shadow-sm border border-gray-200 ${className}`}>
+      {/* 제목 영역 */}
+      {title && (
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-900">
+            {title} {data.length > 0 && `(${data.length}건)`}
+          </h3>
+        </div>
+      )}
+      
+      {/* 테이블 영역 */}
+      <div className="overflow-x-auto custom-scrollbar">
+        <div className={`${maxHeight} overflow-y-auto custom-scrollbar`}>
+          <table className="min-w-full table-fixed">
+            <thead className="sticky top-0 bg-white z-10">
+              <tr className="border-b border-gray-200">
                 {columns.map((column) => (
-                  <td key={column.key} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {column.render
-                      ? column.render((item as any)[column.key], item)
-                      : (item as any)[column.key]}
-                  </td>
+                  <th
+                    key={column.key}
+                    className={`px-6 py-3 text-left text-sm font-medium text-gray-500 ${
+                      column.width || ''
+                    }`}
+                  >
+                    {column.header}
+                  </th>
                 ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {data.length === 0 ? (
+                <tr>
+                  <td 
+                    colSpan={columns.length} 
+                    className="px-6 py-8 text-center text-gray-500 text-sm"
+                  >
+                    {emptyMessage}
+                  </td>
+                </tr>
+              ) : (
+                data.map((row, rowIndex) => (
+                  <tr 
+                    key={rowIndex} 
+                    className="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150 ease-in-out"
+                  >
+                    {columns.map((column) => (
+                      <td
+                        key={column.key}
+                        className={`px-6 py-4 text-sm text-gray-900 ${
+                          column.width || ''
+                        }`}
+                      >
+                        {column.render 
+                          ? column.render(row[column.key], row)
+                          : row[column.key] || '-'
+                        }
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
-}
+};
 
 export default Table; 

@@ -331,7 +331,7 @@ export default function ManagerManagement() {
 
   const columns = [
     { key: 'email', header: '이메일', width: 'w-48' },
-    { key: 'name', header: '이름', width: 'w-32' },
+    { key: 'name', header: '이름', width: 'w-24' },
     {
       key: 'role',
       header: '역할',
@@ -345,7 +345,7 @@ export default function ManagerManagement() {
     {
       key: 'status',
       header: '상태',
-      width: 'w-24',
+      width: 'w-20',
       render: (value: string) => (
         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
           value === 'active' ? 'text-green-600 bg-green-100' : 'text-red-600 bg-red-100'
@@ -358,47 +358,28 @@ export default function ManagerManagement() {
       key: 'created_at',
       header: '생성일',
       width: 'w-32',
-      render: (value: string) => new Date(value).toLocaleDateString('ko-KR')
+      render: (value: string) => {
+        if (!value) return '-';
+        try {
+          return new Date(value).toLocaleDateString('ko-KR');
+        } catch (error) {
+          return '-';
+        }
+      }
     },
     {
       key: 'actions',
       header: '작업',
-      width: 'w-80',
+      width: 'w-20',
       render: (_: any, manager: Manager) => (
-        <div className="flex flex-col space-y-2">
-          <div className="flex space-x-2">
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => openPermissionsModal(manager)}
-            >
-              권한
-            </Button>
-          </div>
-          {hasPermission('manager_management', 'write') && (
-            <div className="flex space-x-2">
-              <div className="flex-1">
-                <Select
-                  value={manager.role}
-                  onChange={(value) => handleRoleChange(manager.id, value)}
-                  options={[
-                    { value: 'admin', label: '관리자' },
-                    { value: 'manager', label: '매니저' },
-                    { value: 'support', label: '고객지원' }
-                  ]}
-                  placeholder="역할 선택"
-                />
-              </div>
-              <Button
-                size="sm"
-                variant="danger"
-                onClick={() => handleDeleteManager(manager.id)}
-              >
-                삭제
-              </Button>
-            </div>
-          )}
-        </div>
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() => openPermissionsModal(manager)}
+          className="w-full text-xs px-2 py-1"
+        >
+          권한
+        </Button>
       )
     }
   ];
@@ -456,16 +437,14 @@ export default function ManagerManagement() {
           </div>
 
           {/* 매니저 테이블 */}
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <div className="overflow-x-auto">
-              <Table
-                data={filteredManagers}
-                columns={columns}
-                loading={loading}
-                emptyMessage="매니저가 없습니다."
-              />
-            </div>
-          </div>
+          <Table
+            title="매니저 목록"
+            data={filteredManagers}
+            columns={columns}
+            loading={loading}
+            emptyMessage="매니저가 없습니다."
+            maxHeight="max-h-[600px]"
+          />
         </div>
       </div>
 
@@ -480,7 +459,7 @@ export default function ManagerManagement() {
           <Input
             label="이름"
             value={newManager.name}
-            onChange={(value) => setNewManager(prev => ({ ...prev, name: value }))}
+            onChange={(e) => setNewManager(prev => ({ ...prev, name: e.target.value }))}
             placeholder="매니저 이름"
             required
           />
@@ -488,7 +467,7 @@ export default function ManagerManagement() {
             label="이메일"
             type="email"
             value={newManager.email}
-            onChange={(value) => setNewManager(prev => ({ ...prev, email: value }))}
+            onChange={(e) => setNewManager(prev => ({ ...prev, email: e.target.value }))}
             placeholder="매니저 이메일"
             required
           />
@@ -496,7 +475,7 @@ export default function ManagerManagement() {
             label="비밀번호"
             type="password"
             value={newManager.password}
-            onChange={(value) => setNewManager(prev => ({ ...prev, password: value }))}
+            onChange={(e) => setNewManager(prev => ({ ...prev, password: e.target.value }))}
             placeholder="비밀번호 (최소 6자)"
             required
           />
@@ -504,7 +483,7 @@ export default function ManagerManagement() {
             label="비밀번호 확인"
             type="password"
             value={newManager.confirmPassword}
-            onChange={(value) => setNewManager(prev => ({ ...prev, confirmPassword: value }))}
+            onChange={(e) => setNewManager(prev => ({ ...prev, confirmPassword: e.target.value }))}
             placeholder="비밀번호를 다시 입력하세요"
             required
           />

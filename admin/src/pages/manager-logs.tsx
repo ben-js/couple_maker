@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Layout from '../components/Layout';
 import Select from '../components/common/Select';
+import Table from '../components/common/Table';
+import Button from '../components/common/Button';
+import Toast from '../components/Toast';
 
 interface ManagerLog {
   id: string;
@@ -24,9 +27,16 @@ interface CurrentUser {
 export default function ManagerLogs() {
   const [logs, setLogs] = useState<ManagerLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [actionFilter, setActionFilter] = useState('all');
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const router = useRouter();
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   useEffect(() => {
     console.log('매니저 로그 페이지 로드 시작');
@@ -67,7 +77,11 @@ export default function ManagerLogs() {
     }
   };
 
-  const loadLogs = async () => {
+  const loadLogs = async (isRefresh = false) => {
+    if (isRefresh) {
+      setRefreshing(true);
+    }
+
     try {
       const token = localStorage.getItem('adminToken');
       const headers: HeadersInit = {};
@@ -83,17 +97,21 @@ export default function ManagerLogs() {
         const data = await response.json();
         console.log('매니저 로그 로드 성공:', data.length, '건');
         setLogs(data);
+        if (isRefresh) {
+          showToast('데이터가 새로고침되었습니다.');
+        }
       } else {
         console.error('매니저 로그 로드 실패:', response.status, response.statusText);
-        // API 호출 실패 시에도 페이지에 머무름
         setLogs([]);
       }
     } catch (error) {
       console.error('Error loading logs:', error);
-      // 에러 발생 시에도 페이지에 머무름
       setLogs([]);
     } finally {
       setLoading(false);
+      if (isRefresh) {
+        setRefreshing(false);
+      }
     }
   };
 
@@ -104,26 +122,26 @@ export default function ManagerLogs() {
 
   const getActionColor = (action: string) => {
     switch (action) {
-      case 'login': return 'text-blue-700 bg-blue-50 border-blue-200';
-      case 'logout': return 'text-gray-700 bg-gray-50 border-gray-200';
-      case 'create': return 'text-green-700 bg-green-50 border-green-200';
-      case 'update': return 'text-yellow-700 bg-yellow-50 border-yellow-200';
-      case 'delete': return 'text-red-700 bg-red-50 border-red-200';
-      case 'password_change': return 'text-purple-700 bg-purple-50 border-purple-200';
-      case 'change_password': return 'text-purple-700 bg-purple-50 border-purple-200';
-      case 'status_change': return 'text-pink-700 bg-pink-50 border-pink-200';
-      case 'user_status_change': return 'text-pink-700 bg-pink-50 border-pink-200';
-      case 'grade_change': return 'text-cyan-700 bg-cyan-50 border-cyan-200';
-      case 'user_grade_change': return 'text-cyan-700 bg-cyan-50 border-cyan-200';
-      case 'matching_approve': return 'text-emerald-700 bg-emerald-50 border-emerald-200';
-      case 'matching_reject': return 'text-rose-700 bg-rose-50 border-rose-200';
-      case 'review_delete': return 'text-red-700 bg-red-50 border-red-200';
-      case 'point_adjust': return 'text-amber-700 bg-amber-50 border-amber-200';
-      case 'user_delete': return 'text-red-700 bg-red-50 border-red-200';
-      case 'manager_delete': return 'text-red-700 bg-red-50 border-red-200';
-      case 'permission_change': return 'text-indigo-700 bg-indigo-50 border-indigo-200';
-      case 'test_action': return 'text-violet-700 bg-violet-50 border-violet-200';
-      default: return 'text-gray-700 bg-gray-50 border-gray-200';
+      case 'login': return 'text-blue-600 bg-blue-100';
+      case 'logout': return 'text-gray-600 bg-gray-100';
+      case 'create': return 'text-green-600 bg-green-100';
+      case 'update': return 'text-yellow-600 bg-yellow-100';
+      case 'delete': return 'text-red-600 bg-red-100';
+      case 'password_change': return 'text-purple-600 bg-purple-100';
+      case 'change_password': return 'text-purple-600 bg-purple-100';
+      case 'status_change': return 'text-pink-600 bg-pink-100';
+      case 'user_status_change': return 'text-pink-600 bg-pink-100';
+      case 'grade_change': return 'text-cyan-600 bg-cyan-100';
+      case 'user_grade_change': return 'text-cyan-600 bg-cyan-100';
+      case 'matching_approve': return 'text-emerald-600 bg-emerald-100';
+      case 'matching_reject': return 'text-rose-600 bg-rose-100';
+      case 'review_delete': return 'text-red-600 bg-red-100';
+      case 'point_adjust': return 'text-amber-600 bg-amber-100';
+      case 'user_delete': return 'text-red-600 bg-red-100';
+      case 'manager_delete': return 'text-red-600 bg-red-100';
+      case 'permission_change': return 'text-indigo-600 bg-indigo-100';
+      case 'test_action': return 'text-violet-600 bg-violet-100';
+      default: return 'text-gray-600 bg-gray-100';
     }
   };
 
@@ -151,6 +169,76 @@ export default function ManagerLogs() {
       default: return action;
     }
   };
+
+  const columns = [
+    { 
+      key: 'manager_email', 
+      header: '사용자', 
+      width: 'w-56',
+      render: (value: string, log: ManagerLog) => (
+        <div className="flex items-center">
+          <div className="flex-shrink-0 h-8 w-8">
+            <div className="h-8 w-8 rounded-full bg-blue-300 flex items-center justify-center">
+              <svg className="h-4 w-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </div>
+          </div>
+          <div className="ml-3">
+            <div className="text-sm font-medium text-gray-900">
+              {value}
+            </div>
+            <div className="text-xs text-gray-500">
+              {log.manager_role}
+            </div>
+          </div>
+        </div>
+      )
+    },
+    {
+      key: 'action',
+      header: '작업 유형',
+      width: 'w-28',
+      render: (value: string) => (
+        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getActionColor(value)}`}>
+          {getActionText(value)}
+        </span>
+      )
+    },
+    {
+      key: 'details',
+      header: '작업 설명',
+      width: 'w-96',
+      render: (value: string) => (
+        <div className="text-sm text-gray-900">
+          {value || '-'}
+        </div>
+      )
+    },
+    {
+      key: 'status',
+      header: '상태',
+      width: 'w-24',
+      render: () => (
+        <span className="text-sm text-gray-500">
+          알 수 없음
+        </span>
+      )
+    },
+    {
+      key: 'created_at',
+      header: '타임스탬프',
+      width: 'w-48',
+      render: (value: string) => {
+        if (!value) return '-';
+        try {
+          return new Date(value).toLocaleString('ko-KR');
+        } catch (error) {
+          return '-';
+        }
+      }
+    }
+  ];
 
   if (loading) {
     return (
@@ -199,91 +287,36 @@ export default function ManagerLogs() {
                 ]}
               />
               <div className="flex items-end">
-                <button
-                  onClick={loadLogs}
-                  className="w-full bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-md transition-colors"
+                <Button
+                  onClick={() => loadLogs(true)}
+                  disabled={refreshing}
+                  className="w-full"
                 >
-                  새로고침
-                </button>
+                  {refreshing ? '새로고침 중...' : '새로고침'}
+                </Button>
               </div>
             </div>
           </div>
 
           {/* Logs Table */}
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">
-                매니저 로그 ({filteredLogs.length}건)
-              </h3>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      매니저
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      액션
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      상세 정보
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      IP 주소
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      시간
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredLogs.map((log) => (
-                    <tr key={log.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10">
-                            <div className="h-10 w-10 rounded-full bg-indigo-300 flex items-center justify-center">
-                              <svg className="h-5 w-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                              </svg>
-                            </div>
-                          </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">
-                              {log.manager_email}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {log.manager_role}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold shadow-sm border ${getActionColor(log.action)}`}>
-                          <div className="w-2 h-2 rounded-full mr-2 bg-current opacity-75"></div>
-                          {getActionText(log.action)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900">
-                          {log.details || '-'}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {log.ip_address}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(log.created_at).toLocaleString()}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <Table
+            title="매니저 활동 로그"
+            data={filteredLogs}
+            columns={columns}
+            loading={loading}
+            emptyMessage="로그가 없습니다."
+            maxHeight="max-h-[600px]"
+          />
         </div>
       </div>
+
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </Layout>
   );
 } 
