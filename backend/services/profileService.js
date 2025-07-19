@@ -6,8 +6,10 @@ const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, GetCommand, PutCommand, UpdateCommand } = require('@aws-sdk/lib-dynamodb');
 const config = require('../config');
 const userService = require('./userService');
+const s3Service = require('./s3Service');
+const AWS_CONFIG = require('../config/aws');
 
-const ddbClient = new DynamoDBClient({ region: config.dynamodb.region });
+const ddbClient = new DynamoDBClient(AWS_CONFIG);
 const ddbDocClient = DynamoDBDocumentClient.from(ddbClient);
 
 class ProfileService {
@@ -19,6 +21,34 @@ class ProfileService {
   async saveProfile(profileData) {
     try {
       const { user_id, ...profileFields } = profileData;
+      
+      // 기존 프로필 조회 (사진 비교용)
+      const existingProfile = await this.getProfile(user_id);
+      const existingPhotos = existingProfile.success && existingProfile.data?.photos ? existingProfile.data.photos : [];
+      const newPhotos = profileFields.photos || [];
+      
+      // 삭제된 사진 찾기 (기존에 있던 사진 중에서 새로운 사진에 없는 것들)
+      const deletedPhotos = existingPhotos.filter(existingPhoto => 
+        !newPhotos.some(newPhoto => newPhoto === existingPhoto)
+      );
+      
+      // 삭제된 사진이 있으면 S3에서 삭제
+      if (deletedPhotos.length > 0) {
+        console.log('삭제된 사진 S3 삭제 시작:', { 
+          userId: user_id, 
+          deletedPhotos: deletedPhotos,
+          deletedCount: deletedPhotos.length 
+        });
+        
+        for (const photoUrl of deletedPhotos) {
+          const deleteResult = await s3Service.deletePhoto(photoUrl);
+          if (deleteResult.success) {
+            console.log('사진 삭제 완료:', { photoUrl });
+          } else {
+            console.error('사진 삭제 실패:', { photoUrl, error: deleteResult.error });
+          }
+        }
+      }
       
       // 프로필 데이터 구조화
       const profile = {
@@ -90,9 +120,10 @@ class ProfileService {
       );
       if (!profileResult.Item) {
         return {
-          success: false,
-          statusCode: 404,
-          message: '프로필을 찾을 수 없습니다.'
+          success: true,
+          statusCode: 200,
+          message: '프로필이 없습니다.',
+          data: null
         };
       }
       const profile = profileResult.Item;

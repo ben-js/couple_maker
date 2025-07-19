@@ -39,7 +39,10 @@ const FormRegionModal: React.FC<FormRegionModalProps> = ({ label, value, onChang
 
   return (
     <View style={{ marginBottom: 0 }}>
-      <Text style={{ fontWeight: 'bold', marginBottom: 4 }}>{label}</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+        <Text style={{ fontWeight: 'bold' }}>{label}</Text>
+        {error && <Text style={{ color: 'red', fontSize: 13, marginLeft: 8 }}>{error}</Text>}
+      </View>
       <TouchableOpacity
         onPress={handleOpenModal}
         activeOpacity={0.8}
@@ -111,7 +114,6 @@ const FormRegionModal: React.FC<FormRegionModalProps> = ({ label, value, onChang
           )}
         </SafeAreaView>
       </Modal>
-      {error && <Text style={{ color: 'red', marginTop: 4, fontSize: 13 }}>{error}</Text>}
     </View>
   );
 };

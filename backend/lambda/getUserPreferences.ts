@@ -1,6 +1,10 @@
 import { GetCommand } from '@aws-sdk/lib-dynamodb';
 import { commonHeaders, ddbDocClient } from '../utils';
 
+export const getPreferences = async (event: any) => {
+  return await handler(event);
+};
+
 export const handler = async (event: any) => {
   const startTime = Date.now();
   const userId = event.pathParameters?.userId;
@@ -8,7 +12,7 @@ export const handler = async (event: any) => {
   try {
     const preferencesResult = await ddbDocClient.send(
       new GetCommand({
-        TableName: 'UserPreferences',
+        TableName: 'Preferences',
         Key: { user_id: userId }
       })
     );

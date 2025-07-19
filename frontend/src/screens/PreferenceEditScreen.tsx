@@ -15,10 +15,10 @@ import { FormRangeSlider } from '../components/FormRangeSlider';
 import FormRegionChoiceModal from '../components/FormRegionChoiceModal';
 import FormOrderSelector from '../components/FormOrderSelector';
 import { Feather } from '@expo/vector-icons';
-import { getUserPreferences, saveUserPreferences } from '../services/userPreferencesService';
+import { getPreferences, savePreferences } from '../services/preferenceService';
 import { getUserProfile } from '../services/userService';
 import { useAuth } from '../store/AuthContext';
-import { UserPreferences } from '../types';
+import { Preferences } from '../types/preference';
 import { logger } from '@/utils/logger';
 import { TOAST_MESSAGES, NAVIGATION_ROUTES } from '@/constants';
 import { apiPost } from '@/utils/apiUtils';
@@ -107,18 +107,26 @@ const PreferenceSetupScreen = () => {
   // 기존 이상형 데이터 로딩
   useEffect(() => {
     const loadPreferences = async () => {
-      if (!user?.userId) return;
+      console.log('🔍 loadPreferences 시작, userId:', user?.userId, 'isEditMode:', isEditMode);
+      if (!user?.userId) {
+        console.log('🔍 userId가 없음');
+        return;
+      }
       
       try {
         // 기존 이상형 데이터가 있으면 로드
         if (isEditMode) {
-          const preferences = await getUserPreferences(user.userId);
-          if (preferences) {
-            // 변환 로직 적용
-            const resetData: any = {};
-            preferenceForm.forEach(field => {
-              const key = field.name as keyof typeof preferences;
-              let value = preferences[key];
+          console.log('🔍 getPreferences 호출 중...');
+          const preferences = await getPreferences(user.userId);
+          console.log('🔍 getPreferences 결과:', preferences);
+                      if (preferences) {
+              console.log('🔍 preferences 데이터 변환 시작');
+              // 변환 로직 적용
+              const resetData: any = {};
+              preferenceForm.forEach(field => {
+                const key = field.name as keyof typeof preferences;
+                let value = preferences[key];
+                console.log(`🔍 필드 ${field.name}:`, value);
               // range_slider 변환: [min, max] → {min, max}
               if (
                 field.type === 'range_slider' &&
@@ -163,6 +171,7 @@ const PreferenceSetupScreen = () => {
               }
               resetData[field.name] = value as any;
             });
+            console.log('🔍 reset 데이터:', resetData);
             reset(resetData);
           }
         }
@@ -197,7 +206,7 @@ const PreferenceSetupScreen = () => {
       const preferredGender = profile?.gender ? (profile.gender === '남' ? '여' : '남') : '';
       
       // 데이터를 UserPreferences 형식으로 변환 (카멜케이스)
-      const preferences: UserPreferences = {
+      const preferences: Preferences = {
         userId: user.userId,
         preferredGender: preferredGender,
                   ageRange: data.ageRange || { min: 20, max: 50 },
@@ -225,7 +234,7 @@ const PreferenceSetupScreen = () => {
 
       // 백엔드에 저장
       logger.api.request('POST', '/user-preferences', preferences);
-      await saveUserPreferences(preferences);
+      await savePreferences(preferences);
       logger.api.response('POST', '/user-preferences', { success: true });
 
       // 사용자 상태 업데이트 (hasPreferences를 true로)

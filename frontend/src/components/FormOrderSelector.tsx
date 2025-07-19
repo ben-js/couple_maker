@@ -76,10 +76,13 @@ const FormOrderSelector: React.FC<FormOrderSelectorProps> = ({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>
-        {label}
-      </Text>
-      
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+        <Text style={styles.label}>
+          {label}
+          {required && <Text style={styles.required}> *</Text>}
+        </Text>
+        {error && <Text style={{ color: colors.error, marginLeft: 8, fontSize: 13 }}>{error}</Text>}
+      </View>
       <TouchableOpacity
         style={[styles.selector, error && styles.selectorError]}
         onPress={() => setIsModalVisible(true)}
@@ -90,8 +93,6 @@ const FormOrderSelector: React.FC<FormOrderSelectorProps> = ({
         </Text>
       </TouchableOpacity>
       
-      {error && <Text style={styles.errorText}>{error}</Text>}
-
       <Modal
         visible={isModalVisible}
         animationType="slide"

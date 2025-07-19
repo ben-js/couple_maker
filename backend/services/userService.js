@@ -6,8 +6,9 @@ const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, GetCommand, PutCommand, UpdateCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
 const { v4: uuidv4 } = require('uuid');
 const config = require('../config');
+const AWS_CONFIG = require('../config/aws');
 
-const ddbClient = new DynamoDBClient({ region: config.dynamodb.region });
+const ddbClient = new DynamoDBClient(AWS_CONFIG);
 const ddbDocClient = DynamoDBDocumentClient.from(ddbClient);
 
 class UserService {

@@ -23,7 +23,10 @@ const FormCheckboxGroup: React.FC<FormCheckboxGroupProps> = ({ label, options, v
   };
   return (
     <View style={{ marginBottom: 16 }}>
-      <Text style={{ fontWeight: 'bold', marginBottom: 4 }}>{label}</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+        <Text style={{ fontWeight: 'bold' }}>{label}</Text>
+        {error && <Text style={{ color: 'red', marginLeft: 8, fontSize: 13 }}>{error}</Text>}
+      </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
         {options.map(opt => (
           <TouchableOpacity
@@ -42,7 +45,6 @@ const FormCheckboxGroup: React.FC<FormCheckboxGroupProps> = ({ label, options, v
           </TouchableOpacity>
         ))}
       </View>
-      {error && <Text style={{ color: 'red', marginTop: 4 }}>{error}</Text>}
       {max && <Text style={{ color: '#888', fontSize: 12 }}>최대 {max}개 선택</Text>}
     </View>
   );

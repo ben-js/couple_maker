@@ -1,0 +1,65 @@
+name: Deploy Admin to AWS Amplify
+
+on:
+  push:
+    branches: [main]
+    paths: ['admin/**']
+  pull_request:
+    branches: [main]
+    paths: ['admin/**']
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: admin/package-lock.json
+          
+      - name: Install dependencies
+        run: |
+          cd admin
+          npm ci
+          
+      - name: Run linting
+        run: |
+          cd admin
+          npm run lint
+          
+      - name: Type check
+        run: |
+          cd admin
+          npm run type-check
+          
+      - name: Build application
+        run: |
+          cd admin
+          npm run build
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          
+      - name: Deploy to AWS Amplify
+        if: github.ref == 'refs/heads/main'
+        uses: aws-actions/amplify-deploy@v1
+        with:
+          app-id: ${{ secrets.AMPLIFY_APP_ID }}
+          branch-name: main
+          region: ${{ secrets.AWS_REGION }}
+          
+      - name: Notify deployment status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Admin deployment successful"
+          else
+            echo "❌ Admin deployment failed"
+          fi 

@@ -118,9 +118,9 @@ const ProfileEditScreen = () => {
     }, {} as any),
   });
 
-  // 폼 값 감시 (디버깅용)
-  const formValues = watch();
-  console.log('ProfileEditScreen - 현재 폼 값:', formValues);
+  // 폼 값 감시 (디버깅용) - 필요시에만 활성화
+  // const formValues = watch();
+  // console.log('ProfileEditScreen - 현재 폼 값:', formValues);
 
   // 기존 프로필 데이터 로딩 (수정 모드일 때)
   React.useEffect(() => {
@@ -162,10 +162,13 @@ const ProfileEditScreen = () => {
             reset(resetData);
             
             // 사진 설정
-            if (profile.photos && profile.photos.length > 0) {
+            if (profile.photos && Array.isArray(profile.photos) && profile.photos.length > 0) {
               const photoArray: (string | null)[] = [...profile.photos];
               while (photoArray.length < 5) photoArray.push(null);
               setPhotos(photoArray.slice(0, 5));
+            } else {
+              // photos가 없거나 undefined인 경우 기본 배열 설정
+              setPhotos([null, null, null, null, null]);
             }
           }
         } catch (error) {
@@ -177,16 +180,19 @@ const ProfileEditScreen = () => {
     };
 
     loadProfile();
-  }, [user?.userId, isEditMode, reset]);
+  }, [user?.userId, isEditMode]); // reset 제거
 
   // 사진 관련 핸들러들
-  const cleanPhotos = (arr: (string|null)[]) => arr.filter((p): p is string => !!p && typeof p === 'string');
+  const cleanPhotos = (arr: (string|null)[]) => {
+    if (!arr || !Array.isArray(arr)) return [];
+    return arr.filter((p): p is string => !!p && typeof p === 'string');
+  };
 
   const handleCamera = async (idx: number|null) => {
     if (idx === null) return;
     const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.8 });
     if (!result.canceled && result.assets && result.assets.length > 0) {
-      const newPhotos = [...photos];
+      const newPhotos = [...(photos || [null, null, null, null, null])];
       newPhotos[idx] = result.assets[0].uri;
       setPhotos(newPhotos);
       setPhotoActionIndex(null);
@@ -205,17 +211,54 @@ const ProfileEditScreen = () => {
   };
 
   const handleSetMain = (idx: number) => {
+    const currentPhotos = photos || [null, null, null, null, null];
+    console.log('handleSetMain 호출:', { idx, photos: currentPhotos });
+    
     if (idx === 0) return;
-    const newPhotos = [...photos];
-    const [main] = newPhotos.splice(idx, 1);
-    newPhotos.unshift(main);
-    while (newPhotos.length < 5) newPhotos.push(null);
-    setPhotos(newPhotos.slice(0, 5));
+    
+    // 현재 유효한 사진들만 추출
+    const validPhotos = currentPhotos.filter((p): p is string => !!p && typeof p === 'string');
+    
+    console.log('유효한 사진들:', { validPhotos, validLength: validPhotos.length });
+    
+    // idx가 유효한 범위인지 확인
+    if (idx >= currentPhotos.length || !currentPhotos[idx]) {
+      console.error('유효하지 않은 인덱스:', { idx, photosLength: currentPhotos.length });
+      return;
+    }
+    
+    // 선택된 사진
+    const selectedPhoto = currentPhotos[idx];
+    
+    // 새로운 배열 구성: 선택된 사진을 맨 앞으로, 나머지는 순서대로
+    const newPhotos: (string | null)[] = [selectedPhoto];
+    
+    // 나머지 사진들을 순서대로 추가 (선택된 사진 제외)
+    for (let i = 0; i < currentPhotos.length; i++) {
+      if (i !== idx && currentPhotos[i]) {
+        newPhotos.push(currentPhotos[i]);
+      }
+    }
+    
+    // 5개 배열로 확장 (null로 채움)
+    while (newPhotos.length < 5) {
+      newPhotos.push(null);
+    }
+    
+    console.log('대표 이미지 설정 완료:', {
+      originalPhotos: currentPhotos,
+      selectedPhoto,
+      newPhotos,
+      newPhotosLength: newPhotos.length
+    });
+    
+    setPhotos(newPhotos);
     setPhotoActionIndex(null);
   };
 
   const handleDelete = (idx: number) => {
-    const newPhotos = [...photos];
+    const currentPhotos = photos || [null, null, null, null, null];
+    const newPhotos = [...currentPhotos];
     newPhotos[idx] = null;
     setPhotos(newPhotos);
     setPhotoActionIndex(null);
@@ -237,7 +280,8 @@ const ProfileEditScreen = () => {
           [{ crop: cropRegion }],
           { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
         );
-        const newPhotos = [...photos];
+        const currentPhotos = photos || [null, null, null, null, null];
+        const newPhotos = [...currentPhotos];
         if (previewTargetIdx >= 0 && previewTargetIdx < newPhotos.length) {
           newPhotos[previewTargetIdx] = manipResult.uri;
         }
@@ -253,11 +297,40 @@ const ProfileEditScreen = () => {
   };
 
   const onSubmit = async (data: any) => {
+    console.log('🔍 onSubmit 호출됨 - 폼 데이터:', data);
+    console.log('🔍 favoriteFoods 값:', data.favoriteFoods);
+    console.log('🔍 favoriteFoods 타입:', typeof data.favoriteFoods);
+    console.log('🔍 favoriteFoods 길이:', Array.isArray(data.favoriteFoods) ? data.favoriteFoods.length : '배열 아님');
+    
+    // 좋아하는 음식 필수 검증
+    if (!data.favoriteFoods || !Array.isArray(data.favoriteFoods) || data.favoriteFoods.length < 1) {
+      if (Platform.OS === 'android') {
+        ToastAndroid.show('좋아하는 음식을 1개 이상 선택해 주세요', ToastAndroid.SHORT);
+      } else {
+        Alert.alert('알림', '좋아하는 음식을 1개 이상 선택해 주세요');
+      }
+      return;
+    }
+    
     if (!user?.userId) {
       Alert.alert('오류', '로그인 정보가 올바르지 않습니다. 다시 로그인 해주세요.');
       return;
     }
-    const filteredPhotos = cleanPhotos(photos);
+    
+    // photos 배열이 undefined인 경우 안전하게 처리
+    const currentPhotos = photos || [null, null, null, null, null];
+    
+    console.log('프로필 저장 시작 - 현재 photos 상태:', {
+      photosLength: currentPhotos.length,
+      validPhotosCount: currentPhotos.filter(p => !!p).length
+    });
+    
+    const filteredPhotos = cleanPhotos(currentPhotos);
+    
+    console.log('프로필 저장 - 필터링된 사진:', {
+      filteredLength: filteredPhotos.length
+    });
+    
     if (filteredPhotos.length < 1) {
       if (Platform.OS === 'android') {
         ToastAndroid.show(TOAST_MESSAGES.PROFILE_PHOTO_REQUIRED, ToastAndroid.SHORT);
@@ -272,24 +345,26 @@ const ProfileEditScreen = () => {
       ...data,
       photos: filteredPhotos,
     };
+    
+    console.log('프로필 저장 - 최종 프로필 데이터:', {
+      userId: profile.userId,
+      photosLength: profile.photos.length
+    });
+    
     try {
       const success = await saveProfile(profile);
       if (success) {
-        const latestProfile = await getUserProfile(user.userId);
-        if (latestProfile) {
-          setUser({
-            ...user,
-            ...latestProfile,
-            hasProfile: true,
-            photos: latestProfile.photos
-          });
-        } else {
-          setUser({
-            ...user,
-            hasProfile: true,
-            photos: filteredPhotos as string[]
-          });
-        }
+        // 백엔드에서 조회한 프로필 대신 현재 UI 상태를 우선적으로 사용
+        const currentPhotos = cleanPhotos(photos || [null, null, null, null, null]);
+        console.log('현재 UI의 photos 상태:', {
+          currentPhotosLength: currentPhotos.length
+        });
+        
+        setUser({
+          ...user,
+          hasProfile: true,
+          photos: currentPhotos // 백엔드에서 조회한 photos 대신 현재 UI 상태 사용
+        });
       }
       if (Platform.OS === 'android') {
         ToastAndroid.show(TOAST_MESSAGES.PROFILE_SAVED, ToastAndroid.SHORT);
@@ -342,7 +417,7 @@ const ProfileEditScreen = () => {
             activeOpacity={0.8}
             style={styles.profileImageTouchable}
           >
-            {photos[0] ? (
+            {photos && photos[0] ? (
               <Image source={{ uri: photos[0] }} style={styles.profileImage} resizeMode="cover" />
             ) : (
               <Avatar
@@ -373,7 +448,7 @@ const ProfileEditScreen = () => {
               activeOpacity={0.8}
               style={styles.photoMainTouchable}
             >
-              {photos[0] ? (
+              {photos && photos[0] ? (
                 <Image source={{ uri: photos[0] }} style={styles.photoMainImage} resizeMode="cover" />
               ) : (
                 <Avatar
@@ -398,7 +473,7 @@ const ProfileEditScreen = () => {
                   activeOpacity={0.8}
                   style={styles.photoThumbTouchable}
                 >
-                  {photos[i] ? (
+                  {photos && photos[i] ? (
                     <Image source={{ uri: photos[i] }} style={styles.photoThumbImage} resizeMode="cover" />
                   ) : (
                     <Avatar
@@ -430,12 +505,12 @@ const ProfileEditScreen = () => {
                 <TouchableOpacity style={styles.photoActionTouchable} onPress={() => handleGallery(photoActionIndex)}>
                   <Text style={styles.photoActionText}>갤러리</Text>
                 </TouchableOpacity>
-                {photoActionIndex !== 0 && photos[photoActionIndex ?? 0] && (
+                {photoActionIndex !== 0 && photos && photos[photoActionIndex ?? 0] && (
                   <TouchableOpacity style={styles.photoActionTouchable} onPress={() => handleSetMain(photoActionIndex!)}>
                     <Text style={styles.photoActionText}>대표 이미지 설정</Text>
                   </TouchableOpacity>
                 )}
-                {photos[photoActionIndex ?? 0] && (
+                {photos && photos[photoActionIndex ?? 0] && (
                   <TouchableOpacity style={styles.photoActionTouchable} onPress={() => handleDelete(photoActionIndex!)}>
                     <Text style={styles.photoActionText}>사진 삭제</Text>
                   </TouchableOpacity>
@@ -564,8 +639,8 @@ const ProfileEditScreen = () => {
                       activeOpacity={0.8}
                       style={{ borderWidth: 0, borderRadius: 0, backgroundColor: 'transparent', paddingHorizontal: 0, minHeight: 40, justifyContent: 'center', marginBottom: 12 }}
                     >
-                      <Text style={value && value.length ? styles.chipsValueText : styles.chipsPlaceholderText}>
-                        {value && value.length ? value.join(', ') : field.placeholder}
+                      <Text style={value && Array.isArray(value) && value.length ? styles.chipsValueText : styles.chipsPlaceholderText}>
+                        {value && Array.isArray(value) && value.length ? value.join(', ') : field.placeholder}
                       </Text>
                     </TouchableOpacity>
                     <Modal visible={activeChipsModalField === field.name} transparent={false} animationType="slide">
@@ -591,15 +666,25 @@ const ProfileEditScreen = () => {
                         </View>
                         <View style={{ padding: 24, paddingTop: 0 }}>
                           <TouchableOpacity
-                            style={{ backgroundColor: value.length < (field.minSelect || 1) ? '#eee' : '#3B82F6', borderRadius: 12, paddingVertical: 14, alignItems: 'center' }}
-                            disabled={value.length < (field.minSelect || 1)}
+                            style={{ backgroundColor: (value && Array.isArray(value) && value.length < (field.minSelect || 1)) ? '#eee' : '#3B82F6', borderRadius: 12, paddingVertical: 14, alignItems: 'center' }}
+                            disabled={value && Array.isArray(value) && value.length < (field.minSelect || 1)}
                             onPress={async () => {
+                              // 최소 선택 개수 확인
+                              if (!value || !Array.isArray(value) || value.length < (field.minSelect || 1)) {
+                                if (Platform.OS === 'android') {
+                                  ToastAndroid.show(field.errorMessage || `${field.label}을(를) ${field.minSelect || 1}개 이상 선택해 주세요`, ToastAndroid.SHORT);
+                                } else {
+                                  Alert.alert('알림', field.errorMessage || `${field.label}을(를) ${field.minSelect || 1}개 이상 선택해 주세요`);
+                                }
+                                return;
+                              }
+                              
                               setValue(field.name, value);
                               setActiveChipsModalField(null);
                               await trigger(field.name);
                             }}
                           >
-                            <Text style={{ color: value.length < (field.minSelect || 1) ? '#bbb' : '#fff', fontWeight: 'bold', fontSize: 16 }}>확인</Text>
+                            <Text style={{ color: (value && Array.isArray(value) && value.length < (field.minSelect || 1)) ? '#bbb' : '#fff', fontWeight: 'bold', fontSize: 16 }}>확인</Text>
                           </TouchableOpacity>
                         </View>
                       </SafeAreaView>

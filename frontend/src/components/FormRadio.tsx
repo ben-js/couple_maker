@@ -12,7 +12,10 @@ interface FormRadioProps {
 
 const FormRadio: React.FC<FormRadioProps> = ({ label, options, value, onChange, error }) => (
   <View style={{ marginBottom: 16 }}>
-    <Text style={{ fontWeight: 'bold', marginBottom: 4 }}>{label}</Text>
+    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+      <Text style={{ fontWeight: 'bold' }}>{label}</Text>
+      {error && <Text style={{ color: 'red', marginLeft: 8, fontSize: 13 }}>{error}</Text>}
+    </View>
     <RadioGroup
       initialValue={value}
       onValueChange={onChange}
@@ -22,7 +25,6 @@ const FormRadio: React.FC<FormRadioProps> = ({ label, options, value, onChange, 
         <RadioButton key={opt} value={opt} label={opt} style={{ marginRight: 16 }} />
       ))}
     </RadioGroup>
-    {error && <Text style={{ color: 'red', marginTop: 4 }}>{error}</Text>}
   </View>
 );
 

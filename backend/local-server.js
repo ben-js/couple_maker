@@ -8,14 +8,38 @@ const cors = require('cors');
 const config = require('./config');
 const authService = require('./services/authService');
 const profileService = require('./services/profileService');
-const userPreferencesService = require('./services/userPreferencesService');
+const preferenceService = require('./services/preferenceService');
 const s3Service = require('./services/s3Service');
+const matchingService = require('./services/matchingService');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
+const { DynamoDBDocumentClient, QueryCommand, GetCommand } = require('@aws-sdk/lib-dynamodb');
+const AWS_CONFIG = require('./config/aws');
+
+// AWS 설정
+console.log('🔧 AWS 환경 변수 확인:', {
+  region: AWS_CONFIG.region,
+  hasAccessKey: true,
+  hasSecretKey: true
+});
+
+const dynamoClient = new DynamoDBClient(AWS_CONFIG);
+
+const dynamodb = DynamoDBDocumentClient.from(dynamoClient);
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 const app = express();
 
 // CORS 설정
 app.use(cors(config.cors));
 app.use(express.json());
+
+// API 호출 로깅 미들웨어
+app.use((req, res, next) => {
+  console.log(`📡 ${req.method} ${req.path}`);
+  next();
+});
 
 /**
  * 로그인 API
@@ -123,7 +147,7 @@ app.post('/get-upload-url', async (req, res) => {
  */
 app.post('/user-preferences', async (req, res) => {
   try {
-    const result = await userPreferencesService.saveUserPreferences(req.body);
+    const result = await preferenceService.saveUserPreferences(req.body);
     return res.status(result.statusCode).json({
       success: result.success,
       message: result.message,
@@ -147,7 +171,7 @@ app.get('/user-preferences/:userId', async (req, res) => {
   const { userId } = req.params;
   
   try {
-    const result = await userPreferencesService.getUserPreferences(userId);
+    const result = await preferenceService.getUserPreferences(userId);
     return res.status(result.statusCode).json({
       success: result.success,
       message: result.message,
@@ -171,20 +195,47 @@ app.get('/matching-status', async (req, res) => {
   const { userId } = req.query;
   
   try {
-    // 임시로 빈 상태 반환 (실제로는 매칭 상태 조회 로직 구현 필요)
-    return res.status(200).json({
-      success: true,
-      message: '매칭 상태 조회 성공',
-      data: {
-        status: null, // 아직 신청하지 않은 상태
-        matchId: null,
-        matchedUser: null,
-        otherUserChoices: null,
-        review: null,
-        contactReady: false,
-        bothReviewed: false
-      }
-    });
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: '사용자 ID가 필요합니다.'
+      });
+    }
+
+    // 실제 매칭 요청 조회
+    const result = await matchingService.getMatchingRequest(userId);
+    
+    if (result.success && result.data) {
+      // 매칭 요청이 존재하는 경우
+      return res.status(200).json({
+        success: true,
+        message: '매칭 상태 조회 성공',
+        data: {
+          status: result.data.status,
+          matchId: result.data.request_id,
+          matchedUser: null, // 아직 매칭되지 않음
+          otherUserChoices: null,
+          review: null,
+          contactReady: false,
+          bothReviewed: false
+        }
+      });
+    } else {
+      // 매칭 요청이 없는 경우
+      return res.status(200).json({
+        success: true,
+        message: '매칭 상태 조회 성공',
+        data: {
+          status: null,
+          matchId: null,
+          matchedUser: null,
+          otherUserChoices: null,
+          review: null,
+          contactReady: false,
+          bothReviewed: false
+        }
+      });
+    }
   } catch (error) {
     console.error('Express 서버 오류:', error);
     return res.status(500).json({
@@ -227,6 +278,38 @@ app.get('/user/:userId', async (req, res) => {
 });
 
 /**
+ * 히스토리 조회 API
+ * GET /history/:userId
+ */
+app.get('/history/:userId', async (req, res) => {
+  const { userId } = req.params;
+  const { page = 1, pageSize = 10 } = req.query;
+  
+  try {
+    // 임시로 빈 히스토리 반환 (실제로는 히스토리 조회 로직 구현 필요)
+    return res.status(200).json({
+      success: true,
+      message: '히스토리 조회 성공',
+      data: {
+        history: [],
+        pagination: {
+          page: parseInt(page),
+          pageSize: parseInt(pageSize),
+          total: 0,
+          totalPages: 0
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Express 서버 오류:', error);
+    return res.status(500).json({
+      success: false,
+      message: '서버 오류가 발생했습니다.'
+    });
+  }
+});
+
+/**
  * 인사이트 조회 API
  * GET /insight/:userId
  */
@@ -244,6 +327,83 @@ app.get('/insight/:userId', async (req, res) => {
         averageRating: 0,
         recentActivity: []
       }
+    });
+  } catch (error) {
+    console.error('Express 서버 오류:', error);
+    return res.status(500).json({
+      success: false,
+      message: '서버 오류가 발생했습니다.'
+    });
+  }
+});
+
+/**
+ * 리워드 조회 API
+ * GET /reward/:userId
+ */
+app.get('/reward/:userId', async (req, res) => {
+  const { userId } = req.params;
+  
+  try {
+    // 임시로 빈 리워드 정보 반환
+    return res.status(200).json({
+      success: true,
+      message: '리워드 조회 성공',
+      data: {
+        points: 100,
+        pointHistory: [],
+        availableRewards: []
+      }
+    });
+  } catch (error) {
+    console.error('Express 서버 오류:', error);
+    return res.status(500).json({
+      success: false,
+      message: '서버 오류가 발생했습니다.'
+    });
+  }
+});
+
+/**
+ * 매칭 신청 API
+ * POST /matching-requests
+ */
+app.post('/matching-requests', async (req, res) => {
+  const { userId } = req.body;
+  
+  try {
+    const result = await matchingService.createMatchingRequest({ userId });
+    
+    return res.status(result.statusCode).json({
+      success: result.success,
+      message: result.message,
+      ...(result.data && result.data),
+      ...(result.error && { error: result.error })
+    });
+  } catch (error) {
+    console.error('Express 서버 오류:', error);
+    return res.status(500).json({
+      success: false,
+      message: '서버 오류가 발생했습니다.'
+    });
+  }
+});
+
+/**
+ * 매칭 신청 조회 API
+ * GET /matching-requests
+ */
+app.get('/matching-requests', async (req, res) => {
+  const { userId } = req.query;
+  
+  try {
+    const result = await matchingService.getMatchingRequest(userId);
+    
+    return res.status(result.statusCode).json({
+      success: result.success,
+      message: result.message,
+      ...(result.data && result.data),
+      ...(result.error && { error: result.error })
     });
   } catch (error) {
     console.error('Express 서버 오류:', error);
@@ -275,6 +435,14 @@ app.post('/process-matching-status', async (req, res) => {
 });
 
 /**
+ * Admin 인증 관련 API는 Next.js Admin 시스템에서 처리하므로 제거됨
+ * - POST /api/admin/auth/login → Admin Next.js API Routes로 이동
+ * - GET /api/admin/auth/verify → Admin Next.js API Routes로 이동
+ * 
+ * Admin 시스템은 AWS Amplify Hosting에서 독립적으로 운영됨
+ */
+
+/**
  * 헬스체크 API
  * GET /
  */
@@ -297,8 +465,8 @@ app.use((err, req, res, next) => {
 });
 
 // 서버 시작
-app.listen(config.port, '0.0.0.0', () => {
-  console.log(`🚀 Express 서버가 http://0.0.0.0:${config.port}에서 실행 중입니다.`);
+app.listen(config.port, '192.168.219.100', () => {
+  console.log(`🚀 Express 서버가 http://192.168.219.100:${config.port}에서 실행 중입니다.`);
   console.log(`🌍 환경: ${config.env}`);
   console.log('⚡ Lambda cold start 없이 빠른 응답을 제공합니다!');
 });

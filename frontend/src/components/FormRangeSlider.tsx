@@ -27,10 +27,13 @@ export const FormRangeSlider: React.FC<FormRangeSliderProps> = ({
   return (
     <View style={styles.container}>
       <View style={styles.labelContainer}>
-        <Text style={styles.label}>
-          {label}
-          {required && <Text style={styles.required}> *</Text>}
-        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Text style={styles.label}>
+            {label}
+            {required && <Text style={styles.required}> *</Text>}
+          </Text>
+          {error && <Text style={{ color: colors.error, marginLeft: 8, fontSize: 13 }}>{error}</Text>}
+        </View>
         <Text style={styles.valueTextBlack}>
           {value[0]} - {value[1]}
         </Text>
@@ -49,7 +52,6 @@ export const FormRangeSlider: React.FC<FormRangeSliderProps> = ({
           trackStyle={{ height: 6, borderRadius: 3 }}
         />
       </View>
-      {error && <Text style={styles.errorText}>{error}</Text>}
     </View>
   );
 };

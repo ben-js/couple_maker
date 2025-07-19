@@ -1,6 +1,10 @@
 import { PutCommand } from '@aws-sdk/lib-dynamodb';
 import { commonHeaders, ddbDocClient, camelToSnakeCase } from '../utils';
 
+export const savePreferences = async (event: any) => {
+  return await handler(event);
+};
+
 export const handler = async (event: any) => {
   const startTime = Date.now();
   const req = camelToSnakeCase(JSON.parse(event.body || '{}'));
@@ -28,7 +32,7 @@ export const handler = async (event: any) => {
 
     await ddbDocClient.send(
       new PutCommand({
-        TableName: 'UserPreferences',
+        TableName: 'Preferences',
         Item: preferencesData
       })
     );

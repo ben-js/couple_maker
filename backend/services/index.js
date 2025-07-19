@@ -40,8 +40,10 @@ const airbnbServices = {
 const dateSenseServices = {
   auth: require('./authService'),
   user: require('./userService'),
+  profile: require('./profileService'),
+  preference: require('./preferenceService'),
   matching: require('./matchingService'),
-  notification: require('./notificationService')
+  s3: require('./s3Service')
 };
 
 module.exports = {

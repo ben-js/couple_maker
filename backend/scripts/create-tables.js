@@ -222,19 +222,6 @@ const tables = [
       ReadCapacityUnits: 5,
       WriteCapacityUnits: 5
     }
-  },
-  {
-    TableName: 'AdminLogs',
-    KeySchema: [
-      { AttributeName: 'log_id', KeyType: 'HASH' }
-    ],
-    AttributeDefinitions: [
-      { AttributeName: 'log_id', AttributeType: 'S' }
-    ],
-    ProvisionedThroughput: {
-      ReadCapacityUnits: 5,
-      WriteCapacityUnits: 5
-    }
   }
 ];
 

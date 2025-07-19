@@ -1,5 +1,5 @@
 // 이상형(선호) 도메인 타입 (공식)
-export interface UserPreferences {
+export interface Preferences {
   userId: string;
   preferredGender: string;
   ageRange: {

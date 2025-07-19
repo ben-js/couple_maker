@@ -1,25 +1,26 @@
-require('dotenv').config();
-
 const config = {
-  env: process.env.NODE_ENV || 'development',
-  port: process.env.PORT || 3000,
+  env: 'development',
+  port: 3000,
   cors: {
     origin: [
       'http://localhost:3000',
+      'http://localhost:3001',
+      'http://192.168.219.100:3000',
+      'http://192.168.219.100:3001',
       'http://localhost:19006',
       'exp://localhost:19000',
-      'https://staging.datesense.com',
-      'https://datesense.com'
     ],
-    credentials: true
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
   },
   s3: {
-    bucket: process.env.S3_BUCKET_NAME || 'date-sense',
-    basePath: process.env.S3_BASE_PATH || 'images/profile',
-    urlExpire: parseInt(process.env.S3_URL_EXPIRE || '900', 10)
+    bucket: 'date-sense',
+    basePath: 'images/profile',
+    urlExpire: 900
   },
   dynamodb: {
-    region: process.env.AWS_REGION || 'ap-northeast-2',
+    region: 'ap-northeast-2',
     usersTable: process.env.DDB_USERS_TABLE || 'Users',
     profilesTable: process.env.DDB_PROFILES_TABLE || 'Profiles',
     preferencesTable: process.env.DDB_PREFERENCES_TABLE || 'Preferences',
@@ -36,8 +37,8 @@ const config = {
     adminLogsTable: process.env.DDB_ADMIN_LOGS_TABLE || 'AdminLogs'
   },
   auth: {
-    jwtSecret: process.env.JWT_SECRET || 'dev-secret-key',
-    expiresIn: process.env.JWT_EXPIRES_IN || '7d'
+    jwtSecret: 'dev-secret-key',
+    expiresIn: '7d'
   }
 };
 

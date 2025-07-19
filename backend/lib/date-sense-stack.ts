@@ -177,9 +177,9 @@ export class DateSenseStack extends cdk.Stack {
       memorySize: 128,
     });
 
-    const saveUserPreferencesFunction = new lambda.Function(this, 'SaveUserPreferencesFunction', {
+    const savePreferencesFunction = new lambda.Function(this, 'SavePreferencesFunction', {
       runtime: lambda.Runtime.NODEJS_18_X,
-      handler: 'saveUserPreferences.handler',
+      handler: 'saveUserPreferences.savePreferences',
       code: lambda.Code.fromAsset('lambda'),
       environment: commonEnvironment,
       role: lambdaRole,
@@ -187,9 +187,9 @@ export class DateSenseStack extends cdk.Stack {
       memorySize: 128,
     });
 
-    const getUserPreferencesFunction = new lambda.Function(this, 'GetUserPreferencesFunction', {
+    const getPreferencesFunction = new lambda.Function(this, 'GetPreferencesFunction', {
       runtime: lambda.Runtime.NODEJS_18_X,
-      handler: 'getUserPreferences.handler',
+      handler: 'getUserPreferences.getPreferences',
       code: lambda.Code.fromAsset('lambda'),
       environment: commonEnvironment,
       role: lambdaRole,
@@ -312,10 +312,10 @@ export class DateSenseStack extends cdk.Stack {
     profileWithId.addMethod('GET', new apigateway.LambdaIntegration(getProfileFunction));
 
     const userPreferences = api.root.addResource('user-preferences');
-    userPreferences.addMethod('POST', new apigateway.LambdaIntegration(saveUserPreferencesFunction));
+    userPreferences.addMethod('POST', new apigateway.LambdaIntegration(savePreferencesFunction));
     
     const userPreferencesWithId = userPreferences.addResource('{userId}');
-    userPreferencesWithId.addMethod('GET', new apigateway.LambdaIntegration(getUserPreferencesFunction));
+    userPreferencesWithId.addMethod('GET', new apigateway.LambdaIntegration(getPreferencesFunction));
 
     const matchingRequests = api.root.addResource('matching-requests');
     matchingRequests.addMethod('POST', new apigateway.LambdaIntegration(requestMatchingFunction));
