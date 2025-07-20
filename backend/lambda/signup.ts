@@ -19,6 +19,7 @@ export const handler = async (event: any) => {
         is_verified: false,
         has_profile: false,
         has_preferences: false,
+        has_score: false,
         grade: 'general',
         status: 'green',
         is_deleted: false,

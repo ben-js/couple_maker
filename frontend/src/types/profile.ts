@@ -32,5 +32,6 @@ export interface Profile {
   points: number;
   hasPreferences?: boolean;
   hasProfile?: boolean;
+  hasScore?: boolean;
   isVerified?: boolean;
 } 

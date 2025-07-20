@@ -35,9 +35,9 @@
   user_id: 'user_123',               // Primary Key (UUID)
   email: 'user1@test.com',           // GSI
   password: 'hashed_password',
-  is_verified: true,
-  has_profile: true,
-  has_preferences: true,
+  is_verified: false,
+  has_profile: false,
+  has_preferences: false,
   grade: 'general',                  // general | excellent | gold | vip | vvip
   status: 'green',                   // green | yellow | red | black
   is_deleted: false,                 // 탈퇴 여부

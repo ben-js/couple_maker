@@ -6,6 +6,7 @@ export type User = {
   is_verified: boolean;
   has_profile: boolean;
   has_preferences: boolean;
+  has_score: boolean;
   grade: 'general' | 'excellent' | 'gold' | 'vip' | 'vvip';
   status: 'green' | 'yellow' | 'red' | 'black';
   is_deleted: boolean;
@@ -59,4 +60,19 @@ export type Preferences = {
   salary: '2000만원 미만' | '2000-3000만원' | '3000-5000만원' | '5000-7000만원' | '7000만원 이상';
   asset: '5000만원 미만' | '5000만-1억' | '1억-3억' | '3억-5억' | '5억 이상';
   priority: string[];
+};
+
+// Scores 테이블 타입
+export type Score = {
+  user_id: string;
+  scorer: string;
+  summary: string;
+  average: number;
+  appearance: 'A' | 'B' | 'C' | 'D' | 'E';
+  personality: 'A' | 'B' | 'C' | 'D' | 'E';
+  job: 'A' | 'B' | 'C' | 'D' | 'E';
+  education: 'A' | 'B' | 'C' | 'D' | 'E';
+  economics: 'A' | 'B' | 'C' | 'D' | 'E';
+  created_at: string;
+  updated_at: string;
 }; 
