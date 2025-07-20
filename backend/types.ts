@@ -68,11 +68,11 @@ export type Score = {
   scorer: string;
   summary: string;
   average: number;
-  appearance: 'S' | 'A' | 'B' | 'C' | 'D' | 'E';
-  personality: 'S' | 'A' | 'B' | 'C' | 'D' | 'E';
-  job: 'S' | 'A' | 'B' | 'C' | 'D' | 'E';
-  education: 'S' | 'A' | 'B' | 'C' | 'D' | 'E';
-  economics: 'S' | 'A' | 'B' | 'C' | 'D' | 'E';
+  appearance: 'S' | 'A' | 'B' | 'C' | 'D' | 'E' | 'F';
+  personality: 'S' | 'A' | 'B' | 'C' | 'D' | 'E' | 'F';
+  job: 'S' | 'A' | 'B' | 'C' | 'D' | 'E' | 'F';
+  education: 'S' | 'A' | 'B' | 'C' | 'D' | 'E' | 'F';
+  economics: 'S' | 'A' | 'B' | 'C' | 'D' | 'E' | 'F';
   created_at: string;
   updated_at: string;
 }; 
