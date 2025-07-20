@@ -8,10 +8,10 @@ export async function getPreferences(userId: string): Promise<Preferences | null
     const response = await apiGet(`/user-preferences/${userId}`);
     console.log('🔍 API 응답:', response);
     
-    // 백엔드 응답 구조: { success: true, preferences: data }
-    if (response && response.success && response.preferences) {
-      console.log('🔍 preferences 데이터:', response.preferences);
-      return response.preferences as Preferences;
+    // 백엔드 응답 구조: { success: true, ...data }
+    if (response && response.success) {
+      console.log('🔍 preferences 데이터:', response);
+      return response as Preferences;
     }
     
     console.log('🔍 preferences 데이터 없음');

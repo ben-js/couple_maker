@@ -1,6 +1,6 @@
 // types/index.ts - 도메인별 타입 통합 export
 
-export { UserProfile } from './profile';
+export { Profile } from './profile';
 export { Preferences } from './preference';
 export { MatchPair } from './match';
 export { HistoryItem, HistoryResponse, HistoryFilter } from './history';

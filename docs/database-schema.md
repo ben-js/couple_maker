@@ -571,13 +571,13 @@
 ### **일관성 있는 명칭 체계**
 - **복수형 사용**: Users, Profiles, Preferences, Reviews 등
 - **명확한 의미**: MatchingRequests, MatchPairs, PointHistory
-- **간결함**: UserPreferences → Preferences, Propose → Proposals
+- **간결함**: Preferences, Propose → Proposals
 - **일관성**: 모든 테이블이 동일한 명명 규칙 따름
 
 ### **명칭 변경 사항**
 | 기존 | 개선 | 이유 |
 |------|------|------|
-| UserPreferences | Preferences | 간결하고 명확 |
+| Preferences | Preferences | 간결하고 명확 |
 | Propose | Proposals | 복수형 일관성 |
 | UserStatusHistory | UserStatusHistory | 유지 (명확함) |
 | PointHistory | PointHistory | 유지 (명확함) |

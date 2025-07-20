@@ -58,12 +58,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const userStatusHistory = statusHistory.filter(status => status.user_id === userId);
 
     // 사용자 프로필 조회
-    const userProfile = await dataService.getUserProfile(userId);
-    console.log('사용자 프로필:', userProfile);
+    const profile = await dataService.getProfile(userId);
+    console.log('사용자 프로필:', profile);
 
     // 사용자 선호도 조회
-    const userPreferences = await dataService.getUserPreferences(userId);
-    console.log('사용자 선호도:', userPreferences);
+    const preferences = await dataService.getPreferences(userId);
+    console.log('사용자 선호도:', preferences);
 
     // 응답 데이터 구성
     const responseData = {
@@ -82,8 +82,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         has_preferences: user.has_preferences || false,
         is_verified: user.is_verified || false,
         is_deleted: user.is_deleted || false,
-        profile: userProfile, // 프로필 정보 추가
-        preferences: userPreferences // 선호도 정보 추가
+        profile: profile, // 프로필 정보 추가
+        preferences: preferences // 선호도 정보 추가
       },
       matchingHistory: userMatchingHistory.map(match => ({
         id: match.id,

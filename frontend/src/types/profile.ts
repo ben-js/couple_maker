@@ -1,5 +1,5 @@
 // 프로필 도메인 타입 (공식)
-export interface UserProfile {
+export interface Profile {
   userId: string;
   name: string;
   email?: string;

@@ -50,8 +50,8 @@ export class DateSenseStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
-    const userPreferencesTable = new dynamodb.Table(this, 'UserPreferencesTable', {
-      tableName: 'UserPreferences',
+    const preferencesTable = new dynamodb.Table(this, 'PreferencesTable', {
+      tableName: 'Preferences',
       partitionKey: { name: 'user_id', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
@@ -129,7 +129,7 @@ export class DateSenseStack extends cdk.Stack {
     // DynamoDB 권한 추가
     usersTable.grantReadWriteData(lambdaRole);
     profilesTable.grantReadWriteData(lambdaRole);
-    userPreferencesTable.grantReadWriteData(lambdaRole);
+    preferencesTable.grantReadWriteData(lambdaRole);
     matchingRequestsTable.grantReadWriteData(lambdaRole);
     pointsHistoryTable.grantReadWriteData(lambdaRole);
 
@@ -179,7 +179,7 @@ export class DateSenseStack extends cdk.Stack {
 
     const savePreferencesFunction = new lambda.Function(this, 'SavePreferencesFunction', {
       runtime: lambda.Runtime.NODEJS_18_X,
-      handler: 'saveUserPreferences.savePreferences',
+      handler: 'savePreferences.savePreferences',
       code: lambda.Code.fromAsset('lambda'),
       environment: commonEnvironment,
       role: lambdaRole,
@@ -189,7 +189,7 @@ export class DateSenseStack extends cdk.Stack {
 
     const getPreferencesFunction = new lambda.Function(this, 'GetPreferencesFunction', {
       runtime: lambda.Runtime.NODEJS_18_X,
-      handler: 'getUserPreferences.getPreferences',
+      handler: 'getPreferences.getPreferences',
       code: lambda.Code.fromAsset('lambda'),
       environment: commonEnvironment,
       role: lambdaRole,
@@ -311,11 +311,11 @@ export class DateSenseStack extends cdk.Stack {
     const profileWithId = profile.addResource('{userId}');
     profileWithId.addMethod('GET', new apigateway.LambdaIntegration(getProfileFunction));
 
-    const userPreferences = api.root.addResource('user-preferences');
-    userPreferences.addMethod('POST', new apigateway.LambdaIntegration(savePreferencesFunction));
+    const preferences = api.root.addResource('user-preferences');
+    preferences.addMethod('POST', new apigateway.LambdaIntegration(savePreferencesFunction));
     
-    const userPreferencesWithId = userPreferences.addResource('{userId}');
-    userPreferencesWithId.addMethod('GET', new apigateway.LambdaIntegration(getPreferencesFunction));
+    const preferencesWithId = preferences.addResource('{userId}');
+    preferencesWithId.addMethod('GET', new apigateway.LambdaIntegration(getPreferencesFunction));
 
     const matchingRequests = api.root.addResource('matching-requests');
     matchingRequests.addMethod('POST', new apigateway.LambdaIntegration(requestMatchingFunction));

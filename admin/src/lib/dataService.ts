@@ -95,8 +95,8 @@ class DataService {
     }
   }
 
-  async getUserProfile(userId: string): Promise<any | null> {
-    console.log('DataService.getUserProfile 호출됨, userId:', userId);
+  async getProfile(userId: string): Promise<any | null> {
+    console.log('DataService.getProfile 호출됨, userId:', userId);
     
     const params = {
       TableName: 'Profiles',
@@ -116,8 +116,8 @@ class DataService {
     }
   }
 
-  async getUserPreferences(userId: string): Promise<any | null> {
-    console.log('DataService.getUserPreferences 호출됨, userId:', userId);
+  async getPreferences(userId: string): Promise<any | null> {
+    console.log('DataService.getPreferences 호출됨, userId:', userId);
     
     const params = {
       TableName: 'Preferences',

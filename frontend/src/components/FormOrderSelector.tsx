@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Modal, StyleSheet, SafeAreaView } from 'react-native';
 import { Button } from 'react-native-ui-lib';
 import { colors, typography } from '@/constants';
@@ -31,6 +31,11 @@ const FormOrderSelector: React.FC<FormOrderSelectorProps> = ({
 }) => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedOrders, setSelectedOrders] = useState<string[]>(value);
+
+  // value prop이 변경될 때 selectedOrders 업데이트
+  useEffect(() => {
+    setSelectedOrders(value);
+  }, [value]);
 
   const handleOrderToggle = (orderId: string) => {
     setSelectedOrders(prev => {
@@ -79,7 +84,6 @@ const FormOrderSelector: React.FC<FormOrderSelectorProps> = ({
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
         <Text style={styles.label}>
           {label}
-          {required && <Text style={styles.required}> *</Text>}
         </Text>
         {error && <Text style={{ color: colors.error, marginLeft: 8, fontSize: 13 }}>{error}</Text>}
       </View>
@@ -155,7 +159,7 @@ const styles = StyleSheet.create({
   },
   label: {
     marginBottom: 4,
-    fontWeight: 'bold',
+    fontWeight: '700', color: '#222', fontSize: 16, marginRight: 8
   },
   required: {
     color: colors.error,

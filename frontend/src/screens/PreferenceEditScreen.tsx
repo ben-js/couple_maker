@@ -16,7 +16,7 @@ import FormRegionChoiceModal from '../components/FormRegionChoiceModal';
 import FormOrderSelector from '../components/FormOrderSelector';
 import { Feather } from '@expo/vector-icons';
 import { getPreferences, savePreferences } from '../services/preferenceService';
-import { getUserProfile } from '../services/userService';
+import { getProfile } from '../services/userService';
 import { useAuth } from '../store/AuthContext';
 import { Preferences } from '../types/preference';
 import { logger } from '@/utils/logger';
@@ -114,66 +114,68 @@ const PreferenceSetupScreen = () => {
       }
       
       try {
-        // 기존 이상형 데이터가 있으면 로드
-        if (isEditMode) {
-          console.log('🔍 getPreferences 호출 중...');
-          const preferences = await getPreferences(user.userId);
-          console.log('🔍 getPreferences 결과:', preferences);
-                      if (preferences) {
-              console.log('🔍 preferences 데이터 변환 시작');
-              // 변환 로직 적용
-              const resetData: any = {};
-              preferenceForm.forEach(field => {
-                const key = field.name as keyof typeof preferences;
-                let value = preferences[key];
-                console.log(`🔍 필드 ${field.name}:`, value);
-              // range_slider 변환: [min, max] → {min, max}
-              if (
-                field.type === 'range_slider' &&
-                Array.isArray(value) &&
-                value.length === 2 &&
-                typeof value[0] === 'number' &&
-                typeof value[1] === 'number'
-              ) {
-                value = { min: value[0], max: value[1] };
-              }
-              // region_choice 변환 (기존 문자열 배열과의 호환성)
-              if (field.type === 'region_choice' && Array.isArray(value) && typeof value[0] === 'string') {
-                value = (value as string[]).map(regionName => {
-                  const parts = regionName.split(' ');
-                  if (parts.length >= 2) {
-                    return { region: parts[0], district: parts.slice(1).join(' ') };
-                  }
-                  return { region: regionName, district: regionName };
-                });
-              }
-              // order_selector 변환 (문자열을 배열로 변환)
-              if (field.type === 'order_selector' && typeof value === 'string') {
-                value = value.split(',').filter(item => item.trim());
-              }
-              // birthDate 변환: 문자열/숫자 → { year, month, day }
-              if (field.name === 'birthDate' && value && typeof value === 'string') {
-                const [year, month, day] = value.split('-').map(Number);
-                value = { year, month, day };
-              }
-              // region 변환: 문자열 → { region, district }
-              if (field.name === 'region' && value && typeof value === 'string') {
-                const parts = value.split(' ');
+        // 기존 이상형 데이터가 있으면 로드 (항상 로드)
+        console.log('🔍 getPreferences 호출 중...');
+        const preferences = await getPreferences(user.userId);
+        console.log('🔍 getPreferences 결과:', preferences);
+        if (preferences) {
+          console.log('🔍 preferences 데이터 변환 시작');
+          // 변환 로직 적용
+          const resetData: any = {};
+          preferenceForm.forEach(field => {
+            const key = field.name as keyof typeof preferences;
+            let value = preferences[key];
+            console.log(`🔍 필드 ${field.name}:`, value);
+            // range_slider 변환: [min, max] → {min, max}
+            if (
+              field.type === 'range_slider' &&
+              Array.isArray(value) &&
+              value.length === 2 &&
+              typeof value[0] === 'number' &&
+              typeof value[1] === 'number'
+            ) {
+              value = { min: value[0], max: value[1] };
+            }
+            // region_choice 변환 (기존 문자열 배열과의 호환성)
+            if (field.type === 'region_choice' && Array.isArray(value) && typeof value[0] === 'string') {
+              value = (value as string[]).map(regionName => {
+                const parts = regionName.split(' ');
                 if (parts.length >= 2) {
-                  value = { region: parts[0], district: parts.slice(1).join(' ') };
-                } else {
-                  value = { region: value, district: value };
+                  return { region: parts[0], district: parts.slice(1).join(' ') };
                 }
+                return { region: regionName, district: regionName };
+              });
+            }
+            // order_selector 변환 (문자열을 배열로 변환)
+            if (field.type === 'order_selector' && typeof value === 'string') {
+              value = value.split(',').filter(item => item.trim());
+            }
+            // priority 변환 (문자열을 배열로 변환)
+            if (field.name === 'priority' && typeof value === 'string') {
+              value = value.split(',').filter(item => item.trim());
+            }
+            // birthDate 변환: 문자열/숫자 → { year, month, day }
+            if (field.name === 'birthDate' && value && typeof value === 'string') {
+              const [year, month, day] = value.split('-').map(Number);
+              value = { year, month, day };
+            }
+            // region 변환: 문자열 → { region, district }
+            if (field.name === 'region' && value && typeof value === 'string') {
+              const parts = value.split(' ');
+              if (parts.length >= 2) {
+                value = { region: parts[0], district: parts.slice(1).join(' ') };
+              } else {
+                value = { region: value, district: value };
               }
-              // photos: undefined/null → 빈 배열
-              if (field.name === 'photos' && (!Array.isArray(value) || !value)) {
-                value = [];
-              }
-              resetData[field.name] = value as any;
-            });
-            console.log('🔍 reset 데이터:', resetData);
-            reset(resetData);
-          }
+            }
+            // photos: undefined/null → 빈 배열
+            if (field.name === 'photos' && (!Array.isArray(value) || !value)) {
+              value = [];
+            }
+            resetData[field.name] = value as any;
+          });
+          console.log('🔍 reset 데이터:', resetData);
+          reset(resetData);
         }
       } catch (error) {
         console.error('이상형 데이터 로드 실패:', error);
@@ -202,10 +204,10 @@ const PreferenceSetupScreen = () => {
       console.log('PreferenceEditScreen - Starting preferences save');
       
       // 사용자 프로필에서 선호 성별 자동 설정
-      const profile = await getUserProfile(user.userId);
+              const profile = await getProfile(user.userId);
       const preferredGender = profile?.gender ? (profile.gender === '남' ? '여' : '남') : '';
       
-      // 데이터를 UserPreferences 형식으로 변환 (카멜케이스)
+              // 데이터를 Preferences 형식으로 변환 (카멜케이스)
       const preferences: Preferences = {
         userId: user.userId,
         preferredGender: preferredGender,

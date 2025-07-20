@@ -1,12 +1,12 @@
-import { UserProfile } from '../types/profile';
+import { Profile } from '../types/profile';
 import { apiGet, apiPost, apiGetWithAuth } from '../utils/apiUtils';
 import * as FileSystem from 'expo-file-system';
 import { v4 as uuidv4 } from 'uuid';
 
 // 회원가입 (단일 책임)
-export async function signup(userData: { email: string; password: string; name: string }): Promise<UserProfile | null> {
+export async function signup(userData: { email: string; password: string; name: string }): Promise<Profile | null> {
   try {
-    const data = await apiPost<UserProfile>('/signup', userData);
+    const data = await apiPost<Profile>('/signup', userData);
     const dataAny = data as any;
     if (data && !dataAny.id && (data.userId || dataAny.user_id)) {
       dataAny.id = data.userId || dataAny.user_id;
@@ -41,7 +41,7 @@ export async function resendConfirmationCode(email: string): Promise<boolean> {
 }
 
 // 로그인 (단일 책임)
-export async function login(credentials: { email: string; password: string }): Promise<UserProfile | null> {
+export async function login(credentials: { email: string; password: string }): Promise<Profile | null> {
   try {
     console.log('로그인 시도:', { email: credentials.email, password: '***' });
     
@@ -53,7 +53,7 @@ export async function login(credentials: { email: string; password: string }): P
       userFields: response?.user ? Object.keys(response.user) : []
     });
     
-    // 백엔드 응답 구조: { success: true, message: string, user: UserProfile, matchingStatus?: any }
+    // 백엔드 응답 구조: { success: true, message: string, user: Profile, matchingStatus?: any }
     if (response && response.success && response.user) {
       const user = response.user;
       const userAny = user as any;
@@ -95,10 +95,10 @@ export async function login(credentials: { email: string; password: string }): P
 }
 
 // 프로필 조회 (단일 책임)
-export async function getUserProfile(userId: string): Promise<UserProfile | null> {
+export async function getProfile(userId: string): Promise<Profile | null> {
   try {
     console.log('프로필 조회 시작:', { userId });
-    const data = await apiGetWithAuth<UserProfile>(`/profile/${userId}`, userId);
+    const data = await apiGetWithAuth<Profile>(`/profile/${userId}`, userId);
     console.log('프로필 조회 결과:', { 
       hasData: !!data, 
       photos: data?.photos, 
@@ -157,7 +157,7 @@ async function uploadToS3(fileUri: string, userId: string): Promise<string> {
 }
 
 // 프로필 저장 (단일 책임)
-export async function saveProfile(profile: UserProfile): Promise<boolean> {
+export async function saveProfile(profile: Profile): Promise<boolean> {
   try {
     // 로컬 파일을 S3에 업로드하고 S3 URL로 변환
     const uploadedPhotos = [];

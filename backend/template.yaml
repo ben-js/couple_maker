@@ -96,23 +96,23 @@ Resources:
             Method: post
 
   # 선호도 관련 API
-  GetUserPreferencesFunction:
+  GetPreferencesFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: lambda/getUserPreferences.handler
+      Handler: lambda/getPreferences.handler
       Events:
-        GetUserPreferencesApi:
+        GetPreferencesApi:
           Type: Api
           Properties:
             Path: /user-preferences/{userId}
             Method: get
 
-  SaveUserPreferencesFunction:
+  SavePreferencesFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: lambda/saveUserPreferences.handler
+      Handler: lambda/savePreferences.handler
       Events:
-        SaveUserPreferencesApi:
+        SavePreferencesApi:
           Type: Api
           Properties:
             Path: /user-preferences
