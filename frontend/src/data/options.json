@@ -29,7 +29,7 @@
     { "id": "성격", "label": "성격", "color": "#4ECDC4" },
     { "id": "직업", "label": "직업", "color": "#45B7D1" },
     { "id": "학력", "label": "학력", "color": "#96CEB4" },
-    { "id": "경제력", "label": "경제력", "color": "#FFEAA7" },
+    { "id": "경제력", "label": "경제력", "color": "#FFEAA7" }
   ],
   "marriagePlans": [
     "1년 내",
