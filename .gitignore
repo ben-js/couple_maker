@@ -1,2 +1,9 @@
 node_modules
 admin/.next/
+admin/node_modules/
+admin/package-lock.json
+frontend/.next/
+frontend/node_modules/
+backend/package-lock.json
+backend/node_modules/
+backend/package-lock.json
