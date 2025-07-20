@@ -11,7 +11,7 @@ import RootNavigator from '@/navigation/RootNavigator';
 
 // 상태 관리
 import { AuthProvider } from '@/store/AuthContext';
-import { UserProfileProvider } from '@/store/UserProfileContext';
+import { ProfileProvider } from '@/store/ProfileContext';
 
 // 데이터베이스 초기화
 import { initDatabase } from '@/db/user';
@@ -99,12 +99,12 @@ export default function App() {
       <GestureHandlerRootView style={{ flex: 1 }}>
         <SafeAreaProvider>
           <AuthProvider>
-            <UserProfileProvider>
+            <ProfileProvider>
               <NavigationContainer>
                 <StatusBar style="auto" />
                 <RootNavigator />
               </NavigationContainer>
-            </UserProfileProvider>
+            </ProfileProvider>
           </AuthProvider>
         </SafeAreaProvider>
       </GestureHandlerRootView>

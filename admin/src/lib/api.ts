@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { ApiResponse, PaginatedResponse } from '../types';
+import { ApiResponse, PaginatedResponse, User, Match, Review, DashboardStats } from '@/types';
 
 const API_BASE_URL = '';
 
@@ -34,32 +34,32 @@ api.interceptors.response.use(
 );
 
 // 대시보드 통계
-export const getDashboardStats = async (): Promise<any> => {
-  const response = await api.get<ApiResponse<any>>('/api/dashboard/stats');
+export const getDashboardStats = async (): Promise<DashboardStats> => {
+  const response = await api.get<ApiResponse<DashboardStats>>('/api/dashboard/stats');
   return response.data.data!;
 };
 
 // 사용자 목록
-export const getUsers = async (page = 1, limit = 10): Promise<PaginatedResponse<any>> => {
-  const response = await api.get<ApiResponse<PaginatedResponse<any>>>(`/api/users?page=${page}&limit=${limit}`);
+export const getUsers = async (page = 1, limit = 10): Promise<PaginatedResponse<User>> => {
+  const response = await api.get<ApiResponse<PaginatedResponse<User>>>(`/api/users?page=${page}&limit=${limit}`);
   return response.data.data!;
 };
 
 // 사용자 상세
-export const getUser = async (id: string): Promise<any> => {
-  const response = await api.get<ApiResponse<any>>(`/api/users/${id}`);
+export const getUser = async (id: string): Promise<User> => {
+  const response = await api.get<ApiResponse<User>>(`/api/users/${id}`);
   return response.data.data!;
 };
 
 // 매칭 목록
-export const getMatches = async (page = 1, limit = 10): Promise<PaginatedResponse<any>> => {
-  const response = await api.get<ApiResponse<PaginatedResponse<any>>>(`/api/matches?page=${page}&limit=${limit}`);
+export const getMatches = async (page = 1, limit = 10): Promise<PaginatedResponse<Match>> => {
+  const response = await api.get<ApiResponse<PaginatedResponse<Match>>>(`/api/matches?page=${page}&limit=${limit}`);
   return response.data.data!;
 };
 
 // 리뷰 목록
-export const getReviews = async (page = 1, limit = 10): Promise<PaginatedResponse<any>> => {
-  const response = await api.get<ApiResponse<PaginatedResponse<any>>>(`/api/reviews?page=${page}&limit=${limit}`);
+export const getReviews = async (page = 1, limit = 10): Promise<PaginatedResponse<Review>> => {
+  const response = await api.get<ApiResponse<PaginatedResponse<Review>>>(`/api/reviews?page=${page}&limit=${limit}`);
   return response.data.data!;
 };
 

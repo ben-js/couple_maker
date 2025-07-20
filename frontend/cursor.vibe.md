@@ -49,7 +49,7 @@ type RootStackParamList = {
 
 ```typescript
 // services/preferenceService.ts
-export async function saveUserPreferences(data: UserPreferences): Promise<void> {
+export async function savePreferences(data: Preferences): Promise<void> {
   const response = await fetch('/api/user-preferences', {
     method: 'POST',
     body: JSON.stringify(data) // camelCase 그대로 전송
@@ -133,12 +133,12 @@ const HomeScreen: React.FC = () => {
 import { apiClient } from '../utils/apiClient';
 
 export const userService = {
-  async getUserProfile(userId: string): Promise<UserProfile> {
+  async getProfile(userId: string): Promise<Profile> {
     const response = await apiClient.get(`/user/${userId}`);
     return response.data;
   },
 
-  async updateProfile(userId: string, data: UpdateProfileData): Promise<UserProfile> {
+  async updateProfile(userId: string, data: UpdateProfileData): Promise<Profile> {
     const response = await apiClient.put(`/user/${userId}`, data);
     return response.data;
   }

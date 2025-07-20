@@ -1,12 +1,12 @@
 import { apiGet, apiPost } from '../utils/apiUtils';
-import { UserPreferences } from '../types/preference';
+import { Preferences } from '../types/preference';
 
 // 이상형 정보 조회 (단일 책임)
-export async function getUserPreferences(userId: string): Promise<UserPreferences | null> {
+export async function getPreferences(userId: string): Promise<Preferences | null> {
   try {
     const data = await apiGet(`/user-preferences/${userId}`);
     if (!data) return null;
-    return data as UserPreferences;
+    return data as Preferences;
   } catch (error) {
     console.error('이상형 프로필 조회 실패:', error);
     return null;
@@ -14,7 +14,7 @@ export async function getUserPreferences(userId: string): Promise<UserPreference
 }
 
 // 이상형 정보 저장 (단일 책임)
-export async function saveUserPreferences(data: UserPreferences): Promise<boolean> {
+export async function savePreferences(data: Preferences): Promise<boolean> {
   try {
     await apiPost('/user-preferences', data);
     return true;

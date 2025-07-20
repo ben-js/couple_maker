@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, Image, StyleSheet } from 'react-native';
 import { Avatar } from 'react-native-ui-lib';
 import { Feather } from '@expo/vector-icons';
-import { useUserProfile } from '../hooks/useUserProfile';
+import { useProfile } from '../hooks/useProfile';
 import { useAuth } from '../store/AuthContext';
 import { colors, spacing, typography } from '@/constants';
 import PrimaryButton from './PrimaryButton';
@@ -13,13 +13,13 @@ interface ProfileHeaderProps {
 
 const ProfileHeader: React.FC<ProfileHeaderProps> = ({ onChargePress }) => {
   const { user } = useAuth();
-  const { getProfilePhoto, getUserDisplayName, getUserInitial, userProfile } = useUserProfile();
+  const { getProfilePhoto, getUserDisplayName, getUserInitial, profile } = useProfile();
 
   const profilePhotoUrl = getProfilePhoto();
   
   console.log('ProfileHeader 렌더링:', {
     profilePhotoUrl,
-    userProfilePhotos: userProfile?.photos,
+          profilePhotos: profile?.photos,
     userPhotos: user?.photos,
     hasProfilePhoto: !!profilePhotoUrl
   });

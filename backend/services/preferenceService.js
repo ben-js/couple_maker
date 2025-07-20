@@ -17,7 +17,7 @@ class PreferenceService {
    * @param {Object} preferencesData - 이상형 데이터
    * @returns {Promise<Object>} 이상형 등록 결과
    */
-  async saveUserPreferences(preferencesData) {
+  async savePreferences(preferencesData) {
     try {
       const { userId, ...preferencesFields } = preferencesData;
       
@@ -77,7 +77,7 @@ class PreferenceService {
    * @param {string} userId - 사용자 ID
    * @returns {Promise<Object>} 이상형 조회 결과
    */
-  async getUserPreferences(userId) {
+  async getPreferences(userId) {
     try {
       const preferencesResult = await ddbDocClient.send(
         new GetCommand({

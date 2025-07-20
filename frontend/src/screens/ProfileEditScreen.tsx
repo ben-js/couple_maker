@@ -7,7 +7,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAuth } from '../store/AuthContext';
-import { saveProfile, getUserProfile } from '../services/userService';
+import { saveProfile, getProfile } from '../services/userService';
 import optionsRaw from '../data/options.json';
 import { Options } from '../types/options';
 import { useForm, Controller } from 'react-hook-form';
@@ -133,7 +133,7 @@ const ProfileEditScreen = () => {
       if (isEditMode) {
         try {
           console.log('ProfileEditScreen - 프로필 데이터 로드 시작');
-          const profile = await getUserProfile(user.userId);
+          const profile = await getProfile(user.userId);
           console.log('ProfileEditScreen - 프로필 데이터 로드 완료:', profile);
           
           if (profile) {

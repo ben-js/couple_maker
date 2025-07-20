@@ -84,7 +84,7 @@ frontend/
 │   │   └── userService.ts # 사용자 서비스
 │   ├── store/              # 상태 관리
 │   │   ├── AuthContext.tsx
-│   │   └── UserProfileContext.tsx
+│   │   └── ProfileContext.tsx
 │   ├── types/              # TypeScript 타입 정의
 │   │   ├── api.ts         # API 타입
 │   │   ├── navigation.ts  # 네비게이션 타입
@@ -304,23 +304,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 #### 2. 사용자 프로필 상태 관리
 ```typescript
-// src/store/UserProfileContext.tsx
-interface UserProfileState {
+// src/store/ProfileContext.tsx
+interface ProfileState {
   profile: Profile | null;
   preferences: Preferences | null;
   isLoading: boolean;
 }
 
-interface UserProfileContextType extends UserProfileState {
+interface ProfileContextType extends ProfileState {
   updateProfile: (profileData: Partial<Profile>) => Promise<void>;
   updatePreferences: (preferences: Partial<Preferences>) => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
 
-const UserProfileContext = createContext<UserProfileContextType | undefined>(undefined);
+const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
 
-export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [state, setState] = useState<UserProfileState>({
+export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [state, setState] = useState<ProfileState>({
     profile: null,
     preferences: null,
     isLoading: false,
@@ -343,9 +343,9 @@ export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({ c
   };
 
   return (
-    <UserProfileContext.Provider value={{ ...state, updateProfile }}>
+    <ProfileContext.Provider value={{ ...state, updateProfile }}>
       {children}
-    </UserProfileContext.Provider>
+    </ProfileContext.Provider>
   );
 };
 ```

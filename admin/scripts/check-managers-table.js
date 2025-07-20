@@ -5,8 +5,8 @@ const { DynamoDBDocumentClient, ScanCommand } = require('@aws-sdk/lib-dynamodb')
 const client = new DynamoDBClient({
   region: 'ap-northeast-2',
   credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || ''
+    accessKeyId: 'AKIAU2GJ5ZJPVVVU5C4W',
+    secretAccessKey: '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'
   }
 });
 

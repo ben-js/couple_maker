@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
-import { UserProfile as User } from '@/types/profile';
+import { Profile as User } from '@/types/profile';
 import { saveUser, getUser, deleteUser } from '../db/user';
 import { logger } from '@/utils/logger';
 

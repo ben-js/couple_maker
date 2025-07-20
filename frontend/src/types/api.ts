@@ -1,9 +1,9 @@
-import { UserProfile } from './profile';
-import { UserPreferences } from './preference';
+import { Profile } from './profile';
+import { Preferences } from './preference';
 
 export type ApiRequestData =
-  | UserProfile
-  | UserPreferences
+  | Profile
+  | Preferences
   | { fileName: string; fileSize: number }
   | { id: string }
   | { [key: string]: string | number | boolean }
@@ -11,8 +11,8 @@ export type ApiRequestData =
 
 export type ApiResponseData =
   | { success: boolean }
-  | UserProfile
-  | UserPreferences
+  | Profile
+  | Preferences
   | undefined;
 
 export interface ApiParams {

@@ -848,7 +848,7 @@ export default function UserDetail() {
         onClose={() => setShowPhotoModal(false)}
         size="lg"
       >
-        <div className="p-0 max-w-2xl mx-auto">
+        <div className="p-0 max-w-lg mx-auto">
           <div className="flex justify-end p-1">
             <button
               onClick={() => setShowPhotoModal(false)}
@@ -868,7 +868,7 @@ export default function UserDetail() {
                   <img
                     src={user.user.profile.photos[currentPhotoIndex]}
                     alt={`사용자 사진 ${currentPhotoIndex + 1}`}
-                    className="w-full h-auto max-h-96 object-contain"
+                    className="w-full h-auto max-h-96 object-cover"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
                       target.src = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0xMDAgMTEwQzExMC40NTcgMTEwIDExOSAxMDEuNDU3IDExOSA5MUMxMTkgODAuNTQzIDExMC40NTcgNzIgMTAwIDcyQzg5LjU0MyA3MiA4MSA4MC41NDMgODEgOTFDODEgMTAxLjQ1NyA4OS41NDMgMTEwIDEwMCAxMTBaIiBmaWxsPSIjOUI5QkEwIi8+CjxwYXRoIGQ9Ik0xMDAgMTI4Qzc4LjM0MzEgMTI4IDYxIDExMC42NTcgNjEgODlDNjEgNjcuMzQzMSA3OC4zNDMxIDUwIDEwMCA1MEMxMjEuNjU3IDUwIDEzOSA2Ny4zNDMxIDEzOSA4OUMxMzkgMTEwLjY1NyAxMjEuNjU3IDEyOCAxMDAgMTI4WiIgZmlsbD0iIzlCOUJBMCIvPgo8L3N2Zz4K";
@@ -894,7 +894,7 @@ export default function UserDetail() {
               
               {/* 네비게이션 버튼 (여러 장일 때만) */}
               {user.user.profile.photos.length > 1 && (
-                <div className="flex justify-between items-center px-2">
+                <div className="flex justify-between items-center px-1">
                   <button
                     onClick={() => setCurrentPhotoIndex(prev => 
                       prev > 0 ? prev - 1 : user.user.profile.photos.length - 1

@@ -147,7 +147,7 @@ app.post('/get-upload-url', async (req, res) => {
  */
 app.post('/user-preferences', async (req, res) => {
   try {
-    const result = await preferenceService.saveUserPreferences(req.body);
+    const result = await preferenceService.savePreferences(req.body);
     return res.status(result.statusCode).json({
       success: result.success,
       message: result.message,
@@ -171,7 +171,7 @@ app.get('/user-preferences/:userId', async (req, res) => {
   const { userId } = req.params;
   
   try {
-    const result = await preferenceService.getUserPreferences(userId);
+    const result = await preferenceService.getPreferences(userId);
     return res.status(result.statusCode).json({
       success: result.success,
       message: result.message,
