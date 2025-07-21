@@ -1,6 +1,8 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import DataService from '../../../lib/dataService';
 import { User } from '../../../types/dataService';
+import { dynamodb } from '../../../lib/dataService';
+import { ScanCommand } from '@aws-sdk/lib-dynamodb';
 
 const dataService = new DataService();
 
@@ -23,6 +25,9 @@ export default async function handler(
 
     // DataService를 사용하여 사용자 목록 조회
     const users = await dataService.getUsers();
+    // Scores 테이블 전체 Scan 후 user_id별 점수 존재 여부 집계
+    const scoresResult = await dynamodb.send(new ScanCommand({ TableName: 'Scores', ProjectionExpression: 'user_id' }));
+    const scoredUserIds = new Set((scoresResult.Items || []).map(item => item.user_id));
     
     if (!users || users.length === 0) {
       console.log('사용자 데이터가 없습니다.');
@@ -44,23 +49,23 @@ export default async function handler(
 
     // 사용자 데이터 가공
     const processedUsers = users.map(user => {
-      // 이메일에서 이름 추출 (예: ben.js@datesense.app -> Ben Js)
-      const emailName = user.email.split('@')[0];
-      const name = emailName.includes('.') 
-        ? emailName.split('.').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' ')
-        : emailName.charAt(0).toUpperCase() + emailName.slice(1);
-      
-      // 역할 설정 (이메일 기반으로 임시 설정)
+      let name = '';
       let role = 'customer_support';
-      if (user.email.includes('manager')) {
-        role = 'manager';
-      } else if (user.email.includes('admin') || user.email.includes('datesense.app')) {
-        role = 'admin';
+      let email = user.email || '';
+      if (user.email) {
+        const emailName = user.email.split('@')[0];
+        name = emailName.includes('.') 
+          ? emailName.split('.').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' ')
+          : emailName.charAt(0).toUpperCase() + emailName.slice(1);
+        if (user.email.includes('manager')) {
+          role = 'manager';
+        } else if (user.email.includes('admin') || user.email.includes('datesense.app')) {
+          role = 'admin';
+        }
       }
-      
       return {
         user_id: user.user_id,
-        email: user.email,
+        email: email,
         name: name,
         role: role,
         status: user.status === 'green' ? 'active' : user.status === 'yellow' ? 'inactive' : user.status === 'red' ? 'suspended' : user.status === 'black' ? 'black' : 'active',
@@ -71,7 +76,8 @@ export default async function handler(
         has_profile: user.has_profile || false,
         has_preferences: user.has_preferences || false,
         is_verified: user.is_verified || false,
-        is_deleted: user.is_deleted || false
+        is_deleted: user.is_deleted || false,
+        has_score: scoredUserIds.has(user.user_id), // 점수 작성 여부
       };
     });
 

@@ -27,7 +27,7 @@ export interface Match {
   id: string;
   userId1: string;
   userId2: string;
-  status: 'pending' | 'accepted' | 'rejected' | 'completed';
+  status: 'pending' | 'accepted' | 'refused' | 'completed';
   createdAt: string;
   updatedAt: string;
 }
@@ -39,7 +39,7 @@ export interface Review {
   targetUserId: string;
   rating: number;
   comment: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'refused';
   createdAt: string;
 }
 

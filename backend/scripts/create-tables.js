@@ -222,6 +222,30 @@ const tables = [
       ReadCapacityUnits: 5,
       WriteCapacityUnits: 5
     }
+  },
+  {
+    TableName: 'Scores',
+    KeySchema: [
+      { AttributeName: 'user_id', KeyType: 'HASH' },
+      { AttributeName: 'created_at', KeyType: 'RANGE' }
+    ],
+    AttributeDefinitions: [
+      { AttributeName: 'user_id', AttributeType: 'S' },
+      { AttributeName: 'created_at', AttributeType: 'S' }
+    ],
+    BillingMode: 'PAY_PER_REQUEST' // 온디맨드
+  },
+  {
+    TableName: 'ScoreHistory',
+    KeySchema: [
+      { AttributeName: 'user_id', KeyType: 'HASH' },
+      { AttributeName: 'created_at', KeyType: 'RANGE' }
+    ],
+    AttributeDefinitions: [
+      { AttributeName: 'user_id', AttributeType: 'S' },
+      { AttributeName: 'created_at', AttributeType: 'S' }
+    ],
+    BillingMode: 'PAY_PER_REQUEST' // 온디맨드
   }
 ];
 

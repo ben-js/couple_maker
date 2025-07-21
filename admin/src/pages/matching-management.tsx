@@ -86,7 +86,7 @@ export default function MatchingManagement() {
     switch (status) {
       case 'pending': return 'text-yellow-600 bg-yellow-100';
       case 'accepted': return 'text-green-600 bg-green-100';
-      case 'rejected': return 'text-red-600 bg-red-100';
+      case 'refused': return 'text-red-600 bg-red-100';
       case 'completed': return 'text-blue-600 bg-blue-100';
       default: return 'text-gray-600 bg-gray-100';
     }
@@ -96,7 +96,7 @@ export default function MatchingManagement() {
     switch (status) {
       case 'pending': return '대기중';
       case 'accepted': return '수락됨';
-      case 'rejected': return '거절됨';
+      case 'refused': return '거절됨';
       case 'completed': return '완료됨';
       default: return status;
     }
@@ -199,7 +199,7 @@ export default function MatchingManagement() {
                   { value: 'all', label: '전체' },
                   { value: 'pending', label: '대기중' },
                   { value: 'accepted', label: '수락됨' },
-                  { value: 'rejected', label: '거절됨' },
+                  { value: 'refused', label: '거절됨' },
                   { value: 'completed', label: '완료됨' }
                 ]}
               />

@@ -105,7 +105,7 @@ const MainScreen = () => {
   }, [user?.userId]); // statusData 의존성 제거하여 무한 루프 방지
 
   // 매칭 제안 응답 처리
-  const handleProposalResponse = async (response: 'accept' | 'reject') => {
+  const handleProposalResponse = async (response: 'accept' | 'refuse') => {
     if (!proposalMatchId) return;
 
     try {
@@ -509,10 +509,10 @@ const MainScreen = () => {
               </TouchableOpacity>
               
               <TouchableOpacity
-                style={[styles.proposalButton, styles.proposalRejectButton]}
-                onPress={() => handleProposalResponse('reject')}
+                style={[styles.proposalButton, styles.proposalRefuseButton]}
+                onPress={() => handleProposalResponse('refuse')}
               >
-                <Text style={styles.proposalRejectButtonText}>아니오</Text>
+                <Text style={styles.proposalRefuseButtonText}>아니오</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -901,14 +901,14 @@ const styles = StyleSheet.create({
     color: '#fff', 
     textAlign: 'center',
   },
-  proposalRejectButton: {
+  proposalRefuseButton: {
     backgroundColor: 'transparent',
     borderWidth: 1,
     borderColor: colors.border,
     width: 100, 
     textAlign: 'center',
   },
-  proposalRejectButtonText: {
+  proposalRefuseButtonText: {
     ...typography.button,
     color: colors.text.secondary,
     textAlign: 'center',

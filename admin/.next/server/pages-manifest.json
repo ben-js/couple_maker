@@ -2,7 +2,19 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
-  "/login": "pages/login.js",
+  "/user-detail/[userId]": "pages/user-detail/[userId].js",
+  "/user-management": "pages/user-management.js",
+  "/manager-logs": "pages/manager-logs.js",
+  "/api/admin/managers/[managerId]": "pages/api/admin/managers/[managerId].js",
+  "/api/users/[userId]/scores": "pages/api/users/[userId]/scores.js",
+  "/api/users/[userId]/status-history": "pages/api/users/[userId]/status-history.js",
+  "/api/users/[userId]": "pages/api/users/[userId].js",
+  "/api/manager-logs": "pages/api/manager-logs.js",
+  "/manager-management": "pages/manager-management.js",
+  "/api/admin/managers": "pages/api/admin/managers.js",
   "/dashboard": "pages/dashboard.js",
-  "/": "pages/index.js"
+  "/api/dashboard/chart-data": "pages/api/dashboard/chart-data.js",
+  "/api/dashboard/stats": "pages/api/dashboard/stats.js",
+  "/api/dashboard/activities": "pages/api/dashboard/activities.js",
+  "/api/users": "pages/api/users.js"
 }

@@ -29,7 +29,7 @@ export type UserStatus = 'active' | 'inactive' | 'suspended' | 'black' | 'green'
 export type UserGrade = 'general' | 'silver' | 'gold' | 'premium' | 'excellent' | 'vip' | 'vvip';
 
 // 매칭 상태 타입
-export type MatchingStatus = 'pending' | 'accepted' | 'rejected' | 'completed' | 'cancelled';
+export type MatchingStatus = 'pending' | 'accepted' | 'refused' | 'completed' | 'cancelled';
 
 // 포인트 거래 타입
 export type PointTransactionType = 'charge' | 'use' | 'refund' | 'bonus' | 'penalty';
@@ -42,7 +42,7 @@ export type ManagerActionType =
   | 'status_change'
   | 'grade_change'
   | 'matching_approve'
-  | 'matching_reject'
+  | 'matching_refuse'
   | 'review_delete'
   | 'point_adjust'
   | 'user_delete'
@@ -52,3 +52,23 @@ export type ManagerActionType =
 
 // 토스트 메시지 타입
 export type ToastType = 'success' | 'error' | 'warning' | 'info'; 
+
+export interface User {
+  user_id: string;
+  email: string;
+  name?: string;
+  status?: string;
+  grade?: string;
+  created_at?: string;
+  updated_at?: string;
+  points?: number;
+  has_profile?: boolean;
+  has_preferences?: boolean;
+  is_verified?: boolean;
+  is_deleted?: boolean;
+  matching_history?: any[];
+  reviews_history?: any[];
+  point_history?: any[];
+  has_score?: boolean; // 점수 작성 여부
+  // 기타 필요한 필드
+} 

@@ -13,8 +13,9 @@ import {
   Review,
   ManagerLog,
   DashboardStats,
-  ReviewStats
+  ReviewStats,
 } from '../types';
+import { ScoreInput, ScoreResult } from '../types/score';
 
 // AWS 설정
 const client = new DynamoDBClient(AWS_CONFIG);
@@ -498,3 +499,50 @@ class DataService {
 }
 
 export default DataService; 
+
+// Scores 테이블 연동 함수
+export async function saveUserScore(userId: string, score: any, scorer: string, summary: string = '') {
+  const now = new Date().toISOString();
+  const item = {
+    user_id: userId,
+    created_at: now,
+    scorer,
+    summary,
+    ...score,
+    updated_at: now,
+  };
+  await dynamodb.send(new PutCommand({ TableName: 'Scores', Item: item }));
+  // Users 테이블에 has_score: true 업데이트
+  await dynamodb.send(new UpdateCommand({
+    TableName: 'Users',
+    Key: { user_id: userId },
+    UpdateExpression: 'SET has_score = :true, updated_at = :updatedAt',
+    ExpressionAttributeValues: { ':true': true, ':updatedAt': now },
+  }));
+  // UserStatusHistory에 점수 입력 내역 기록 (faceScore, scorer, summary)
+  await dynamodb.send(new PutCommand({
+    TableName: 'UserStatusHistory',
+    Item: {
+      user_id: userId,
+      timestamp: now,
+      type: 'score',
+      faceScore: score.faceScore, // 입력값이 있으면 기록
+      scorer,
+      summary,
+      created_at: now,
+      updated_at: now,
+    }
+  }));
+  return item;
+}
+
+export async function getUserScoreHistory(userId: string): Promise<any[]> {
+  const params = {
+    TableName: 'Scores',
+    KeyConditionExpression: 'user_id = :uid',
+    ExpressionAttributeValues: { ':uid': userId },
+    ScanIndexForward: false, // 최신순 정렬
+  };
+  const result = await dynamodb.send(new QueryCommand(params));
+  return result.Items || [];
+} 

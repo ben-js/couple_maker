@@ -92,7 +92,7 @@ export default function MatchDetail() {
     switch (status) {
       case 'pending': return 'text-yellow-600 bg-yellow-100';
       case 'accepted': return 'text-green-600 bg-green-100';
-      case 'rejected': return 'text-red-600 bg-red-100';
+      case 'refused': return 'text-red-600 bg-red-100';
       case 'completed': return 'text-blue-600 bg-blue-100';
       case 'matched': return 'text-purple-600 bg-purple-100';
       case 'unmatched': return 'text-gray-600 bg-gray-100';
@@ -104,7 +104,7 @@ export default function MatchDetail() {
     switch (status) {
       case 'pending': return '대기중';
       case 'accepted': return '수락됨';
-      case 'rejected': return '거절됨';
+      case 'refused': return '거절됨';
       case 'completed': return '완료됨';
       case 'matched': return '매칭됨';
       case 'unmatched': return '매칭 안됨';

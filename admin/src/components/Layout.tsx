@@ -9,9 +9,7 @@ import {
   HeartIcon, 
   ChatBubbleLeftRightIcon,
   Bars3Icon,
-  XMarkIcon,
-  SunIcon,
-  MoonIcon,
+  ArrowLeftIcon,
   UserCircleIcon,
   Cog6ToothIcon,
   UserGroupIcon
@@ -269,7 +267,7 @@ export default function Layout({ children }: LayoutProps) {
               className="lg:hidden p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
               title="사이드바 닫기"
             >
-              <XMarkIcon className="h-6 w-6" />
+              <ArrowLeftIcon className="h-6 w-6" />
             </button>
           </div>
 
@@ -313,9 +311,9 @@ export default function Layout({ children }: LayoutProps) {
                 title="다크모드 토글"
               >
                 {darkMode ? (
-                  <SunIcon className="h-5 w-5" />
+                  <ArrowLeftIcon className="h-5 w-5" />
                 ) : (
-                  <MoonIcon className="h-5 w-5" />
+                  <ArrowLeftIcon className="h-5 w-5" />
                 )}
               </button>
               
@@ -357,7 +355,7 @@ export default function Layout({ children }: LayoutProps) {
                 title={isSidebarOpen ? "사이드바 숨기기" : "사이드바 보이기"}
               >
                 {isSidebarOpen ? (
-                  <XMarkIcon className="h-6 w-6" />
+                  <ArrowLeftIcon className="h-6 w-6" />
                 ) : (
                   <Bars3Icon className="h-6 w-6" />
                 )}

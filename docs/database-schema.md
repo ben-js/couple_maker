@@ -231,9 +231,8 @@
   propose_user_id: 'user_123',       // 제안받은 유저에게 제안된 상대방 유저 id
   match_pair_id: 'match-123',        // 연결된 match-pairs id
   is_manual: true,                   // 수동 제안 여부
-  status: 'accept',                  // propose | accept | refuse
+  status: 'accept',                  // pending | accept | refuse
   responded_at: '2024-12-01T10:00:00Z', // 응답 시간
-  response: 'accept',                // accept | refuse | null
   reason: '성향이 잘 맞을 것 같습니다', // 제안 사유
   created_at: '2024-12-01T00:00:00Z',
   updated_at: '2024-12-01T10:00:00Z'
@@ -546,6 +545,82 @@
 }
 ```
 
+### **15. Scores 테이블**
+```javascript
+{
+  TableName: 'Scores',
+  KeySchema: [
+    { AttributeName: 'user_id', KeyType: 'HASH' },      // Partition Key
+    { AttributeName: 'created_at', KeyType: 'RANGE' }   // Sort Key
+  ],
+  AttributeDefinitions: [
+    { AttributeName: 'user_id', AttributeType: 'S' },
+    { AttributeName: 'created_at', AttributeType: 'S' }
+  ]
+}
+```
+
+**데이터 구조:**
+```javascript
+{
+  user_id: '1bc37de4-ead1-4881-b8d3-2f6ac9637d63', // Partition Key
+  appearance: 85,                                   // 외모 점수
+  personality: 90,                                  // 성격 점수
+  job: 80,                                          // 직업 점수
+  education: 95,                                    // 학력 점수
+  economics: 88,                                    // 경제력 점수
+  average: 87.6,                                    // 평균 점수
+  averageGrade: 'B',                           // 등급
+  scorer: 'manager_123',                            // 점수 입력/수정자
+  summary: '최초 입력'                              // 점수 메모/사유
+  created_at: '2025-07-20T01:34:50.677Z',           // Sort Key (ISO8601)
+  updated_at: '2025-07-20T01:34:50.677Z',           // Sort Key (ISO8601)
+}
+```
+
+### **16. ScoreHistory 테이블**
+```javascript
+{
+  TableName: 'ScoreHistory',
+  KeySchema: [
+    { AttributeName: 'user_id', KeyType: 'HASH' },      // Partition Key
+    { AttributeName: 'created_at', KeyType: 'RANGE' }   // Sort Key
+  ],
+  AttributeDefinitions: [
+    { AttributeName: 'user_id', AttributeType: 'S' },
+    { AttributeName: 'created_at', AttributeType: 'S' }
+  ]
+}
+```
+
+**데이터 구조:**
+```javascript
+{
+  user_id: '1bc37de4-ead1-4881-b8d3-2f6ac9637d63', // Partition Key
+  created_at: '2025-07-21T10:00:00.000Z',           // Sort Key (ISO8601)
+  before: {                                         // 변경 전 점수
+    appearance: 80,
+    personality: 85,
+    job: 75,
+    education: 90,
+    economics: 80,
+    average: 82,
+    averageGrade: 'B'
+  },
+  after: {                                          // 변경 후 점수
+    appearance: 85,
+    personality: 90,
+    job: 80,
+    education: 95,
+    economics: 88,
+    average: 87.6,
+    averageGrade: 'silver'
+  },
+  reason: '리뷰 반영 점수 조정',                     // 변경 사유
+  manager_id: 'A'                         // 변경 관리자 ID
+}
+```
+
 ## 🔗 **테이블 관계**
 
 - **Users** ↔ **Profiles**: 1:1 (user_id로 연결)
@@ -814,3 +889,24 @@ GlobalSecondaryIndexes: [
 - [ ] 데이터 아카이빙 시스템
 - [ ] 자동 백업 시스템
 - [ ] 비용 최적화 완료 
+
+## Scores (점수 이력)
+- user_id (string, PK): 사용자 ID
+- created_at (string, SK): 점수 생성일(ISO8601)
+- appearance (number): 외모 점수
+- personality (number): 성격 점수
+- job (number): 직업 점수
+- education (number): 학력 점수
+- economics (number): 경제력 점수
+- average (number): 평균 점수
+- averageGrade (string): 등급
+- scorer (string): 점수 입력/수정자
+- summary (string): 점수 메모/사유
+
+## ScoreHistory (점수 변경 이력)
+- user_id (string, PK): 사용자 ID
+- created_at (string, SK): 변경일(ISO8601)
+- before (object): 변경 전 점수
+- after (object): 변경 후 점수
+- reason (string): 변경 사유
+- manager_id (string): 변경 관리자 ID 

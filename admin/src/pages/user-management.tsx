@@ -9,7 +9,7 @@ import Select from '../components/common/Select';
 import { User } from '../types';
 
 interface CurrentUser {
-  id: string;
+  user_id: string;
   email: string;
   permissions: Record<string, Record<string, boolean>>;
 }
@@ -81,7 +81,7 @@ export default function UserManagement() {
     return currentUser.permissions[permission]?.[action] || false;
   };
 
-  const handleStatusChange = async (userId: string, newStatus: string) => {
+  const handleStatusChange = async (user_id: string, newStatus: string) => {
     if (!hasPermission('user_management', 'write')) {
       showToast('사용자 상태를 변경할 권한이 없습니다.', 'error');
       return;
@@ -93,7 +93,7 @@ export default function UserManagement() {
 
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`/api/users/${userId}/status`, {
+      const response = await fetch(`/api/users/${user_id}/status`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -114,7 +114,7 @@ export default function UserManagement() {
     }
   };
 
-  const handleGradeChange = async (userId: string, newGrade: string) => {
+  const handleGradeChange = async (user_id: string, newGrade: string) => {
     if (!hasPermission('user_management', 'write')) {
       showToast('사용자 등급을 변경할 권한이 없습니다.', 'error');
       return;
@@ -126,7 +126,7 @@ export default function UserManagement() {
 
     try {
       const token = localStorage.getItem('adminToken');
-      const response = await fetch(`/api/users/${userId}/grade`, {
+      const response = await fetch(`/api/users/${user_id}/grade`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -202,6 +202,17 @@ export default function UserManagement() {
           </span>
         );
       }
+    },
+    // 점수 컬럼 추가
+    {
+      key: 'has_score',
+      header: '점수',
+      width: 'w-16',
+      render: (value: boolean) => (
+        value
+          ? <span className="text-black font-bold">● 작성됨</span>
+          : <span className="text-gray-400 font-bold">○ 미작성</span>
+      )
     },
     {
       key: 'status',
