@@ -1,20 +1,14 @@
-import { ScoreInput } from '../../types/score';
-import { ASSET_SCORE_RANGES, SALARY_SCORE_RANGES, ECONOMICS_JOB_SCORE_MAP, ECONOMICS_WEIGHT } from './constants';
+import { getEconomicsJobScore, ASSET_SCORE_RANGES, SALARY_SCORE_RANGES, ECONOMICS_WEIGHT } from './scoreMappings';
+import { getScoreByRange } from './utils';
 
-function getScoreByRange(value: number, ranges: { min: number; score: number }[]): number {
-  for (const r of ranges) {
-    if (value >= r.min) return r.score;
-  }
-  return ranges[ranges.length - 1].score;
-}
-
-export function calculateEconomicsScore(input: ScoreInput): number {
-  // 자산 점수
+/**
+ * 경제력 점수 계산 (자산, 직업, 연봉)
+ * @param input { job: string; asset: number; salary: number }
+ * @returns number (0~100)
+ */
+export function calculateEconomicsScore(input: { job: string; asset: number; salary: number }): number {
   const assetScore = getScoreByRange(input.asset, ASSET_SCORE_RANGES);
-  // 직업 점수(경제력용)
-  const jobScore = ECONOMICS_JOB_SCORE_MAP[input.job] ?? 80;
-  // 연봉 점수(경제력용)
+  const jobScore = getEconomicsJobScore(input.job);
   const salaryScore = getScoreByRange(input.salary, SALARY_SCORE_RANGES);
-  // 가중치 적용 (자산, 직업, 연봉)
   return assetScore * ECONOMICS_WEIGHT.asset + jobScore * ECONOMICS_WEIGHT.job + salaryScore * ECONOMICS_WEIGHT.salary;
 } 

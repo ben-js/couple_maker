@@ -6,12 +6,8 @@
 
 import { DynamoDBClientConfig } from '@aws-sdk/client-dynamodb';
 
-const AWS_CONFIG: DynamoDBClientConfig = {
-  region: 'ap-northeast-2',
-  credentials: {
-    accessKeyId: 'AKIAU2GJ5ZJPVVVU5C4W',
-    secretAccessKey: '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',
-  },
-};
-
-export default AWS_CONFIG; 
+export const awsConfig = {
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
+  region: process.env.AWS_REGION || 'ap-northeast-2',
+}; 

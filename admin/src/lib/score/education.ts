@@ -1,6 +1,11 @@
 import { ScoreInput } from '../../types/score';
-import { EDUCATION_SCORE_MAP } from './constants';
+import { getEducationScore } from './scoreMappings';
 
+/**
+ * 학력 점수 계산
+ * @param input ScoreInput
+ * @returns number (0~100)
+ */
 export function calculateEducationScore(input: ScoreInput): number {
-  return EDUCATION_SCORE_MAP[input.education] ?? 50;
+  return getEducationScore(input.education);
 } 

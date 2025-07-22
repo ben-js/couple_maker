@@ -1,5 +1,5 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, QueryCommand, GetCommand, ScanCommand, UpdateCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, QueryCommand, GetCommand, ScanCommand, UpdateCommand, PutCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
 import AWS_CONFIG from '../config/aws';
 import {
   Manager,
@@ -503,11 +503,23 @@ export default DataService;
 // Scores 테이블 연동 함수
 export async function saveUserScore(userId: string, score: any, scorer: string, summary: string = '') {
   const now = new Date().toISOString();
+  // 기존 점수 row 모두 삭제 (user_id로 Query)
+  const existing = await dynamodb.send(new QueryCommand({
+    TableName: 'Scores',
+    KeyConditionExpression: 'user_id = :uid',
+    ExpressionAttributeValues: { ':uid': userId },
+  }));
+  for (const item of existing.Items || []) {
+    await dynamodb.send(new DeleteCommand({
+      TableName: 'Scores',
+      Key: { user_id: item.user_id, created_at: item.created_at },
+    }));
+  }
+  // Scores 테이블: user_id + created_at(=now)로 저장
   const item = {
     user_id: userId,
     created_at: now,
     scorer,
-    summary,
     ...score,
     updated_at: now,
   };
@@ -519,30 +531,80 @@ export async function saveUserScore(userId: string, score: any, scorer: string, 
     UpdateExpression: 'SET has_score = :true, updated_at = :updatedAt',
     ExpressionAttributeValues: { ':true': true, ':updatedAt': now },
   }));
-  // UserStatusHistory에 점수 입력 내역 기록 (faceScore, scorer, summary)
+  // 점수 저장 전 평균/등급 계산
+  const average =
+    score.appearance * 0.25 +
+    score.personality * 0.25 +
+    score.job * 0.2 +
+    score.education * 0.15 +
+    score.economics * 0.15;
+  function getGrade(score: number): string {
+    if (score >= 95) return 'S';
+    if (score >= 85) return 'A';
+    if (score >= 75) return 'B';
+    if (score >= 65) return 'C';
+    if (score >= 55) return 'D';
+    if (score >= 45) return 'E';
+    return 'F';
+  }
+  const averageGrade = getGrade(average);
+  // ScoreHistory 테이블에 이력 저장 (평탄화 구조)
   await dynamodb.send(new PutCommand({
-    TableName: 'UserStatusHistory',
+    TableName: 'ScoreHistory',
     Item: {
       user_id: userId,
-      timestamp: now,
-      type: 'score',
-      faceScore: score.faceScore, // 입력값이 있으면 기록
-      scorer,
-      summary,
       created_at: now,
-      updated_at: now,
+      face_score: score.faceScore,
+      appearance: score.appearance,
+      personality: score.personality,
+      job: score.job,
+      education: score.education,
+      economics: score.economics,
+      average,
+      averageGrade,
+      reason: summary,
+      manager_id: scorer,
     }
   }));
+  // UserStatusHistory에는 점수 이력 저장하지 않음
   return item;
 }
 
 export async function getUserScoreHistory(userId: string): Promise<any[]> {
   const params = {
-    TableName: 'Scores',
+    TableName: 'UserStatusHistory',
     KeyConditionExpression: 'user_id = :uid',
     ExpressionAttributeValues: { ':uid': userId },
     ScanIndexForward: false, // 최신순 정렬
   };
   const result = await dynamodb.send(new QueryCommand(params));
-  return result.Items || [];
+  // type이 'score'인 이력만 반환
+  return (result.Items || []).filter(item => item.type === 'score');
+} 
+
+export async function deleteAllScoreHistory(userId: string) {
+  // 해당 user_id의 모든 ScoreHistory row 삭제
+  const result = await dynamodb.send(new QueryCommand({
+    TableName: 'ScoreHistory',
+    KeyConditionExpression: 'user_id = :uid',
+    ExpressionAttributeValues: { ':uid': userId },
+  }));
+  for (const item of result.Items || []) {
+    await dynamodb.send(new DeleteCommand({
+      TableName: 'ScoreHistory',
+      Key: { user_id: item.user_id, created_at: item.created_at },
+    }));
+  }
+} 
+
+export async function getUserScore(userId: string): Promise<any | null> {
+  const params = {
+    TableName: 'Scores',
+    KeyConditionExpression: 'user_id = :uid',
+    ExpressionAttributeValues: { ':uid': userId },
+    ScanIndexForward: false, // 최신순
+    Limit: 1,
+  };
+  const result = await dynamodb.send(new QueryCommand(params));
+  return result.Items?.[0] || null;
 } 

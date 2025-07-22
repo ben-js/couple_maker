@@ -12,7 +12,9 @@ import {
   ArrowLeftIcon,
   UserCircleIcon,
   Cog6ToothIcon,
-  UserGroupIcon
+  UserGroupIcon,
+  MoonIcon,
+  SunIcon
 } from '@heroicons/react/24/outline';
 
 interface LayoutProps {
@@ -311,9 +313,9 @@ export default function Layout({ children }: LayoutProps) {
                 title="다크모드 토글"
               >
                 {darkMode ? (
-                  <ArrowLeftIcon className="h-5 w-5" />
+                  <MoonIcon className="h-5 w-5" />
                 ) : (
-                  <ArrowLeftIcon className="h-5 w-5" />
+                  <SunIcon className="h-5 w-5" />
                 )}
               </button>
               

@@ -179,41 +179,9 @@ export default function UserManagement() {
   };
 
   const columns = [
+    // 이메일 컬럼
     { key: 'email', header: '이메일', width: 'w-48' },
-    { key: 'name', header: '이름', width: 'w-24' },
-    {
-      key: 'role',
-      header: '역할',
-      width: 'w-24',
-      render: (value: string) => {
-        const roleNames: Record<string, string> = {
-          'customer_support': '고객지원',
-          'manager': '매니저',
-          'admin': '관리자'
-        };
-        const roleColors: Record<string, string> = {
-          'customer_support': 'text-green-600 bg-green-100',
-          'manager': 'text-blue-600 bg-blue-100',
-          'admin': 'text-red-600 bg-red-100'
-        };
-        return (
-          <span className={`px-2 py-1 rounded-full text-xs font-medium ${roleColors[value] || 'text-gray-600 bg-gray-100'}`}>
-            {roleNames[value] || value}
-          </span>
-        );
-      }
-    },
-    // 점수 컬럼 추가
-    {
-      key: 'has_score',
-      header: '점수',
-      width: 'w-16',
-      render: (value: boolean) => (
-        value
-          ? <span className="text-black font-bold">● 작성됨</span>
-          : <span className="text-gray-400 font-bold">○ 미작성</span>
-      )
-    },
+    // 상태 컬럼
     {
       key: 'status',
       header: '상태',
@@ -232,19 +200,64 @@ export default function UserManagement() {
         );
       }
     },
+    // 등급 컬럼 (뱃지형태)
+    {
+      key: 'grade',
+      header: '등급',
+      width: 'w-20',
+      render: (value: string) => {
+        const gradeNames: Record<string, string> = {
+          general: '일반',
+          silver: '실버',
+          gold: '골드',
+          premium: '프리미엄',
+          excellent: '우수',
+          vip: 'VIP',
+          vvip: 'VVIP'
+        };
+        const gradeColors: Record<string, string> = {
+          general: 'text-blue-600 bg-blue-100',
+          silver: 'text-gray-600 bg-gray-100',
+          gold: 'text-yellow-600 bg-yellow-100',
+          premium: 'text-purple-600 bg-purple-100',
+          excellent: 'text-purple-600 bg-purple-100',
+          vip: 'text-orange-600 bg-orange-100',
+          vvip: 'text-red-600 bg-red-100'
+        };
+        return (
+          <span className={`px-2 py-1 rounded-full text-xs font-medium ${gradeColors[value] || 'text-gray-600 bg-gray-100'}`}>
+            {gradeNames[value] || value}
+          </span>
+        );
+      }
+    },
+    // 점수입력 컬럼 (뱃지형태)
+    {
+      key: 'has_score',
+      header: '점수입력',
+      width: 'w-20',
+      render: (value: boolean) => (
+        value
+          ? <span className="px-2 py-1 rounded-full text-xs font-medium text-blue-700 bg-blue-100">작성됨</span>
+          : <span className="px-2 py-1 rounded-full text-xs font-medium text-gray-500 bg-gray-100">미작성</span>
+      )
+    },
+    // 가입일 컬럼
     {
       key: 'created_at',
-      header: '생성일',
-      width: 'w-32',
+      header: '가입일',
+      width: 'w-28',
       render: (value: string) => {
         if (!value) return '-';
         try {
-          return new Date(value).toLocaleDateString('ko-KR');
+          const date = new Date(value);
+          return `${date.getFullYear()}.${(date.getMonth()+1).toString().padStart(2,'0')}.${date.getDate().toString().padStart(2,'0')}`;
         } catch (error) {
           return '-';
         }
       }
     },
+    // 작업 컬럼
     {
       key: 'actions',
       header: '작업',
@@ -252,11 +265,11 @@ export default function UserManagement() {
       render: (_: any, user: User) => (
         <Button
           size="sm"
-          variant="secondary"
+          variant="primary"
           onClick={() => router.push(`/user-detail/${user.user_id}`)}
           className="w-full text-xs px-2 py-1"
         >
-          권한
+          변경
         </Button>
       )
     }

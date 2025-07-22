@@ -29,6 +29,7 @@ export interface User {
   has_preferences: boolean;
   is_verified: boolean;
   is_deleted: boolean;
+  scores?: any; // Scores 테이블의 최신 점수
 }
 
 // 매칭 관련 인터페이스

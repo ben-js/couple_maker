@@ -1,5 +1,5 @@
 import { ScoreInput } from '../../types/score';
-import { MBTI_SCORE_MAP, PERSONALITY_WEIGHT, PERSONALITY_PRIORITY_WEIGHT } from './constants';
+import { getMbtiScore, PERSONALITY_WEIGHT, PERSONALITY_PRIORITY_WEIGHT } from './scoreMappings';
 
 export function calculatePersonalityScore(input: ScoreInput): number {
   // 이상형 우선순위 점수 (성격/가치관)
@@ -33,7 +33,7 @@ export function calculatePersonalityScore(input: ScoreInput): number {
   const childScore = input.wantChild ? 100 : 70;
 
   // MBTI 점수
-  const mbtiScore = MBTI_SCORE_MAP[input.mbti] ?? 80;
+  const mbtiScore = getMbtiScore(input.mbti);
 
   // 가중치 적용 (이상형, 흡연, 취미, 자녀희망, MBTI)
   return (

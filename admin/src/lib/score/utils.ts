@@ -1,6 +1,9 @@
-import { BodyType } from '../../types/score';
-import { BODY_TYPE_SCORE_MAP, MALE_HEIGHT_SCORE_RANGES, FEMALE_HEIGHT_SCORE_RANGES, MALE_AGE_SCORE_RANGES, FEMALE_AGE_SCORE_RANGES } from './constants';
-
+/**
+ * 값이 속하는 점수 구간을 찾아 점수를 반환
+ * @param value number
+ * @param ranges { min: number; max?: number; score: number }[]
+ * @returns number
+ */
 export function getScoreByRange(value: number, ranges: { min: number; max?: number; score: number }[]): number {
   for (const r of ranges) {
     if (r.max !== undefined) {

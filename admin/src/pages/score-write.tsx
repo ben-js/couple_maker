@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ScoreInput } from '../types/score';
+import { JOB_SCORE_PAIRS, normalizeJob, parseSalary, parseAsset } from '../lib/score/scoreMappings';
 
 interface User {
   id: string;
@@ -65,11 +66,18 @@ export default function ScoreWritePage() {
     if (!selectedUser) return;
     setSaving(true);
     setMessage(null);
+    // 변환 적용
+    const normalizedScore = {
+      ...score,
+      job: normalizeJob(score.job),
+      salary: parseSalary(score.salary),
+      asset: parseAsset(score.asset),
+    };
     try {
       const res = await fetch('/api/admin/scores', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: selectedUser.id, score }),
+        body: JSON.stringify({ userId: selectedUser.id, score: normalizedScore }),
       });
       if (res.ok) {
         setMessage('점수 저장 완료!');
@@ -113,7 +121,13 @@ export default function ScoreWritePage() {
                 <label>바디타입: <input type="text" name="bodyType" value={score.bodyType} onChange={handleChange} /></label>
               </div>
               <div style={{ marginBottom: 8 }}>
-                <label>직업: <input type="text" name="job" value={score.job} onChange={handleChange} /></label>
+                <label>직업: 
+                  <select name="job" value={score.job} onChange={handleChange}>
+                    {JOB_SCORE_PAIRS.flatMap(([group, _score]) => group.map((job) => (
+                      <option key={job} value={job}>{job}</option>
+                    )))}
+                  </select>
+                </label>
               </div>
               <div style={{ marginBottom: 8 }}>
                 <label>연봉: <input type="number" name="salary" value={score.salary} onChange={handleChange} /></label>

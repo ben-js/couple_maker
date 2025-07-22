@@ -1,7 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { ScoreResult } from '../../types/score';
-import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { Radar } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  RadialLinearScale,
+  PointElement,
+  LineElement,
+  Filler,
+  Tooltip,
+  Legend,
+} from 'chart.js';
+
+ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
 import Layout from '../../components/Layout'; // Added missing import
 import Button from '../../components/common/Button';
 import { calculateAppearanceScore, calculatePersonalityScore, calculateJobScore, calculateEducationScore, calculateEconomicsScore } from '../../lib/score';
@@ -9,7 +20,11 @@ import { ScoreInput } from '../../types/score';
 import Select from '../../components/common/Select';
 import { User } from '../../types';
 import Input from '../../components/common/Input';
-import { PhotoIcon } from '@heroicons/react/24/outline';
+import { PhotoIcon, UserCircleIcon, HeartIcon, SparklesIcon, UserGroupIcon, CakeIcon, StarIcon } from '@heroicons/react/24/outline';
+import { normalizeJob, parseSalary, parseAsset } from '../../lib/score/scoreMappings';
+import Modal from '../../components/common/Modal';
+import { useToast } from '../../contexts/ToastContext';
+import { useAuth } from '../../contexts/AuthContext';
 
 // --- 유틸 함수 직접 정의 (linter 에러 방지) ---
 function formatDate(dateString: string) {
@@ -100,13 +115,13 @@ export default function UserDetail() {
   const [user, setUser] = useState<User | null>(null);
   const [scores, setScores] = useState<ScoreResult[]>([]);
   const [matchingHistory, setMatchingHistory] = useState<any[]>([]);
+  const [reviewHistory, setReviewHistory] = useState<any[]>([]); // 리뷰 이력 상태 추가
   const [reviews, setReviews] = useState<any[]>([]);
   const [pointHistory, setPointHistory] = useState<any[]>([]);
   const [statusHistory, setStatusHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'profile' | 'score' | 'matching' | 'reviews' | 'points' | 'status'>('profile');
-  const [scoreHistory, setScoreHistory] = useState<ScoreResult[]>([]);
+  const [activeTab, setActiveTab] = useState<'profile' | 'ideal' | 'scoreHistory' | 'statusHistory' | 'matchingHistory' | 'reviewHistory' | 'pointHistory'>('profile');
   const [scoreForm, setScoreForm] = useState({
     faceScore: '', // 얼굴 점수만 입력
     summary: '',
@@ -120,13 +135,17 @@ export default function UserDetail() {
   const [editGrade, setEditGrade] = useState('');
   const [saving, setSaving] = useState(false);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [scoreHistory, setScoreHistory] = useState<any[]>([]);
+  const { showToast } = useToast();
+  const { user: managerUser } = useAuth();
+  const fetchScoreHistoryRef = useRef<() => Promise<void>>();
 
   useEffect(() => {
     if (userId) {
       setLoading(true);
       Promise.all([
         loadUserDetail(),
-        loadScoreHistory(),
         loadStatusHistory()
       ]).finally(() => setLoading(false));
     }
@@ -134,11 +153,12 @@ export default function UserDetail() {
 
   // 점수 이력이 없고, 프로필/이상형 데이터가 있으면 자동 계산
   useEffect(() => {
-    if (scoreHistory.length === 0 && profile && preferences) {
-      // 얼굴 점수는 입력값(없으면 0)
+    if (profile && preferences) {
+      let faceScoreNum = Number(scoreForm.faceScore);
+      if (isNaN(faceScoreNum)) faceScoreNum = 0;
       const input: ScoreInput = {
         gender: profile.gender,
-        faceScore: Number(scoreForm.faceScore) ? Number(scoreForm.faceScore) * 20 : 0,
+        faceScore: faceScoreNum > 5 ? faceScoreNum : faceScoreNum * 20,
         height: Number(profile.height),
         bodyType: profile.body_type,
         age: profile.birth_date ? (new Date().getFullYear() - profile.birth_date.year) : 30,
@@ -148,11 +168,12 @@ export default function UserDetail() {
         hobby: profile.interests?.[0] || '',
         wantChild: profile.children_desire === '자녀 희망',
         mbti: profile.mbti,
-        job: profile.job,
-        salary: Number(profile.salary) || 0,
+        job: normalizeJob(profile.job),
+        salary: parseSalary(profile.salary),
         education: profile.education,
-        asset: Number(profile.asset) || 0,
+        asset: parseAsset(profile.asset),
       };
+      console.log('점수계산 input(useEffect):', input);
       const appearance = calculateAppearanceScore(input);
       const personality = calculatePersonalityScore(input);
       const job = calculateJobScore(input);
@@ -160,7 +181,56 @@ export default function UserDetail() {
       const economics = calculateEconomicsScore(input);
       setAutoScore({ appearance, personality, job, education, economics });
     }
-  }, [scoreHistory, profile, preferences]);
+  }, [profile, preferences]);
+
+  // 점수 이력 조회
+  useEffect(() => {
+    async function fetchScoreHistory() {
+      if (!userId) return;
+      const res = await fetch(`/api/score-history?userId=${userId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setScoreHistory(data.items || []);
+      }
+    }
+    fetchScoreHistoryRef.current = fetchScoreHistory;
+    fetchScoreHistory();
+  }, [userId]);
+
+  // 각 이력 조회 useEffect 추가
+  useEffect(() => {
+    async function fetchMatchingHistory() {
+      if (!userId) return;
+      const res = await fetch(`/api/users/${userId}/matching-history`);
+      if (res.ok) {
+        const data = await res.json();
+        setMatchingHistory(data.items || []);
+      }
+    }
+    fetchMatchingHistory();
+  }, [userId]);
+  useEffect(() => {
+    async function fetchReviewHistory() {
+      if (!userId) return;
+      const res = await fetch(`/api/users/${userId}/review-history`);
+      if (res.ok) {
+        const data = await res.json();
+        setReviewHistory(data.items || []);
+      }
+    }
+    fetchReviewHistory();
+  }, [userId]);
+  useEffect(() => {
+    async function fetchPointHistory() {
+      if (!userId) return;
+      const res = await fetch(`/api/users/${userId}/point-history`);
+      if (res.ok) {
+        const data = await res.json();
+        setPointHistory(data.items || []);
+      }
+    }
+    fetchPointHistory();
+  }, [userId]);
 
   // 프로필/이상형 데이터도 불러오기
   const loadUserDetail = async () => {
@@ -180,18 +250,7 @@ export default function UserDetail() {
     }
   };
 
-  const loadScoreHistory = async () => {
-    try {
-      const res = await fetch(`/api/users/${userId}/scores`);
-      if (res.ok) {
-        const result = await res.json();
-        setScoreHistory(result.scores || []);
-      }
-    } catch (e) {
-      setScoreHistory([]);
-    }
-  };
-
+  // 상태/등급 히스토리 불러오기
   const loadStatusHistory = async () => {
     try {
       const res = await fetch(`/api/users/${userId}/status-history`);
@@ -204,31 +263,81 @@ export default function UserDetail() {
     }
   };
 
-  // RadarChart 데이터 준비
-  const latestScore = scoreHistory[0];
-  const radarData = latestScore
-    ? [
-        { subject: '외모', value: latestScore.appearance },
-        { subject: '성격', value: latestScore.personality },
-        { subject: '직업', value: latestScore.job },
-        { subject: '학력', value: latestScore.education },
-        { subject: '경제력', value: latestScore.economics },
-      ]
-    : [];
+  // scoreHistory에서 최신 점수 추출
+  const latestScoreData = scoreHistory && scoreHistory.length > 0 ? scoreHistory[0] : null;
+  const radarChartData = latestScoreData ? {
+    labels: ['외모', '성격', '직업', '학력', '경제력'],
+    datasets: [
+      {
+        label: '점수',
+        data: [
+          latestScoreData.appearance ?? 0,
+          latestScoreData.personality ?? 0,
+          latestScoreData.job ?? 0,
+          latestScoreData.education ?? 0,
+          latestScoreData.economics ?? 0,
+        ],
+        backgroundColor: 'rgba(37, 99, 235, 0.2)',
+        borderColor: 'rgba(37, 99, 235, 1)',
+        borderWidth: 2,
+        pointBackgroundColor: 'rgba(37, 99, 235, 1)',
+        pointBorderColor: '#fff',
+        pointRadius: 5,
+      },
+    ],
+  } : null;
 
   // 점수 입력/수정 핸들러
   const handleScoreInput = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setScoreForm(prev => ({ ...prev, [name]: value }));
+    setScoreForm(prev => {
+      const updated = { ...prev, [name]: value };
+      // 얼굴 점수 입력 시 자동 계산 트리거
+      if (name === 'faceScore') {
+        let faceScoreNum = Number(value);
+        if (!isNaN(faceScoreNum) && faceScoreNum > 0) {
+          // 최신값으로 자동 계산
+          let input: ScoreInput = {
+            gender: profile?.gender || '남',
+            faceScore: faceScoreNum > 5 ? faceScoreNum : faceScoreNum * 20,
+            height: Number(profile?.height) || 0,
+            bodyType: profile?.body_type || '',
+            age: profile?.birth_date ? (new Date().getFullYear() - profile.birth_date.year) : 30,
+            personalityPriority: preferences?.priority_personality || 1,
+            valuePriority: preferences?.priority_value || 1,
+            isSmoker: profile?.smoking === '흡연',
+            hobby: profile?.interests?.[0] || '',
+            wantChild: profile?.children_desire === '자녀 희망',
+            mbti: profile?.mbti || '',
+            job: normalizeJob(profile?.job || ''),
+            salary: parseSalary(profile?.salary || 0),
+            education: profile?.education || '',
+            asset: parseAsset(profile?.asset || 0),
+          };
+          setAutoScore({
+            appearance: calculateAppearanceScore(input),
+            personality: calculatePersonalityScore(input),
+            job: calculateJobScore(input),
+            education: calculateEducationScore(input),
+            economics: calculateEconomicsScore(input),
+          });
+        }
+      }
+      return updated;
+    });
   };
 
   // 자동 계산 핸들러
   const handleAutoScore = () => {
     if (!profile) return;
-    // 얼굴 점수만 입력, 나머지는 프로필/이상형에서 추출
+    let faceScoreNum = Number(scoreForm.faceScore);
+    if (isNaN(faceScoreNum) || faceScoreNum === 0) {
+      alert('얼굴점수를 입력해 주세요!');
+      return;
+    }
     const input: ScoreInput = {
       gender: profile.gender,
-      faceScore: Number(scoreForm.faceScore) ? Number(scoreForm.faceScore) * 20 : 0,
+      faceScore: faceScoreNum > 5 ? faceScoreNum : faceScoreNum * 20,
       height: Number(profile.height),
       bodyType: profile.body_type,
       age: profile.birth_date ? (new Date().getFullYear() - profile.birth_date.year) : 30,
@@ -238,11 +347,12 @@ export default function UserDetail() {
       hobby: profile.interests?.[0] || '',
       wantChild: profile.children_desire === '자녀 희망',
       mbti: profile.mbti,
-      job: profile.job,
-      salary: Number(profile.salary) || 0,
+      job: normalizeJob(profile.job),
+      salary: parseSalary(profile.salary),
       education: profile.education,
-      asset: Number(profile.asset) || 0,
+      asset: parseAsset(profile.asset),
     };
+    console.log('점수계산 input(handleAutoScore):', input);
     const appearance = calculateAppearanceScore(input);
     const personality = calculatePersonalityScore(input);
     const job = calculateJobScore(input);
@@ -254,24 +364,45 @@ export default function UserDetail() {
   // 점수 저장 핸들러
   const handleSaveScore = async () => {
     if (!user || !autoScore) return;
+    let faceScoreNum = Number(scoreForm.faceScore);
+    if (isNaN(faceScoreNum) || faceScoreNum === 0) {
+      alert('얼굴점수를 입력해 주세요!');
+      return;
+    }
+    setShowConfirmModal(true);
+  };
+
+  const handleConfirmSave = async () => {
+    setShowConfirmModal(false);
     setSavingScore(true);
     try {
-      await fetch(`/api/users/${user.user_id}/scores`, {
-        method: 'POST',
+      await fetch(`/api/users/${userId}/scores`, {
+        method: 'PUT', // 반드시 PUT이어야 함
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          appearance: autoScore.appearance,
+          faceScoreInput: scoreForm.faceScore, // 5점 만점 원본값
+          summary: scoreForm.summary,
+          // appearance 계산 시 faceScore를 100점 환산해서 넘김
+          appearance: calculateAppearanceScore({
+            ...profile,
+            ...preferences,
+            faceScore: Number(scoreForm.faceScore) * 20,
+            height: Number(profile?.height) || 0,
+            bodyType: profile?.body_type || '',
+            age: profile?.birth_date ? (new Date().getFullYear() - profile.birth_date.year) : 30,
+          }),
           personality: autoScore.personality,
           job: autoScore.job,
           education: autoScore.education,
           economics: autoScore.economics,
-          faceScore: Number(scoreForm.faceScore),
-          summary: scoreForm.summary,
+          managerName: managerUser?.name || managerUser?.email || 'unknown',
         })
       });
       setScoreForm({ faceScore: '', summary: '' });
       setAutoScore(null);
-      await loadScoreHistory();
+      await loadUserDetail();
+      if (fetchScoreHistoryRef.current) await fetchScoreHistoryRef.current(); // 점수 이력 즉시 갱신
+      showToast('저장이 완료되었습니다.', 'success');
     } finally {
       setSavingScore(false);
     }
@@ -309,8 +440,8 @@ export default function UserDetail() {
     }
   };
 
-  // 카드 점수 표시용 객체: 저장 전 autoScore, 저장 후 latestScore
-  const displayScore = scoreHistory.length > 0 ? scoreHistory[0] : autoScore;
+  // 카드 점수 표시용 객체: 저장된 점수(user.scores) 우선, 없으면 autoScore
+  const displayScore = user?.scores || autoScore;
 
   return (
     <Layout>
@@ -366,8 +497,8 @@ export default function UserDetail() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">사용자 ID</label>
-                  <p className="text-gray-900">{user.user_id}</p>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">이름</label>
+                  <p className="text-gray-900">{profile.name}</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">이메일</label>
@@ -437,7 +568,7 @@ export default function UserDetail() {
               <h3 className="text-lg font-bold text-gray-900">점수 이력 및 프로필 사진</h3>
             </div>
             {/* RadarChart + 프로필 사진을 항상 나란히 */}
-            <div className="flex flex-col md:flex-row gap-6 items-center justify-center mb-6">
+            <div className="flex flex-col md:flex-row gap-6 items-center justify-center">
               <div className="w-full md:w-1/2 flex flex-col items-center">
                 {profile && Array.isArray(profile.photos) && profile.photos.length > 0 ? (
                   <>
@@ -466,16 +597,27 @@ export default function UserDetail() {
                 )}
               </div>
               <div className="w-full md:w-1/2">
-                {latestScore ? (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
-                      <PolarGrid />
-                      <PolarAngleAxis dataKey="subject" />
-                      <PolarRadiusAxis angle={30} domain={[0, 100]} />
-                      <Radar name="점수" dataKey="value" stroke="#2563eb" fill="#60a5fa" fillOpacity={0.6} />
-                      <Tooltip />
-                    </RadarChart>
-                  </ResponsiveContainer>
+                {radarChartData ? (
+                  <Radar
+                    data={radarChartData}
+                    options={{
+                      responsive: true,
+                      plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: true },
+                      },
+                      scales: {
+                        r: {
+                          min: 0,
+                          max: 100,
+                          ticks: { color: '#222', stepSize: 20 },
+                          pointLabels: { color: '#888', font: { size: 16 } },
+                          grid: { color: '#e5e7eb' },
+                        },
+                      },
+                    }}
+                    height={300}
+                  />
                 ) : (
                   <p className="text-gray-500 text-center py-4">점수 데이터가 없습니다.</p>
                 )}
@@ -487,44 +629,19 @@ export default function UserDetail() {
                 {/* 별점 + 점수 + 메모/사유 + 저장 */}
                 <div className="flex items-center flex-1 min-w-0 whitespace-nowrap">
                   <StarRating value={scoreForm.faceScore} onChange={v => setScoreForm(f => ({ ...f, faceScore: v }))} />
-                  <span className="ml-4 text-gray-500">
+                  <span className="ml-4 mr-2 text-gray-500">
                     {Number(scoreForm.faceScore) > 0 ? scoreForm.faceScore : <span className="invisible">0</span>} / 5점
                   </span>
-                  <div className="flex w-full max-w-[600px]">
+                  <div className="flex w-full max-w-[600px] ml-4"> {/* 5점과 인풋박스 사이 마진 */}
                     <Input
                       name="summary"
                       value={scoreForm.summary}
                       onChange={handleScoreInput}
                       placeholder="메모/사유를 작성해주세요"
-                      className="rounded-l-md rounded-r-none border border-gray-300 border-r-0 focus:ring-blue-500 focus:border-blue-500 w-full py-2 text-sm bg-white text-black"
+                      className="rounded-l-md rounded-r-none border border-gray-300 border-r-0 focus:ring-blue-500 focus:border-blue-500 w-full py-2 text-sm bg-white text-black" // 배경 흰색, 텍스트 검정
                     />
                     <Button
-                      onClick={async () => {
-                        setSavingScore(true);
-                        try {
-                          const faceScore100 = Number(scoreForm.faceScore) * 20;
-                          const res = await fetch(`/api/users/${userId}/scores`, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                              faceScoreInput: scoreForm.faceScore, // 5점 만점 원본값
-                              summary: scoreForm.summary,
-                              appearance: autoScore?.appearance,
-                              personality: autoScore?.personality,
-                              job: autoScore?.job,
-                              education: autoScore?.education,
-                              economics: autoScore?.economics,
-                            }),
-                          });
-                          const data = await res.json();
-                          if (res.ok && data.scores) {
-                            setScoreHistory(data.scores);
-                            setScoreForm({ faceScore: '', summary: '' });
-                          }
-                        } finally {
-                          setSavingScore(false);
-                        }
-                      }}
+                      onClick={handleSaveScore}
                       disabled={savingScore || !autoScore || !scoreForm.faceScore || !scoreForm.summary}
                       className="rounded-r-md rounded-l-none bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 border border-blue-600 border-l-0 transition-colors whitespace-nowrap"
                     >
@@ -546,232 +663,226 @@ export default function UserDetail() {
 
           {/* 히스토리 탭 */}
           <div className="bg-white rounded-lg shadow">
+            {/* 탭 UI */}
             <div className="border-b border-gray-200">
               <nav className="-mb-px flex space-x-8 px-6">
-                <button
-                  onClick={() => setActiveTab('score')}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'score'
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  점수 이력 ({scoreHistory.length})
-                </button>
-                <button
-                  onClick={() => setActiveTab('status')}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'status'
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  상태/등급 이력 ({statusHistory.length})
-                </button>
-                <button
-                  onClick={() => setActiveTab('matching')}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'matching'
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  매칭 히스토리 ({user?.matching_history?.length || 0})
-                </button>
-                <button
-                  onClick={() => setActiveTab('reviews')}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'reviews'
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  리뷰 히스토리 ({user?.reviews_history?.length || 0})
-                </button>
-                <button
-                  onClick={() => setActiveTab('points')}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'points'
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  포인트 내역 ({user?.point_history?.length || 0})
-                </button>
+                <button onClick={() => setActiveTab('profile')} className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'profile' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>프로필</button>
+                <button onClick={() => setActiveTab('ideal')} className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'ideal' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>이상형</button>
+                <button onClick={() => setActiveTab('scoreHistory')} className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'scoreHistory' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>점수 이력 ({scoreHistory.length})</button>
+                <button onClick={() => setActiveTab('statusHistory')} className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'statusHistory' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>상태/등급 이력 ({statusHistory.length})</button>
+                <button onClick={() => setActiveTab('matchingHistory')} className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'matchingHistory' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>매칭 이력 ({matchingHistory.length})</button>
+                <button onClick={() => setActiveTab('reviewHistory')} className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'reviewHistory' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>리뷰 이력 ({reviewHistory.length})</button>
+                <button onClick={() => setActiveTab('pointHistory')} className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'pointHistory' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>포인트 이력 ({pointHistory.length})</button>
               </nav>
             </div>
-
-            <div className="p-6">
-              {activeTab === 'score' && (
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">점수 이력 및 프로필 사진</h3>
-                  {latestScore ? (
-                    <div className="mb-6 w-full max-w-xl mx-auto">
-                      <ResponsiveContainer width="100%" height={300}>
-                        <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
-                          <PolarGrid />
-                          <PolarAngleAxis dataKey="subject" />
-                          <PolarRadiusAxis angle={30} domain={[0, 100]} />
-                          <Radar name="점수" dataKey="value" stroke="#2563eb" fill="#60a5fa" fillOpacity={0.6} />
-                          <Tooltip />
-                        </RadarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  ) : (
-                    <p className="text-gray-500 text-center py-4">점수 데이터가 없습니다.</p>
-                  )}
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">날짜</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">외모</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">성격</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">직업</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">학력</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">경제력</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">평균</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">등급</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {scoreHistory.map((s, i) => (
-                          <tr key={i}>
-                            <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">{s.created_at || '-'}</td>
-                            <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">{s.appearance}</td>
-                            <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">{s.personality}</td>
-                            <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">{s.job}</td>
-                            <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">{s.education}</td>
-                            <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">{s.economics}</td>
-                            <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">{s.average}</td>
-                            <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">{s.averageGrade}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+            {/* 탭별 렌더링 */}
+            {activeTab === 'profile' && (
+              <div className="p-8 pl-8">
+                <div className="grid grid-cols-3 gap-x-8 gap-y-4 text-left">
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">성별</span><span className="text-gray-800">{profile?.gender ?? '-'}</span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">나이</span><span className="text-gray-800">{profile?.birth_date ? (new Date().getFullYear() - profile.birth_date.year) : '-'}</span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">직업</span><span className="text-gray-800">{profile?.job ?? '-'}</span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">학력</span><span className="text-gray-800">{profile?.education ?? '-'}</span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">키</span><span className="text-gray-800">{profile?.height ?? '-'}cm</span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">자산</span><span className="text-gray-800">{profile?.asset ?? '-'}</span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">연봉</span><span className="text-gray-800">{profile?.salary ?? '-'}</span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">MBTI</span><span className="text-gray-800">{profile?.mbti ?? '-'}</span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">종교</span><span className="text-gray-800">{profile?.religion ?? '-'}</span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">지역</span><span className="text-gray-800">{profile?.region?.region} {profile?.region?.district}</span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">흡연</span><span className="text-gray-800">{profile?.smoking ?? '-'}</span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">음주</span><span className="text-gray-800">{profile?.drinking ?? '-'}</span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">자녀 희망</span><span className="text-gray-800">{profile?.children_desire ?? '-'}</span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">관심사</span><span className="text-gray-800">{profile?.interests?.join(', ') ?? '-'}</span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">체형</span><span className="text-gray-800">{profile?.body_type ?? '-'}</span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">좋아하는 음식</span><span className="text-gray-800">{profile?.favorite_foods?.join(', ') ?? '-'}</span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">결혼 계획</span><span className="text-gray-800">{profile?.marriage_plans ?? '-'}</span></div>
+                  <div className="flex flex-col col-span-3"><span className="font-bold text-gray-600 mb-1">자기소개</span><span className="text-gray-800">{profile?.introduction ?? '-'}</span></div>
                 </div>
-              )}
-              {activeTab === 'status' && (
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">상태/등급 이력</h3>
-                  {statusHistory.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">날짜</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상태</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">등급</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">사유</th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                          {statusHistory.map((s, i) => (
-                            <tr key={i}>
-                              <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">{formatDate(s.created_at)}</td>
-                              <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">{getStatusName(s.status)}</td>
-                              <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">{getGradeName(s.grade)}</td>
-                              <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">{s.reason || '-'}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <p className="text-gray-500 text-center py-4">상태/등급 이력이 없습니다.</p>
-                  )}
+              </div>
+            )}
+            {activeTab === 'ideal' && (
+              <div className="p-8 pl-8">
+                <div className="grid grid-cols-3 gap-x-8 gap-y-4 text-left">
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">선호 지역</span><span className="text-gray-800">{preferences?.regions?.map(r => `${r.region} ${r.district}`).join(', ') ?? '-'}</span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">추가 지역</span><span className="text-gray-800">{preferences?.locations?.join(', ') ?? '-'}</span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">나이 범위</span><span className="text-gray-800">{preferences?.age_range ? `${preferences.age_range.min}~${preferences.age_range.max}` : '-'}</span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">키 범위</span><span className="text-gray-800">{preferences?.height_range ? `${preferences.height_range.min}~${preferences.height_range.max}` : '-'}</span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">직업군</span><span className="text-gray-800">{preferences?.job_types?.join(', ') ?? '-'}</span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">체형</span><span className="text-gray-800">{preferences?.body_types?.join(', ') ?? '-'}</span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">MBTI</span><span className="text-gray-800">{preferences?.mbti_types?.join(', ') ?? '-'}</span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">학력</span><span className="text-gray-800">{preferences?.education_levels?.join(', ') ?? '-'}</span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">결혼 계획</span><span className="text-gray-800">{preferences?.marriage_plan ?? '-'}</span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">선호 성별</span><span className="text-gray-800">{preferences?.preferred_gender ?? '-'}</span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">종교</span><span className="text-gray-800">{preferences?.religion ?? '-'}</span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">흡연</span><span className="text-gray-800">{preferences?.smoking ?? '-'}</span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">음주</span><span className="text-gray-800">{preferences?.drinking ?? '-'}</span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">관심사</span><span className="text-gray-800">{preferences?.interests?.join(', ') ?? '-'}</span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">우선순위</span><span className="text-gray-800">{Array.isArray(preferences?.priority)
+  ? preferences.priority.join(' > ')
+  : preferences?.priority?.split(',').join(' > ') ?? '-'}</span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">자녀 희망</span><span className="text-gray-800">{preferences?.children_desire ?? '-'}</span></div>
                 </div>
-              )}
-              {activeTab === 'matching' && (
-                <>
-                  <h3 style={{ marginBottom: 8 }}>매칭 이력</h3>
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
+              </div>
+            )}
+            {activeTab === 'scoreHistory' && (
+              <div className="p-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">점수 이력</h3>
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">날짜</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">얼굴</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">외모</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">성격</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">직업</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">학력</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">경제력</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">평균</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">등급</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">사유</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">관리자</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {scoreHistory.map((s, i) => (
+                      <tr key={i}>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{s.created_at ? s.created_at.slice(0, 10) : '-'}</td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{s.face_score ?? '-'}</td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{s.appearance ?? '-'}</td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{s.personality ?? '-'}</td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{s.job ?? '-'}</td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{s.education ?? '-'}</td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{s.economics ?? '-'}</td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{s.average ?? '-'}</td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{s.averageGrade ?? '-'}</td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{s.reason ?? '-'}</td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{s.manager_id ?? '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {activeTab === 'statusHistory' && (
+              <div className="p-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">상태/등급 이력</h3>
+                {statusHistory.length > 0 ? (
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
                       <tr>
-                        <th>매칭ID</th>
-                        <th>상태</th>
-                        <th>생성일</th>
-                        <th>상세</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">날짜</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상태</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">등급</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">사유</th>
                       </tr>
                     </thead>
-                    <tbody>
-                      {matchingHistory.length === 0 ? (
-                        <tr><td colSpan={4}>매칭 이력이 없습니다.</td></tr>
-                      ) : matchingHistory.map((m, i) => (
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {statusHistory.map((h, i) => (
                         <tr key={i}>
-                          <td>{m.id}</td>
-                          <td>{m.status}</td>
-                          <td>{m.created_at}</td>
-                          <td><button onClick={() => router.push(`/match-detail/${m.id}`)}>상세</button></td>
+                          <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">{h.timestamp ? h.timestamp.slice(0, 10) : '-'}</td>
+                          <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">{h.status ?? '-'}</td>
+                          <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">{h.grade ?? '-'}</td>
+                          <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">{h.reason ?? '-'}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
-                </>
-              )}
-              {activeTab === 'reviews' && (
-                <>
-                  <h3 style={{ marginBottom: 8 }}>리뷰 이력</h3>
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr>
-                        <th>리뷰ID</th>
-                        <th>평점</th>
-                        <th>코멘트</th>
-                        <th>작성일</th>
+                ) : (
+                  <p className="text-gray-500 text-center py-4">상태/등급 이력이 없습니다.</p>
+                )}
+              </div>
+            )}
+            {activeTab === 'matchingHistory' && (
+              <div className="p-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">매칭 이력</h3>
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">날짜</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">매칭ID</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">상대ID</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">상태</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {matchingHistory.map((m, i) => (
+                      <tr key={i}>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{m.created_at ? m.created_at.slice(0, 10) : '-'}</td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{m.match_id ?? '-'}</td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{m.partner_id ?? '-'}</td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{m.status ?? '-'}</td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {reviews.length === 0 ? (
-                        <tr><td colSpan={4}>리뷰 이력이 없습니다.</td></tr>
-                      ) : reviews.map((r, i) => (
-                        <tr key={i}>
-                          <td>{r.id}</td>
-                          <td>{r.rating}</td>
-                          <td>{r.comment}</td>
-                          <td>{r.created_at}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </>
-              )}
-              {activeTab === 'points' && (
-                <>
-                  <h3 style={{ marginBottom: 8 }}>포인트 이력</h3>
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr>
-                        <th>포인트ID</th>
-                        <th>유형</th>
-                        <th>금액</th>
-                        <th>설명</th>
-                        <th>날짜</th>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {activeTab === 'reviewHistory' && (
+              <div className="p-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">리뷰 이력</h3>
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">날짜</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">리뷰ID</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">내용</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">평점</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {reviewHistory.map((r, i) => (
+                      <tr key={i}>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{r.created_at ? r.created_at.slice(0, 10) : '-'}</td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{r.review_id ?? '-'}</td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{r.content ?? '-'}</td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{r.rating ?? '-'}</td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {pointHistory.length === 0 ? (
-                        <tr><td colSpan={5}>포인트 이력이 없습니다.</td></tr>
-                      ) : pointHistory.map((p, i) => (
-                        <tr key={i}>
-                          <td>{p.id}</td>
-                          <td>{p.type}</td>
-                          <td>{p.amount}</td>
-                          <td>{p.description}</td>
-                          <td>{p.created_at}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </>
-              )}
-            </div>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {activeTab === 'pointHistory' && (
+              <div className="p-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">포인트 이력</h3>
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">날짜</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">포인트</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">타입</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">설명</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {pointHistory.map((p, i) => (
+                      <tr key={i}>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{p.created_at ? p.created_at.slice(0, 10) : '-'}</td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{p.amount ?? '-'}</td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{p.type ?? '-'}</td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{p.description ?? '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
           {/* 사진 모달 ... */}
         </div>
       </div>
+      {showConfirmModal && (
+        <Modal isOpen={true} onClose={() => setShowConfirmModal(false)}>
+          <div className="p-6 text-center">
+            <div className="mb-4 text-lg font-semibold text-black">점수를 입력하시겠습니까?</div>
+            <div className="flex justify-center gap-4 mt-6">
+              <Button onClick={handleConfirmSave} className="bg-blue-600 text-white px-6 py-2 rounded">예</Button>
+              <Button onClick={() => setShowConfirmModal(false)} className="bg-gray-300 text-gray-700 px-6 py-2 rounded">아니오</Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </Layout>
   );
 } 

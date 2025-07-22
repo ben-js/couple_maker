@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import DataService from '../../../lib/dataService';
 import { verifyToken } from '../../../lib/auth';
+import { getUserScore } from '../../../lib/dataService';
 
 const dataService = new DataService();
 
@@ -65,6 +66,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const preferences = await dataService.getPreferences(userId);
     console.log('사용자 선호도:', preferences);
 
+    // 사용자 점수(Scores 테이블) 조회
+    const scores = await getUserScore(userId);
+
     // 응답 데이터 구성
     const responseData = {
       user: {
@@ -83,7 +87,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         is_verified: user.is_verified || false,
         is_deleted: user.is_deleted || false,
         profile: profile, // 프로필 정보 추가
-        preferences: preferences // 선호도 정보 추가
+        preferences: preferences, // 선호도 정보 추가
+        scores: scores || null, // 최신 점수 추가
       },
       matchingHistory: userMatchingHistory.map(match => ({
         id: match.id,

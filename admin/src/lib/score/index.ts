@@ -4,10 +4,13 @@ import { calculatePersonalityScore } from './personality';
 import { calculateJobScore } from './job';
 import { calculateEducationScore } from './education';
 import { calculateEconomicsScore } from './economics';
-import { TOTAL_SCORE_WEIGHT } from './constants';
+import { TOTAL_SCORE_WEIGHT } from './scoreMappings';
 
 export { calculateAppearanceScore, calculatePersonalityScore, calculateJobScore, calculateEducationScore, calculateEconomicsScore };
 
+/**
+ * 점수(0~100)를 등급(S~F)으로 변환
+ */
 export function getGrade(score: number): string {
   if (score >= 95) return 'S';
   if (score >= 85) return 'A';
@@ -18,6 +21,11 @@ export function getGrade(score: number): string {
   return 'F';
 }
 
+/**
+ * 전체 점수 및 각 항목별 등급 계산
+ * @param input ScoreInput
+ * @returns ScoreResult
+ */
 export function calculateTotalScore(input: ScoreInput): ScoreResult {
   const appearance = calculateAppearanceScore(input);
   const personality = calculatePersonalityScore(input);
