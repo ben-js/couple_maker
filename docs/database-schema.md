@@ -598,24 +598,14 @@
 {
   user_id: '1bc37de4-ead1-4881-b8d3-2f6ac9637d63', // Partition Key
   created_at: '2025-07-21T10:00:00.000Z',           // Sort Key (ISO8601)
-  before: {                                         // 변경 전 점수
-    appearance: 80,
-    personality: 85,
-    job: 75,
-    education: 90,
-    economics: 80,
-    average: 82,
-    averageGrade: 'B'
-  },
-  after: {                                          // 변경 후 점수
-    appearance: 85,
-    personality: 90,
-    job: 80,
-    education: 95,
-    economics: 88,
-    average: 87.6,
-    averageGrade: 'silver'
-  },
+  face_score: 4.0,                                        // 변경 후 점수
+  appearance: 85,
+  personality: 90,
+  job: 80,
+  education: 95,
+  economics: 88,
+  average: 87.6,
+  averageGrade: 'silver'
   reason: '리뷰 반영 점수 조정',                     // 변경 사유
   manager_id: 'A'                         // 변경 관리자 ID
 }

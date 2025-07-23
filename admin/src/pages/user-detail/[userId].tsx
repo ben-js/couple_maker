@@ -704,7 +704,6 @@ export default function UserDetail() {
               <div className="p-8 pl-8">
                 <div className="grid grid-cols-3 gap-x-8 gap-y-4 text-left">
                   <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">선호 지역</span><span className="text-gray-800">{preferences?.regions?.map(r => `${r.region} ${r.district}`).join(', ') ?? '-'}</span></div>
-                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">추가 지역</span><span className="text-gray-800">{preferences?.locations?.join(', ') ?? '-'}</span></div>
                   <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">나이 범위</span><span className="text-gray-800">{preferences?.age_range ? `${preferences.age_range.min}~${preferences.age_range.max}` : '-'}</span></div>
                   <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">키 범위</span><span className="text-gray-800">{preferences?.height_range ? `${preferences.height_range.min}~${preferences.height_range.max}` : '-'}</span></div>
                   <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">직업군</span><span className="text-gray-800">{preferences?.job_types?.join(', ') ?? '-'}</span></div>

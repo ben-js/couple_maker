@@ -21,6 +21,12 @@ class AuthService {
   async login(email, password) {
     const startTime = Date.now();
     try {
+      // AWS 환경변수 확인 로그 추가
+      console.log('🔑 AWS ENV CHECK (login)', {
+        AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID,
+        AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY,
+        AWS_REGION: process.env.AWS_REGION,
+      });
       // 이메일로 사용자 찾기 (GSI로 조회)
       const userResult = await ddbDocClient.send(
         new QueryCommand({

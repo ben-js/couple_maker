@@ -374,6 +374,22 @@ Resources:
           Projection:
             ProjectionType: ALL
 
+  ScoreHistoryTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: ScoreHistory
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+        - AttributeName: created_at
+          AttributeType: S
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+        - AttributeName: created_at
+          KeyType: RANGE
+      BillingMode: PAY_PER_REQUEST
+
   # S3 버킷
   DateSenseBucket:
     Type: AWS::S3::Bucket

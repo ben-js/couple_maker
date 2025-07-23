@@ -55,7 +55,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     console.log('Manager: 매칭 페어 목록 조회 완료:', processedMatches.length, '개');
 
-    res.status(200).json(processedMatches);
+    // 쿼리 파라미터로 상태 조건 받기
+    const { status } = req.query;
+
+    let filteredMatches = processedMatches;
+    if (status && status !== 'all') {
+      filteredMatches = processedMatches.filter(match => match.status === status);
+    }
+
+    res.status(200).json(filteredMatches);
   } catch (error) {
     console.error('Manager: 매칭 페어 목록 조회 오류:', error);
     res.status(500).json({ 

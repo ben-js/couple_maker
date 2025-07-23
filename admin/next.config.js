@@ -14,9 +14,6 @@ const nextConfig = {
   
   // 환경 변수 설정
   env: {
-    AWS_REGION: 'ap-northeast-2',
-    AWS_ACCESS_KEY_ID: 'AKIAU2GJ5ZJPVVVU5C4W',
-    AWS_SECRET_ACCESS_KEY: '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',
     NEXT_PUBLIC_API_BASE_URL: 'http://192.168.219.100:3001',
   },
   

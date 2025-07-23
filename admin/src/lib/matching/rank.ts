@@ -1,5 +1,5 @@
 import { UserProfile, MatchingRequest, Recommendation } from '../../types/matching';
-import { GRADE_SCORE_MAP, PRIORITY_WEIGHT } from './scoreMappings';
+import { GRADE_SCORE_MAP, PRIORITY_WEIGHT } from '../score/scoreMappings';
 
 /**
  * 최종 추천 랭킹 산출 함수

@@ -1,5 +1,5 @@
 import { UserProfile } from '../../types/matching';
-import { GRADE_ORDER, GRADE_RECOMMEND_COUNT } from './scoreMappings';
+import { GRADE_ORDER, GRADE_RECOMMEND_COUNT } from '../score/scoreMappings';
 
 /**
  * 등급별 후보 분류 및 추천 인원수만큼 추출

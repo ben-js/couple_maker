@@ -22,6 +22,7 @@ export default function UserManagement() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [gradeFilter, setGradeFilter] = useState('all');
+  const [scoreFilter, setScoreFilter] = useState('all');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'warning' | 'info' } | null>(null);
   const router = useRouter();
 
@@ -29,52 +30,41 @@ export default function UserManagement() {
     setToast({ message, type });
   };
 
-  useEffect(() => {
-    loadUsers();
-  }, []);
-
-
-
-  const loadUsers = async (isRefresh = false) => {
+  // loadUsers 함수 수정
+  const loadUsers = async (isRefresh = false, search = '', status = 'all', grade = 'all', score = 'all') => {
     try {
-      if (isRefresh) {
-        setRefreshing(true);
-      }
+      if (isRefresh) setRefreshing(true);
       
       const token = localStorage.getItem('adminToken');
       const headers: HeadersInit = {};
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-      
-      const response = await fetch('/api/users', {
-        headers
-      });
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      // 쿼리 파라미터 추가
+      const params = new URLSearchParams();
+      if (search) params.append('email', search);
+      if (status !== 'all') params.append('status', status);
+      if (grade !== 'all') params.append('grade', grade);
+      if (score !== 'all') params.append('score', score);
+      const response = await fetch(`/api/users?${params.toString()}`, { headers });
 
       if (response.ok) {
         const data = await response.json();
         setUsers(data);
-        if (isRefresh) {
-          showToast('데이터가 새로고침되었습니다.');
-        }
+        if (isRefresh) showToast('데이터가 새로고침되었습니다.');
       } else {
         console.error('Failed to load users');
-        if (isRefresh) {
-          showToast('데이터 새로고침에 실패했습니다.', 'error');
-        }
+        if (isRefresh) showToast('데이터 새로고침에 실패했습니다.', 'error');
       }
     } catch (error) {
       console.error('Error loading users:', error);
-      if (isRefresh) {
-        showToast('데이터 새로고침 중 오류가 발생했습니다.', 'error');
-      }
+      if (isRefresh) showToast('데이터 새로고침 중 오류가 발생했습니다.', 'error');
     } finally {
       setLoading(false);
-      if (isRefresh) {
-        setRefreshing(false);
-      }
+      if (isRefresh) setRefreshing(false);
     }
   };
+
+  // 최초 마운트 시 전체 유저 불러오기
+  useEffect(() => { loadUsers(); }, []);
 
   const hasPermission = (permission: string, action: string = 'read') => {
     if (!currentUser || !currentUser.permissions) return false;
@@ -296,12 +286,13 @@ export default function UserManagement() {
 
           {/* 필터 및 검색 */}
           <div className="bg-white rounded-lg shadow p-6 mb-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="flex flex-row flex-nowrap items-end gap-3">
               <Input
                 label="검색"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="이메일로 검색"
+                className="w-24 flex-shrink-0"
               />
               <Select
                 label="상태"
@@ -314,6 +305,7 @@ export default function UserManagement() {
                   { value: 'suspended', label: '정지' },
                   { value: 'black', label: '블랙' }
                 ]}
+                className="w-24 flex-shrink-0"
               />
               <Select
                 label="등급"
@@ -329,16 +321,27 @@ export default function UserManagement() {
                   { value: 'vip', label: 'VIP' },
                   { value: 'vvip', label: 'VVIP' }
                 ]}
+                className="w-24 flex-shrink-0"
               />
-              <div className="flex items-end">
-                <Button
-                  onClick={() => loadUsers(true)}
-                  disabled={refreshing}
-                  className="w-full"
-                >
-                  {refreshing ? '새로고침 중...' : '새로고침'}
-                </Button>
-              </div>
+              <Select
+                label="점수입력"
+                value={scoreFilter}
+                onChange={setScoreFilter}
+                options={[
+                  { value: 'all', label: '전체' },
+                  { value: 'scored', label: '작성됨' },
+                  { value: 'not_scored', label: '미작성' }
+                ]}
+                className="w-24 flex-shrink-0"
+              />
+              <Button
+                size="sm"
+                onClick={() => loadUsers(false, searchTerm, statusFilter, gradeFilter, scoreFilter)}
+                disabled={refreshing}
+                className="w-28 py-3 text-base flex-shrink-0"
+              >
+                {refreshing ? '검색 중...' : '검색'}
+              </Button>
             </div>
           </div>
 
@@ -406,7 +409,7 @@ export default function UserManagement() {
           {/* 사용자 테이블 */}
           <Table
             title="사용자 목록"
-            data={filteredUsers}
+            data={users}
             columns={columns}
             loading={loading}
             emptyMessage="사용자가 없습니다."

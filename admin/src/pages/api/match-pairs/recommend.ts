@@ -20,7 +20,6 @@ export default async function handler(
     const recommendations = await getMatchingRecommendations(candidates, request);
     return res.status(200).json({ recommendations });
   } catch (error) {
-    console.error('추천 API 오류:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 } 

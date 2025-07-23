@@ -2,7 +2,12 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
-  "/user-detail/[userId]": "pages/user-detail/[userId].js",
-  "/user-management": "pages/user-management.js",
-  "/dashboard": "pages/dashboard.js"
+  "/matching-detail/[requestId]": "pages/matching-detail/[requestId].js",
+  "/api/admin/managers/[managerId]": "pages/api/admin/managers/[managerId].js",
+  "/api/score-history": "pages/api/score-history.js",
+  "/api/users/[userId]": "pages/api/users/[userId].js",
+  "/api/users/[userId]/status-history": "pages/api/users/[userId]/status-history.js",
+  "/api/matching-requests/[requestId]": "pages/api/matching-requests/[requestId].js",
+  "/api/users": "pages/api/users.js",
+  "/api/match-pairs/recommend": "pages/api/match-pairs/recommend.js"
 }

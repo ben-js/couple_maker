@@ -6,8 +6,6 @@ import { getUserScore } from '../../../lib/dataService';
 const dataService = new DataService();
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  console.log('API 호출 시작:', req.method, req.url);
-  console.log('쿼리 파라미터:', req.query);
   
   if (req.method !== 'GET') {
     return res.status(405).json({ success: false, message: 'Method not allowed' });
@@ -16,27 +14,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     // 토큰 검증 - 개발 중 임시 우회
     const token = req.headers.authorization?.replace('Bearer ', '');
-    console.log('토큰 존재 여부:', !!token);
     
     // 개발 중에는 토큰 검증을 완전히 우회
-    console.log('개발 중 토큰 검증 우회');
     
     const { userId } = req.query;
-    console.log('요청된 userId:', userId);
     
     if (!userId || typeof userId !== 'string') {
-      console.log('userId가 유효하지 않음:', userId);
       return res.status(400).json({ success: false, message: '사용자 ID가 필요합니다.' });
     }
 
     // 사용자 정보 조회
-    console.log('DataService.getUserById 호출 시작');
     const user = await dataService.getUserById(userId);
-    console.log('사용자 조회 결과:', !!user);
-    console.log('사용자 데이터:', user);
     
     if (!user) {
-      console.log('사용자를 찾을 수 없음');
       return res.status(404).json({ success: false, message: '사용자를 찾을 수 없습니다.' });
     }
 
@@ -60,11 +50,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // 사용자 프로필 조회
     const profile = await dataService.getProfile(userId);
-    console.log('사용자 프로필:', profile);
 
     // 사용자 선호도 조회
     const preferences = await dataService.getPreferences(userId);
-    console.log('사용자 선호도:', preferences);
 
     // 사용자 점수(Scores 테이블) 조회
     const scores = await getUserScore(userId);
@@ -129,12 +117,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
   } catch (error) {
-    console.error('사용자 상세 정보 조회 오류:', error);
-    console.error('오류 상세 정보:', {
-      name: error.name,
-      message: error.message,
-      stack: error.stack
-    });
     res.status(500).json({
       success: false,
       message: '사용자 정보를 불러올 수 없습니다.',

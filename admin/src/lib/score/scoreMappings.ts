@@ -279,6 +279,28 @@ export const TOTAL_SCORE_WEIGHT = {
   economics: 0.15,
 };
 
+// 등급 정책 (score-policy.md 기준)
+export const GRADE_ORDER = ['S', 'A', 'B', 'C', 'D', 'E', 'F'];
+// 등급별 추천 인원 정책
+export const GRADE_RECOMMEND_COUNT = {
+  upper: 3, // 상위 등급
+  same: 4,  // 동일 등급
+  lower: 3, // 하위 등급
+};
+
+// 등급별 점수 매핑 (score-policy.md)
+export const GRADE_SCORE_MAP = {
+  S: 100,
+  A: 90,
+  B: 80,
+  C: 60,
+  D: 40,
+  E: 20,
+  F: 10,
+};
+// 우선순위별 가중치 (score-policy.md)
+export const PRIORITY_WEIGHT = [0.4, 0.3, 0.2, 0.1]; // 1~4순위: 40%, 30%, 20%, 10%
+
 // =========================
 // 🛠️ 입력값 변환 유틸 함수 추가
 // =========================

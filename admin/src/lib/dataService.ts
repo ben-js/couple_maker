@@ -1,6 +1,6 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, QueryCommand, GetCommand, ScanCommand, UpdateCommand, PutCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
-import AWS_CONFIG from '../config/aws';
+import { awsConfig as AWS_CONFIG } from '../config/aws';
 import {
   Manager,
   User,
@@ -40,7 +40,6 @@ class DataService {
       const result = await dynamodb.send(new QueryCommand(params));
       return result.Items?.[0] as Manager || null;
     } catch (error) {
-      console.error('매니저 계정 조회 오류:', error);
       throw error;
     }
   }
@@ -55,7 +54,6 @@ class DataService {
       const result = await dynamodb.send(new GetCommand(params));
       return result.Item as Manager || null;
     } catch (error) {
-      console.error('매니저 계정 조회 오류:', error);
       throw error;
     }
   }
@@ -70,69 +68,58 @@ class DataService {
       const result = await dynamodb.send(new ScanCommand(params));
       return result.Items as User[] || [];
     } catch (error) {
-      console.error('사용자 조회 오류:', error);
       throw error;
     }
   }
 
   async getUserById(userId: string): Promise<User | null> {
-    console.log('DataService.getUserById 호출됨, userId:', userId);
     
     const params = {
       TableName: 'Users',
       Key: { user_id: userId }
     };
     
-    console.log('DynamoDB 파라미터:', params);
     
     try {
       const result = await dynamodb.send(new GetCommand(params));
-      console.log('DynamoDB 응답:', result);
-      console.log('조회된 사용자:', result.Item);
+      
       return result.Item as User || null;
     } catch (error) {
-      console.error('사용자 조회 오류:', error);
       throw error;
     }
   }
 
   async getProfile(userId: string): Promise<any | null> {
-    console.log('DataService.getProfile 호출됨, userId:', userId);
     
     const params = {
       TableName: 'Profiles',
       Key: { user_id: userId }
     };
     
-    console.log('프로필 조회 파라미터:', params);
     
     try {
       const result = await dynamodb.send(new GetCommand(params));
-      console.log('프로필 조회 결과:', result.Item);
+      
       return result.Item || null;
     } catch (error) {
-      console.error('프로필 조회 오류:', error);
       // 프로필이 없어도 오류로 처리하지 않음
       return null;
     }
   }
 
   async getPreferences(userId: string): Promise<any | null> {
-    console.log('DataService.getPreferences 호출됨, userId:', userId);
     
     const params = {
       TableName: 'Preferences',
       Key: { user_id: userId }
     };
     
-    console.log('선호도 조회 파라미터:', params);
     
     try {
       const result = await dynamodb.send(new GetCommand(params));
-      console.log('선호도 조회 결과:', result.Item);
+      
       return result.Item || null;
     } catch (error) {
-      console.error('선호도 조회 오류:', error);
       // 선호도가 없어도 오류로 처리하지 않음
       return null;
     }
@@ -162,7 +149,6 @@ class DataService {
       const result = await dynamodb.send(new UpdateCommand(params));
       return result.Attributes as User || null;
     } catch (error) {
-      console.error('사용자 상태 업데이트 오류:', error);
       throw error;
     }
   }
@@ -183,7 +169,6 @@ class DataService {
       const result = await dynamodb.send(new UpdateCommand(params));
       return result.Attributes as User || null;
     } catch (error) {
-      console.error('사용자 등급 업데이트 오류:', error);
       throw error;
     }
   }
@@ -208,7 +193,6 @@ class DataService {
       const result = await dynamodb.send(new ScanCommand(params));
       return result.Items as MatchingRequest[] || [];
     } catch (error) {
-      console.error('매칭 요청 조회 오류:', error);
       throw error;
     }
   }
@@ -232,7 +216,6 @@ class DataService {
       const result = await dynamodb.send(new ScanCommand(params));
       return result.Items as Proposal[] || [];
     } catch (error) {
-      console.error('제안 조회 오류:', error);
       throw error;
     }
   }
@@ -246,7 +229,6 @@ class DataService {
       const result = await dynamodb.send(new ScanCommand(params));
       return result.Items as MatchPair[] || [];
     } catch (error) {
-      console.error('매칭 페어 조회 오류:', error);
       throw error;
     }
   }
@@ -260,7 +242,6 @@ class DataService {
       const result = await dynamodb.send(new ScanCommand(params));
       return result.Items as MatchingHistory[] || [];
     } catch (error) {
-      console.error('매칭 이력 조회 오류:', error);
       throw error;
     }
   }
@@ -274,7 +255,6 @@ class DataService {
       const result = await dynamodb.send(new ScanCommand(params));
       return result.Items as Review[] || [];
     } catch (error) {
-      console.error('리뷰 조회 오류:', error);
       throw error;
     }
   }
@@ -299,7 +279,6 @@ class DataService {
         : await dynamodb.send(new ScanCommand(params));
       return result.Items as PointHistory[] || [];
     } catch (error) {
-      console.error('포인트 내역 조회 오류:', error);
       throw error;
     }
   }
@@ -324,7 +303,6 @@ class DataService {
         : await dynamodb.send(new ScanCommand(params));
       return result.Items as UserStatusHistory[] || [];
     } catch (error) {
-      console.error('사용자 상태 이력 조회 오류:', error);
       throw error;
     }
   }
@@ -345,9 +323,7 @@ class DataService {
     
     try {
       await dynamodb.send(new PutCommand(params));
-      console.log('✅ 매니저 로그 저장 완료:', params.Item);
     } catch (error) {
-      console.error('매니저 액션 로그 저장 오류:', error);
       throw error;
     }
   }
@@ -389,7 +365,6 @@ class DataService {
       }));
       return convertedLogs.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     } catch (error) {
-      console.error('매니저 로그 조회 오류:', error);
       throw error;
     }
   }
@@ -426,7 +401,6 @@ class DataService {
         totalRevenue
       };
     } catch (error) {
-      console.error('대시보드 통계 조회 오류:', error);
       throw error;
     }
   }
@@ -492,9 +466,24 @@ class DataService {
         .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
         .slice(0, limit);
     } catch (error) {
-      console.error('최근 활동 조회 오류:', error);
       throw error;
     }
+  }
+
+  // users + scores + profiles 병합 반환
+  async getUsersWithScoreAndProfile(): Promise<any[]> {
+    const users = await this.getUsers();
+    // Scores, Profiles 모두 Scan
+    const scoresResult = await dynamodb.send(new ScanCommand({ TableName: 'Scores' }));
+    const profilesResult = await dynamodb.send(new ScanCommand({ TableName: 'Profiles' }));
+    const scores = scoresResult.Items || [];
+    const profiles = profilesResult.Items || [];
+    // 병합
+    return users.map(user => ({
+      ...user,
+      score: scores.find(s => s.user_id === user.user_id) || null,
+      profile: profiles.find(p => p.user_id === user.user_id) || null,
+    }));
   }
 }
 

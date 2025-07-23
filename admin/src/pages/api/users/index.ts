@@ -21,37 +21,24 @@ export default async function handler(
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
-    console.log('Manager: 사용자 목록 조회 시작');
-
     // DataService를 사용하여 사용자 목록 조회
-    const users = await dataService.getUsers();
+    const users = await dataService.getUsersWithScoreAndProfile();
     // Scores 테이블 전체 Scan 후 user_id별 점수 존재 여부 집계
     const scoresResult = await dynamodb.send(new ScanCommand({ TableName: 'Scores', ProjectionExpression: 'user_id' }));
     const scoredUserIds = new Set((scoresResult.Items || []).map(item => item.user_id));
     
     if (!users || users.length === 0) {
-      console.log('사용자 데이터가 없습니다.');
       return res.status(200).json([]);
     }
 
-    console.log(`원본 사용자 데이터: ${users.length}명`);
-    
-    // 중복 이메일 검사
-    const emailCounts: { [key: string]: number } = {};
-    users.forEach(user => {
-      emailCounts[user.email] = (emailCounts[user.email] || 0) + 1;
-    });
-    
-    const duplicates = Object.entries(emailCounts).filter(([email, count]) => count > 1);
-    if (duplicates.length > 0) {
-      console.warn('⚠️ 중복 이메일 발견:', duplicates);
-    }
+    // 쿼리 파라미터로 검색 조건 받기
+    const { email, status, grade, score } = req.query;
 
     // 사용자 데이터 가공
-    const processedUsers = users.map(user => {
+    let processedUsers = users.map(user => {
       let name = '';
       let role = 'customer_support';
-      let email = user.email || '';
+      let emailVal = user.email || '';
       if (user.email) {
         const emailName = user.email.split('@')[0];
         name = emailName.includes('.') 
@@ -65,7 +52,7 @@ export default async function handler(
       }
       return {
         user_id: user.user_id,
-        email: email,
+        email: emailVal,
         name: name,
         role: role,
         status: user.status === 'green' ? 'active' : user.status === 'yellow' ? 'inactive' : user.status === 'red' ? 'suspended' : user.status === 'black' ? 'black' : 'active',
@@ -81,11 +68,32 @@ export default async function handler(
       };
     });
 
-    console.log('Manager: 사용자 목록 조회 완료:', processedUsers.length, '명');
+    // email, status, grade로 필터링
+    if (email) {
+      processedUsers = processedUsers.filter(user => user.email && user.email.toLowerCase().includes((email as string).toLowerCase()));
+    }
+    if (status && status !== 'all') {
+      processedUsers = processedUsers.filter(user => user.status === status);
+    }
+    if (grade && grade !== 'all') {
+      processedUsers = processedUsers.filter(user => user.grade === grade);
+    }
+    // 점수입력 필터
+    if (score === 'scored') {
+      processedUsers = processedUsers.filter(user => user.has_score === true);
+    } else if (score === 'not_scored') {
+      processedUsers = processedUsers.filter(user => user.has_score === false);
+    }
+
+    // created_at 기준 내림차순 정렬
+    processedUsers.sort((a, b) => {
+      if (!a.created_at) return 1;
+      if (!b.created_at) return -1;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
 
     res.status(200).json(processedUsers);
   } catch (error) {
-    console.error('Manager: 사용자 목록 조회 오류:', error);
     res.status(500).json({ 
       message: '사용자 목록 조회 중 오류가 발생했습니다.',
       error: error instanceof Error ? error.message : 'Unknown error'

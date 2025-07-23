@@ -3,11 +3,8 @@
  * @module config/aws
  * @description Admin에서 모든 AWS 서비스에서 공통으로 사용하는 설정
  */
-
-import { DynamoDBClientConfig } from '@aws-sdk/client-dynamodb';
-
 export const awsConfig = {
-  accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
-  region: process.env.AWS_REGION || 'ap-northeast-2',
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  region: process.env.AWS_REGION,
 }; 

@@ -1,3 +1,4 @@
+require('dotenv').config();
 /**
  * Express Development Server - Date Sense Backend API
  * @module local-server

@@ -26,6 +26,7 @@ import { TOAST_MESSAGES, NAVIGATION_ROUTES } from '@/constants';
 import * as FileSystem from 'expo-file-system';
 import PageLayout from '../components/PageLayout';
 import { SafeAreaView as SafeAreaViewRN } from 'react-native-safe-area-context';
+import { useProfile } from '../store/ProfileContext';
 
 
 const options = optionsRaw as Options;
@@ -104,6 +105,7 @@ const ProfileEditScreen = () => {
   const { user, setUser } = useAuth();
   const route = useRoute<any>();
   const isEditMode = route?.params?.isEditMode ?? false;
+  const { refreshProfile } = useProfile();
   
   const { control, handleSubmit, formState: { errors }, setValue, trigger, reset, watch } = useForm({
     mode: 'onChange',
@@ -204,9 +206,12 @@ const ProfileEditScreen = () => {
     setPhotoActionIndex(null);
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 });
     if (!result.canceled && result.assets && result.assets.length > 0) {
-      setPreviewUri(result.assets[0].uri);
-      setPreviewTargetIdx(idx);
-      setShowPreview(true);
+      const newPhotos = [...(photos || [null, null, null, null, null])];
+      newPhotos[idx] = result.assets[0].uri;
+      setPhotos(newPhotos);
+      // setPreviewUri(result.assets[0].uri);
+      // setPreviewTargetIdx(idx);
+      // setShowPreview(true);
     }
   };
 
@@ -325,13 +330,8 @@ const ProfileEditScreen = () => {
       validPhotosCount: currentPhotos.filter(p => !!p).length
     });
     
-    const filteredPhotos = cleanPhotos(currentPhotos);
-    
-    console.log('프로필 저장 - 필터링된 사진:', {
-      filteredLength: filteredPhotos.length
-    });
-    
-    if (filteredPhotos.length < 1) {
+    // 최소 1장(대표)만 체크, 저장은 5개 배열 그대로
+    if (!currentPhotos[0]) {
       if (Platform.OS === 'android') {
         ToastAndroid.show(TOAST_MESSAGES.PROFILE_PHOTO_REQUIRED, ToastAndroid.SHORT);
       } else {
@@ -343,7 +343,7 @@ const ProfileEditScreen = () => {
       id: user.userId,
       userId: user.userId,
       ...data,
-      photos: filteredPhotos,
+      photos: currentPhotos, // null 포함 5개 배열 그대로 저장
     };
     
     console.log('프로필 저장 - 최종 프로필 데이터:', {
@@ -365,6 +365,7 @@ const ProfileEditScreen = () => {
           hasProfile: true,
           photos: currentPhotos // 백엔드에서 조회한 photos 대신 현재 UI 상태 사용
         });
+        refreshProfile(); // 프로필 저장 후 최신 프로필 강제 새로고침
       }
       if (Platform.OS === 'android') {
         ToastAndroid.show(TOAST_MESSAGES.PROFILE_SAVED, ToastAndroid.SHORT);

@@ -164,6 +164,12 @@ const MainScreen = () => {
     }, [currentUser, navigation])
   );
 
+  // 로그인 후 매칭 상태를 강제로 즉시 fetch
+  useEffect(() => {
+    if (user?.userId) {
+      refetchStatus(); // 로그인 후 강제 fetch
+    }
+  }, [user?.userId]);
 
 
   // 매칭 단계별 설명
