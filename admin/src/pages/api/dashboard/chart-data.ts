@@ -1,7 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import DataService from '../../../lib/dataService';
-
-const dataService = new DataService();
+import dataService from '../../../lib/dataService';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {

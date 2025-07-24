@@ -1,26 +1,33 @@
-import { UserProfile } from '../../types/matching';
-import { GRADE_ORDER, GRADE_RECOMMEND_COUNT } from '../score/scoreMappings';
+// 등급별 후보군 분류 함수 (정책 기반)
+// 실제 등급 산출/상수 포함, 정책 흐름에 맞는 구조
 
-/**
- * 등급별 후보 분류 및 추천 인원수만큼 추출
- * - 상위/동일/하위 등급별로 분류 후 점수순 정렬, 인원수 제한
- */
-export function selectCandidatesByGrade(
-  candidates: UserProfile[],
-  userGrade: string
-): UserProfile[] {
-  const userGradeIdx = GRADE_ORDER.indexOf(userGrade);
+const GRADE_ORDER = ['S', 'A', 'B', 'C', 'D', 'E', 'F'];
+const GRADE_RECOMMEND_COUNT = { upper: 3, same: 4, lower: 3 };
 
-  // 상위/동일/하위 등급별 분류
-  const upper = candidates.filter((c) => GRADE_ORDER.indexOf(c.score.averageGrade) < userGradeIdx);
-  const same = candidates.filter((c) => GRADE_ORDER.indexOf(c.score.averageGrade) === userGradeIdx);
-  const lower = candidates.filter((c) => GRADE_ORDER.indexOf(c.score.averageGrade) > userGradeIdx);
+function getGradeByScore(score: number): string {
+  if (score >= 95) return 'S';
+  if (score >= 90) return 'A';
+  if (score >= 80) return 'B';
+  if (score >= 70) return 'C';
+  if (score >= 60) return 'D';
+  if (score >= 50) return 'E';
+  return 'F';
+}
 
-  // 점수순 정렬 및 인원수 제한
-  const upperSorted = upper.sort((a, b) => b.score.average - a.score.average).slice(0, GRADE_RECOMMEND_COUNT.upper);
-  const sameSorted = same.sort((a, b) => b.score.average - a.score.average).slice(0, GRADE_RECOMMEND_COUNT.same);
-  const lowerSorted = lower.sort((a, b) => b.score.average - a.score.average).slice(0, GRADE_RECOMMEND_COUNT.lower);
+export function splitCandidatesByGrade(applicant: any, candidates: any[]): { upper: any[]; same: any[]; lower: any[] } {
+  // 1. 신청자 평균점수 → 등급 산출
+  const applicantGrade = getGradeByScore(applicant.score_average ?? applicant.score?.average);
+  const applicantGradeIdx = GRADE_ORDER.indexOf(applicantGrade);
 
-  // 합치기
-  return [...upperSorted, ...sameSorted, ...lowerSorted];
+  // 2. 상위/동일/하위 등급별 분리
+  const upper = candidates.filter((c: any) => GRADE_ORDER.indexOf(getGradeByScore(c.score?.average)) < applicantGradeIdx);
+  const same = candidates.filter((c: any) => GRADE_ORDER.indexOf(getGradeByScore(c.score?.average)) === applicantGradeIdx);
+  const lower = candidates.filter((c: any) => GRADE_ORDER.indexOf(getGradeByScore(c.score?.average)) > applicantGradeIdx);
+
+  // 3. 인원수 제한
+  return {
+    upper: upper.slice(0, GRADE_RECOMMEND_COUNT.upper),
+    same: same.slice(0, GRADE_RECOMMEND_COUNT.same),
+    lower: lower.slice(0, GRADE_RECOMMEND_COUNT.lower),
+  };
 } 

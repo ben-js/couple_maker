@@ -249,9 +249,10 @@ export default function PointManagement() {
                 <Button
                   onClick={() => loadPointHistory(true)}
                   disabled={refreshing}
-                  className="w-full"
+                  variant={undefined}
+                  className="h-11 px-4 text-base bg-white text-black border border-gray-300 rounded-md font-bold hover:bg-gray-50 transition-colors w-full"
                 >
-                  {refreshing ? '새로고침 중...' : '새로고침'}
+                  {refreshing ? '검색 중...' : '검색'}
                 </Button>
               </div>
             </div>

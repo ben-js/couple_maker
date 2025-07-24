@@ -1,5 +1,5 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, QueryCommand, GetCommand, ScanCommand, UpdateCommand, PutCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, QueryCommand, GetCommand, ScanCommand, UpdateCommand, PutCommand, DeleteCommand, BatchGetCommand } from '@aws-sdk/lib-dynamodb';
 import { awsConfig as AWS_CONFIG } from '../config/aws';
 import {
   Manager,
@@ -485,9 +485,48 @@ class DataService {
       profile: profiles.find(p => p.user_id === user.user_id) || null,
     }));
   }
+
+  // 여러 user_id로 Users + Profiles 정보 한 번에 조회
+  async getUsersWithProfilesByIds(userIds: string[]): Promise<any[]> {
+    if (!userIds.length) return [];
+    // DynamoDB batchGet은 100개까지 지원
+    const batches = [];
+    for (let i = 0; i < userIds.length; i += 100) {
+      batches.push(userIds.slice(i, i + 100));
+    }
+    const results: any[] = [];
+    for (const batch of batches) {
+      const params = {
+        RequestItems: {
+          Users: {
+            Keys: batch.map(id => ({ user_id: id }))
+          },
+          Profiles: {
+            Keys: batch.map(id => ({ user_id: id }))
+          }
+        }
+      };
+      const res = await dynamodb.send(new BatchGetCommand(params));
+      const users = res.Responses?.Users || [];
+      const profiles = res.Responses?.Profiles || [];
+      const profileMap = Object.fromEntries(profiles.map((p: any) => [p.user_id, p]));
+      // 각 유저별로 preferences도 가져와서 병합
+      for (const u of users) {
+        let preferences = null;
+        try {
+          preferences = await this.getPreferences(u.user_id);
+        } catch (e) {
+          preferences = null;
+        }
+        results.push({ ...u, profile: profileMap[u.user_id], preferences });
+      }
+    }
+    return results;
+  }
 }
 
-export default DataService; 
+const dataService = new DataService();
+export default dataService;
 
 // Scores 테이블 연동 함수
 export async function saveUserScore(userId: string, score: any, scorer: string, summary: string = '') {
@@ -505,22 +544,6 @@ export async function saveUserScore(userId: string, score: any, scorer: string, 
     }));
   }
   // Scores 테이블: user_id + created_at(=now)로 저장
-  const item = {
-    user_id: userId,
-    created_at: now,
-    scorer,
-    ...score,
-    updated_at: now,
-  };
-  await dynamodb.send(new PutCommand({ TableName: 'Scores', Item: item }));
-  // Users 테이블에 has_score: true 업데이트
-  await dynamodb.send(new UpdateCommand({
-    TableName: 'Users',
-    Key: { user_id: userId },
-    UpdateExpression: 'SET has_score = :true, updated_at = :updatedAt',
-    ExpressionAttributeValues: { ':true': true, ':updatedAt': now },
-  }));
-  // 점수 저장 전 평균/등급 계산
   const average =
     score.appearance * 0.25 +
     score.personality * 0.25 +
@@ -537,6 +560,24 @@ export async function saveUserScore(userId: string, score: any, scorer: string, 
     return 'F';
   }
   const averageGrade = getGrade(average);
+  const item = {
+    user_id: userId,
+    created_at: now,
+    scorer,
+    ...score,
+    average,
+    grade: averageGrade, // averageGrade를 grade 필드로 저장
+    updated_at: now,
+  };
+  await dynamodb.send(new PutCommand({ TableName: 'Scores', Item: item }));
+  // Users 테이블에 has_score: true 업데이트
+  await dynamodb.send(new UpdateCommand({
+    TableName: 'Users',
+    Key: { user_id: userId },
+    UpdateExpression: 'SET has_score = :true, updated_at = :updatedAt',
+    ExpressionAttributeValues: { ':true': true, ':updatedAt': now },
+  }));
+  // 점수 저장 전 평균/등급 계산
   // ScoreHistory 테이블에 이력 저장 (평탄화 구조)
   await dynamodb.send(new PutCommand({
     TableName: 'ScoreHistory',

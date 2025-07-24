@@ -14,7 +14,7 @@ const Button: React.FC<ButtonProps> = ({
   children,
   onClick,
   type = 'button',
-  variant = 'primary',
+  variant,
   size = 'md',
   disabled = false,
   className = '',
@@ -36,7 +36,7 @@ const Button: React.FC<ButtonProps> = ({
   
   const disabledClasses = disabled ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer';
   
-  const classes = `${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${disabledClasses} ${className}`;
+  const classes = `${baseClasses} ${variant ? variantClasses[variant] : ''} ${sizeClasses[size]} ${disabledClasses} ${className}`;
   
   return (
     <button

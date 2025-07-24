@@ -1,9 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import DataService from '../../lib/dataService';
+import dataService from '../../lib/dataService';
 import { ScanCommand } from '@aws-sdk/lib-dynamodb';
 import { dynamodb } from '../../lib/dataService';
-
-const dataService = new DataService();
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {

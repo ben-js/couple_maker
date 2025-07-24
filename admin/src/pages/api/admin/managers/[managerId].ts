@@ -2,7 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, UpdateCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
 import AWS_CONFIG from '../../../../config/aws';
-import DataService from '../../../../lib/dataService';
+import dataService from '../../../../lib/dataService';
 import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = 'dev_jwt_secret_key_here'; // login.ts와 동일한 시크릿 키
@@ -48,7 +48,6 @@ function getDefaultPermissions(role: string): Record<string, Record<string, bool
 // AWS 설정
 const client = new DynamoDBClient(AWS_CONFIG);
 const dynamodb = DynamoDBDocumentClient.from(client);
-const dataService = new DataService();
 
 interface Manager {
   id: string;

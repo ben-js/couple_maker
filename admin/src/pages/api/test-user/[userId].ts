@@ -1,7 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import DataService from '../../../lib/dataService';
-
-const dataService = new DataService();
+import dataService from '../../../lib/dataService';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   console.log('테스트 API 호출 시작:', req.method, req.url);

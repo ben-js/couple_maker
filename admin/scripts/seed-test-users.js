@@ -169,8 +169,26 @@ async function main() {
         job: jobScore,
         education: educationScore,
         economics,
-        averageGrade: getGrade(average),
+        average_grade: getGrade(average), // grade → average_grade
         created_at,
+        updated_at,
+      }
+    }));
+    // ScoreHistory 이력도 snake_case로 저장
+    await dynamodb.send(new PutCommand({
+      TableName: 'ScoreHistory',
+      Item: {
+        user_id,
+        created_at,
+        appearance,
+        personality,
+        job: jobScore,
+        education: educationScore,
+        economics,
+        average,
+        average_grade: getGrade(average), // grade → average_grade
+        scorer: 'manager_test',
+        summary: `${name}의 점수 총평입니다.`,
         updated_at,
       }
     }));

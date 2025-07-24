@@ -1,10 +1,8 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
-import DataService from '../../../lib/dataService';
+import dataService from '../../../lib/dataService';
 import { Manager } from '../../../types';
-
-const dataService = new DataService();
 
 const JWT_SECRET = 'dev_jwt_secret_key_here'; // auth.ts와 동일한 시크릿 키
 

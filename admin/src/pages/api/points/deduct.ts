@@ -2,13 +2,12 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import AWS_CONFIG from '../../../config/aws';
-import DataService from '../../../lib/dataService';
+import dataService from '../../../lib/dataService';
 import { verifyToken } from '../../../lib/auth';
 
 // AWS 설정
 const client = new DynamoDBClient(AWS_CONFIG);
 const dynamodb = DynamoDBDocumentClient.from(client);
-const dataService = new DataService();
 
 interface DeductPointsRequest {
   userId: string;

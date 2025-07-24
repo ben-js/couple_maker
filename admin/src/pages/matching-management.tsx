@@ -143,7 +143,7 @@ export default function MatchingManagement() {
                 size="sm"
                 onClick={() => loadRequests(true, statusFilter)}
                 disabled={refreshing}
-                className="w-32 py-3 text-base flex-shrink-0"
+                className="w-28 h-10 py-3 text-base flex-shrink-0 text-black border border-gray-300 bg-white rounded-lg px-3 font-bold hover:bg-gray-50 transition-colors"
               >
                 {refreshing ? '검색 중...' : '검색'}
               </Button>

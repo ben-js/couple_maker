@@ -39,6 +39,68 @@ function toPhotoArray(photos: any): string[] {
   return [];
 }
 
+// 점수 카드 스타일 컴포넌트 추가
+function renderScoreCards(scoreObj: any) {
+  if (!scoreObj) return null;
+  // const grade = getGradeByScore(scoreObj); // 등급 제거
+  const items = [
+    { key: 'appearance', label: '외모', emoji: '😍', bg: 'bg-blue-50', value: scoreObj.appearance },
+    { key: 'personality', label: '성격', emoji: '💡', bg: 'bg-green-50', value: scoreObj.personality },
+    { key: 'job', label: '직업', emoji: '💼', bg: 'bg-purple-50', value: scoreObj.job },
+    { key: 'education', label: '학력', emoji: '🎓', bg: 'bg-yellow-50', value: scoreObj.education },
+    { key: 'economics', label: '경제력', emoji: '💰', bg: 'bg-pink-50', value: scoreObj.economics },
+  ];
+  return (
+    <div className="flex flex-wrap gap-4 justify-center mb-6">
+      {items.map(item => (
+        <div key={item.key} className={`flex flex-col items-center w-32 py-4 rounded-xl ${item.bg}`} style={{minWidth:'120px'}}>
+          <div className="text-2xl mb-1">{item.emoji}</div>
+          <div className="text-sm text-gray-500 mb-1">{item.label}</div>
+          <div className="text-2xl font-bold text-gray-900 mb-1">{item.value ?? '-'}</div>
+          {/* 등급(grade) 영역 제거 */}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// 점수 등급 계산 함수
+function getGradeByScore(score: any) {
+  if (score === null || score === undefined) return '-';
+  const totalScore = score.appearance + score.personality + score.job + score.education + score.economics;
+  if (totalScore >= 400) return 'S';
+  if (totalScore >= 300) return 'A';
+  if (totalScore >= 200) return 'B';
+  if (totalScore >= 100) return 'C';
+  return 'D';
+}
+
+// 레이더 차트 색상 동적 함수
+function getRadarChartOptions(userObj: any) {
+  let gender = userObj?.profile?.gender || userObj?.gender;
+  gender = gender?.toString().trim().replaceAll(' ', '').toLowerCase();
+  const isFemale = gender === '여';
+  const color = isFemale ? 'rgba(239, 68, 68, 1)' : 'rgba(37, 99, 235, 1)'; // 빨강/파랑
+  const bgColor = isFemale ? 'rgba(239, 68, 68, 0.2)' : 'rgba(37, 99, 235, 0.2)';
+  console.log('gender:', gender, 'isFemale:', isFemale, 'color:', color, 'bgColor:', bgColor);
+  return {
+    responsive: true,
+    plugins: { legend: { display: false } },
+    scales: {
+      r: {
+        min: 0, max: 100,
+        ticks: { color: '#222', stepSize: 20 },
+        pointLabels: { color: '#888', font: { size: 16 } },
+        grid: { color: '#e5e7eb' },
+      },
+    },
+    elements: {
+      line: { borderColor: color, backgroundColor: bgColor, borderWidth: 2 },
+      point: { backgroundColor: color, borderColor: '#fff', radius: 5 },
+    },
+  };
+}
+
 export default function MatchingDetail() {
   const router = useRouter();
   const { requestId } = router.query;
@@ -61,6 +123,8 @@ export default function MatchingDetail() {
   const [userPhotoIdx, setUserPhotoIdx] = useState(0);
   const [matchedPhotoIdx, setMatchedPhotoIdx] = useState(0);
   const [modalPhotoIdx, setModalPhotoIdx] = useState(0);
+  // 상태 추가
+  const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
 
   useEffect(() => {
     if (!requestId) return;
@@ -85,70 +149,60 @@ export default function MatchingDetail() {
       });
   }, [requestId]);
 
+  useEffect(() => {
+    if (!requestId || !showRecommend) return;
+    fetch(`/api/match-pairs/recommend?requestId=${requestId}`)
+      .then(res => res.json())
+      .then(data => {
+        setRecommendations(data.recommendations || []);
+      });
+  }, [requestId, showRecommend]);
+
   // 점수 차트 데이터 생성 함수
-  const getRadarChartData = (userObj: any) => userObj?.scores ? {
-    labels: ['외모', '성격', '직업', '학력', '경제력'],
-    datasets: [
-      {
-        label: '점수',
-        data: [
-          userObj.scores.appearance ?? 0,
-          userObj.scores.personality ?? 0,
-          userObj.scores.job ?? 0,
-          userObj.scores.education ?? 0,
-          userObj.scores.economics ?? 0,
-        ],
-        backgroundColor: 'rgba(37, 99, 235, 0.2)',
-        borderColor: 'rgba(37, 99, 235, 1)',
-        borderWidth: 2,
-        pointBackgroundColor: 'rgba(37, 99, 235, 1)',
-        pointBorderColor: '#fff',
-        pointRadius: 5,
-      },
-    ],
-  } : null;
+  const getRadarChartData = (userObj: any) => {
+    const score = userObj?.scores || userObj?.score || userObj;
+    if (!score) return null;
+    let gender = userObj?.profile?.gender || userObj?.gender;
+    gender = gender?.toString().trim().replaceAll(' ', '').toLowerCase();
+    const isFemale = gender === '여';
+    const color = isFemale ? 'rgba(239, 68, 68, 1)' : 'rgba(37, 99, 235, 1)';
+    const bgColor = isFemale ? 'rgba(239, 68, 68, 0.2)' : 'rgba(37, 99, 235, 0.2)';
+    return {
+      labels: ['외모', '성격', '직업', '학력', '경제력'],
+      datasets: [
+        {
+          label: '점수',
+          data: [
+            score.appearance ?? 0,
+            score.personality ?? 0,
+            score.job ?? 0,
+            score.education ?? 0,
+            score.economics ?? 0,
+          ],
+          backgroundColor: bgColor,
+          borderColor: color,
+          pointBackgroundColor: color,
+          pointBorderColor: '#fff',
+          pointRadius: 5,
+        },
+      ],
+    };
+  };
 
   // 추천 후보 fetch/표시
   const handleRecommend = async () => {
-    setLoadingRecommend(true);
-    setShowRecommend(true);
-    // 전체 유저 목록 fetch (토큰 포함)
-    const token = typeof window !== 'undefined' ? localStorage.getItem('adminToken') : null;
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
-    const res = await fetch('/api/users', { headers });
-    const users = await res.json();
-    const userList = Array.isArray(users) ? users : Array.isArray(users.data) ? users.data : [];
-    // 신청자 본인/이미 매칭된 유저 제외
-    const filtered = userList.filter((u: any) => u.user_id !== request?.user_id && u.user_id !== request?.matched_user_id);
-    setCandidates(filtered);
-    console.log('candidates:', filtered);
-    // 추천 API 호출
-    const recRes = await fetch('/api/match-pairs/recommend', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-      body: JSON.stringify({
-        candidates: filtered.map((u: any) => ({
-          userId: u.user_id,
-          gender: u.profile?.gender,
-          age: u.profile?.birth_date ? (new Date().getFullYear() - u.profile.birth_date.year) : 0,
-          region: u.profile?.region?.region,
-          height: u.profile?.height,
-          status: u.status,
-          isDeleted: u.is_deleted,
-          hasScore: !!u.scores,
-          score: u.scores,
-        })),
-        request: {
-          requestId: request?.request_id,
-          userId: request?.user_id,
-          preferences: user?.preferences,
-        }
-      })
-    });
-    const recData = await recRes.json();
-    console.log('recommendations:', recData.recommendations); // 추천 결과도 콘솔에 출력
-    setRecommendations(recData.recommendations || []);
-    setLoadingRecommend(false);
+    try {
+      const res = await fetch('/api/match-pairs/recommend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId }),
+      });
+      const data = await res.json();
+      console.log('recommendations:', data.recommendations);
+      // TODO: 추천 결과를 상태에 저장하거나 화면에 표시
+    } catch (e) {
+      console.error('추천 에러:', e);
+    }
   };
 
   // 후보가 MatchingRequests(대기중)인지 확인
@@ -209,24 +263,25 @@ export default function MatchingDetail() {
     );
   }
   function renderIdealTab(userObj: any) {
+    const pref = userObj?.preferences || userObj?.preference || userObj.preferences || userObj;
     return (
       <div className="p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4 text-left">
-          <div><span className="font-bold text-gray-600 mb-1 block">선호 지역</span><span className="text-gray-800">{userObj?.preferences?.regions?.map((r:any) => `${r.region} ${r.district}`).join(', ') ?? '-'}</span></div>
-          <div><span className="font-bold text-gray-600 mb-1 block">나이 범위</span><span className="text-gray-800">{userObj?.preferences?.age_range ? `${userObj.preferences.age_range.min}~${userObj.preferences.age_range.max}` : '-'}</span></div>
-          <div><span className="font-bold text-gray-600 mb-1 block">키 범위</span><span className="text-gray-800">{userObj?.preferences?.height_range ? `${userObj.preferences.height_range.min}~${userObj.preferences.height_range.max}` : '-'}</span></div>
-          <div><span className="font-bold text-gray-600 mb-1 block">직업군</span><span className="text-gray-800">{userObj?.preferences?.job_types?.join(', ') ?? '-'}</span></div>
-          <div><span className="font-bold text-gray-600 mb-1 block">체형</span><span className="text-gray-800">{userObj?.preferences?.body_types?.join(', ') ?? '-'}</span></div>
-          <div><span className="font-bold text-gray-600 mb-1 block">MBTI</span><span className="text-gray-800">{userObj?.preferences?.mbti_types?.join(', ') ?? '-'}</span></div>
-          <div><span className="font-bold text-gray-600 mb-1 block">학력</span><span className="text-gray-800">{userObj?.preferences?.education_levels?.join(', ') ?? '-'}</span></div>
-          <div><span className="font-bold text-gray-600 mb-1 block">결혼 계획</span><span className="text-gray-800">{userObj?.preferences?.marriage_plan ?? '-'}</span></div>
-          <div><span className="font-bold text-gray-600 mb-1 block">선호 성별</span><span className="text-gray-800">{userObj?.preferences?.preferred_gender ?? '-'}</span></div>
-          <div><span className="font-bold text-gray-600 mb-1 block">종교</span><span className="text-gray-800">{userObj?.preferences?.religion ?? '-'}</span></div>
-          <div><span className="font-bold text-gray-600 mb-1 block">흡연</span><span className="text-gray-800">{userObj?.preferences?.smoking ?? '-'}</span></div>
-          <div><span className="font-bold text-gray-600 mb-1 block">음주</span><span className="text-gray-800">{userObj?.preferences?.drinking ?? '-'}</span></div>
-          <div><span className="font-bold text-gray-600 mb-1 block">관심사</span><span className="text-gray-800">{userObj?.preferences?.interests?.join(', ') ?? '-'}</span></div>
-          <div><span className="font-bold text-gray-600 mb-1 block">자녀 희망</span><span className="text-gray-800">{userObj?.preferences?.children_desire ?? '-'}</span></div>
-          <div><span className="font-bold text-gray-600 mb-1 block">우선순위</span><span className="text-gray-800">{Array.isArray(userObj?.preferences?.priority) ? userObj.preferences.priority.join(' > ') : userObj?.preferences?.priority?.split(',').join(' > ') ?? '-'}</span></div>
+          <div><span className="font-bold text-gray-600 mb-1 block">선호 지역</span><span className="text-gray-800">{pref?.regions?.map((r:any) => `${r.region} ${r.district}`).join(', ') ?? '-'}</span></div>
+          <div><span className="font-bold text-gray-600 mb-1 block">나이 범위</span><span className="text-gray-800">{pref?.age_range ? `${pref.age_range.min}~${pref.age_range.max}` : '-'}</span></div>
+          <div><span className="font-bold text-gray-600 mb-1 block">키 범위</span><span className="text-gray-800">{pref?.height_range ? `${pref.height_range.min}~${pref.height_range.max}` : '-'}</span></div>
+          <div><span className="font-bold text-gray-600 mb-1 block">직업군</span><span className="text-gray-800">{pref?.job_types?.join(', ') ?? '-'}</span></div>
+          <div><span className="font-bold text-gray-600 mb-1 block">체형</span><span className="text-gray-800">{pref?.body_types?.join(', ') ?? '-'}</span></div>
+          <div><span className="font-bold text-gray-600 mb-1 block">MBTI</span><span className="text-gray-800">{pref?.mbti_types?.join(', ') ?? '-'}</span></div>
+          <div><span className="font-bold text-gray-600 mb-1 block">학력</span><span className="text-gray-800">{pref?.education_levels?.join(', ') ?? '-'}</span></div>
+          <div><span className="font-bold text-gray-600 mb-1 block">결혼 계획</span><span className="text-gray-800">{pref?.marriage_plan ?? '-'}</span></div>
+          <div><span className="font-bold text-gray-600 mb-1 block">선호 성별</span><span className="text-gray-800">{pref?.preferred_gender ?? '-'}</span></div>
+          <div><span className="font-bold text-gray-600 mb-1 block">종교</span><span className="text-gray-800">{pref?.religion ?? '-'}</span></div>
+          <div><span className="font-bold text-gray-600 mb-1 block">흡연</span><span className="text-gray-800">{pref?.smoking ?? '-'}</span></div>
+          <div><span className="font-bold text-gray-600 mb-1 block">음주</span><span className="text-gray-800">{pref?.drinking ?? '-'}</span></div>
+          <div><span className="font-bold text-gray-600 mb-1 block">관심사</span><span className="text-gray-800">{pref?.interests?.join(', ') ?? '-'}</span></div>
+          <div><span className="font-bold text-gray-600 mb-1 block">자녀 희망</span><span className="text-gray-800">{pref?.children_desire ?? '-'}</span></div>
+          <div><span className="font-bold text-gray-600 mb-1 block">우선순위</span><span className="text-gray-800">{Array.isArray(pref?.priority) ? pref.priority.join(' > ') : pref?.priority?.split(',').join(' > ') ?? '-'}</span></div>
         </div>
       </div>
     );
@@ -293,8 +348,14 @@ export default function MatchingDetail() {
           <div className="flex flex-col md:flex-row gap-8">
             {/* 왼쪽: 신청자 */}
             <div className="w-full md:w-1/2 bg-white rounded-lg shadow p-6 mb-6">
+              {/* 상단 이름 */}
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-lg font-semibold text-gray-900">{user?.profile?.name || user?.email}</div>
+                {/* 오른쪽은 버튼이지만 왼쪽은 비움(정렬용) */}
+                <div style={{width: '180px'}}></div>
+              </div>
+              {/* 사진, 탭, 점수, 프로필, 이상형 */}
               <div className="flex flex-col items-center mb-4">
-                {/* 신청자 프로필 사진 */}
                 {(() => {
                   const photoArr = toPhotoArray(user?.profile?.photos);
                   return photoArr.length > 0 ? (
@@ -318,7 +379,6 @@ export default function MatchingDetail() {
                   );
                 })()}
               </div>
-              {/* 탭 스타일 user-detail과 동일하게 */}
               <div className="border-b border-gray-200">
                 <nav className="-mb-px flex space-x-8 px-6">
                   <button onClick={() => setActiveTab('score')} className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab==='score' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>점수</button>
@@ -327,13 +387,18 @@ export default function MatchingDetail() {
                 </nav>
               </div>
               {activeTab === 'score' && (
-                <div>
-                  {getRadarChartData(user) ? (
-                    <Radar data={getRadarChartData(user)} options={{responsive:true,plugins:{legend:{display:false}},scales:{r:{min:0,max:100,ticks:{color:'#222',stepSize:20},pointLabels:{color:'#888',font:{size:16}},grid:{color:'#e5e7eb'}}}}} height={250} />
-                  ) : (
-                    <div className="text-gray-500 text-center py-8">점수 데이터가 없습니다.</div>
-                  )}
-                </div>
+                <>
+                  {/* 레이더 차트 먼저 */}
+                  <div>
+                    {getRadarChartData(user) ? (
+                      <Radar data={getRadarChartData(user)} options={getRadarChartOptions(user)} height={250} />
+                    ) : (
+                      <div className="text-gray-500 text-center py-8">점수 데이터가 없습니다.</div>
+                    )}
+                  </div>
+                  {/* 점수 카드 아래 */}
+                  {renderScoreCards(user?.scores || user?.score || user)}
+                </>
               )}
               {activeTab === 'profile' && renderProfileTab(user)}
               {activeTab === 'ideal' && renderIdealTab(user)}
@@ -341,35 +406,53 @@ export default function MatchingDetail() {
 
             {/* 오른쪽: 매칭 상대 or 추천 */}
             <div className="w-full md:w-1/2 bg-white rounded-lg shadow p-6 mb-6">
-              {request.matched_user_id && matchedUser ? (
+              {selectedCandidate ? (
                 <>
+                  {/* 상단 이름+버튼 한 줄 */}
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-lg font-semibold text-gray-900">{selectedCandidate?.profile?.name || selectedCandidate?.email}</div>
+                    <div className="flex items-center">
+                      <Button
+                        size="sm"
+                        className="h-7 py-0 text-sm align-middle bg-blue-500 text-white rounded-lg px-3 font-bold hover:bg-blue-600 transition-colors"
+                        onClick={() => alert('매칭 처리(추후 구현)')}
+                      >
+                        매칭
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="h-7 py-0 ml-2 text-sm align-middle border border-gray-300 bg-white text-black rounded-lg px-3 font-bold hover:bg-gray-50 transition-colors"
+                        onClick={() => setSelectedCandidate(null)}
+                      >
+                        후보목록
+                      </Button>
+                    </div>
+                  </div>
+                  {/* 사진, 탭, 점수, 프로필, 이상형 */}
                   <div className="flex flex-col items-center mb-4">
-                    {/* 매칭상대 프로필 사진 */}
                     {(() => {
-                      const photoArr = toPhotoArray(matchedUser?.profile?.photos);
+                      const photoArr = toPhotoArray(selectedCandidate?.profile?.photos);
                       return photoArr.length > 0 ? (
-                        <div className="w-full aspect-square rounded-xl overflow-hidden mb-2 flex flex-col items-center">
-                          <img src={photoArr[matchedPhotoIdx]} alt="프로필 사진" className="w-full h-full object-cover" />
-                          {photoArr.length > 1 && (
-                            <div className="flex justify-center space-x-2 mb-1 mt-3">
-                              {photoArr.map((_, idx) => (
-                                <button
-                                  key={idx}
-                                  className={`w-2 h-2 rounded-full transition-all duration-200 ${matchedPhotoIdx === idx ? 'bg-blue-500 scale-110' : 'bg-gray-300'}`}
-                                  onClick={() => setMatchedPhotoIdx(idx)}
-                                  aria-label={`사진 ${idx+1}번 보기`}
-                                />
-                              ))}
-                            </div>
-                          )}
-                        </div>
+                        <>
+                          <div className="w-full aspect-square rounded-xl overflow-hidden mb-2 flex flex-col items-center">
+                            <img src={photoArr[modalPhotoIdx]} alt="프로필 사진" className="w-full h-full object-cover" />
+                          </div>
+                          <div className="flex justify-center space-x-2 mb-1 mt-3">
+                            {photoArr.map((_, idx) => (
+                              <button
+                                key={idx}
+                                className={`w-2 h-2 rounded-full transition-all duration-200 ${modalPhotoIdx === idx ? 'bg-blue-500 scale-110' : 'bg-gray-300'}`}
+                                onClick={() => setModalPhotoIdx(idx)}
+                                aria-label={`사진 ${idx+1}번 보기`}
+                              />
+                            ))}
+                          </div>
+                        </>
                       ) : (
                         <div className="w-full aspect-square rounded-xl bg-gray-200 flex items-center justify-center mb-2">사진 없음</div>
                       );
                     })()}
-                    <div className="text-lg font-semibold">{matchedUser?.profile?.name || matchedUser?.email}</div>
                   </div>
-                  {/* 탭 스타일 user-detail과 동일하게 */}
                   <div className="border-b border-gray-200">
                     <nav className="-mb-px flex space-x-8 px-6">
                       <button onClick={() => setRightTab('score')} className={`py-4 px-1 border-b-2 font-medium text-sm ${rightTab==='score' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>점수</button>
@@ -378,16 +461,21 @@ export default function MatchingDetail() {
                     </nav>
                   </div>
                   {rightTab === 'score' && (
-                    <div>
-                      {getRadarChartData(matchedUser) ? (
-                        <Radar data={getRadarChartData(matchedUser)} options={{responsive:true,plugins:{legend:{display:false}},scales:{r:{min:0,max:100,ticks:{color:'#222',stepSize:20},pointLabels:{color:'#888',font:{size:16}},grid:{color:'#e5e7eb'}}}}} height={250} />
-                      ) : (
-                        <div className="text-gray-500 text-center py-8">점수 데이터가 없습니다.</div>
-                      )}
-                    </div>
+                    <>
+                      {/* 레이더 차트 먼저 */}
+                      <div>
+                        {getRadarChartData(selectedCandidate) ? (
+                          <Radar data={getRadarChartData(selectedCandidate)} options={getRadarChartOptions(selectedCandidate)} height={250} />
+                        ) : (
+                          <div className="text-gray-500 text-center py-8">점수 데이터가 없습니다.</div>
+                        )}
+                      </div>
+                      {/* 점수 카드 아래 */}
+                      {renderScoreCards(selectedCandidate?.scores || selectedCandidate?.score || selectedCandidate)}
+                    </>
                   )}
-                  {rightTab === 'profile' && renderProfileTab(matchedUser)}
-                  {rightTab === 'ideal' && renderIdealTab(matchedUser)}
+                  {rightTab === 'profile' && renderProfileTab(selectedCandidate)}
+                  {rightTab === 'ideal' && renderIdealTab(selectedCandidate)}
                 </>
               ) : (
                 <>
@@ -409,13 +497,34 @@ export default function MatchingDetail() {
                             </tr>
                           ) : (
                             recommendations.map((rec, i) => {
-                              const candidate = candidates.find((c:any) => c.user_id === rec.userId);
+                              const name = rec.profile?.name;
+                              const grade = rec.score?.grade;
+                              // 등급 뱃지 색상
+                              const gradeColor = {
+                                S: 'bg-yellow-400 text-black',
+                                A: 'bg-blue-400 text-white',
+                                B: 'bg-green-400 text-white',
+                                C: 'bg-gray-300 text-black',
+                                D: 'bg-orange-300 text-black',
+                                E: 'bg-pink-200 text-black',
+                                F: 'bg-gray-200 text-black',
+                                '-': 'bg-gray-100 text-gray-400',
+                              }[grade] || 'bg-gray-100 text-gray-400';
                               return (
-                                <tr key={rec.userId} className="border-b">
-                                  <td className="px-6 py-3">{candidate?.profile?.name || candidate?.email || rec.userId}</td>
-                                  <td className="px-6 py-3">{candidate?.grade || '-'}</td>
+                                <tr key={rec.user_id || `rec-${i}`} className="border-b">
                                   <td className="px-6 py-3">
-                                    <Button size="sm" onClick={() => { setModalCandidate(candidate); setModalOpen(true); }}>
+                                    <div className="flex items-center space-x-3">
+                                      <span className="font-semibold text-gray-900">{name}</span>
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-3">
+                                    <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${gradeColor}`}>{grade}</span>
+                                  </td>
+                                  <td className="px-6 py-3">
+                                    <Button 
+                                    size="sm" 
+                                    className="h-7 py-0 ml-2 text-sm align-middle border border-gray-300 bg-white text-black rounded-lg px-3 font-bold hover:bg-gray-50 transition-colors"
+                                    onClick={() => setSelectedCandidate(rec)}>
                                       자세히 보기
                                     </Button>
                                   </td>
@@ -433,6 +542,62 @@ export default function MatchingDetail() {
           </div>
         </div>
       </div>
+      {/* 모달: 추천 후보 자세히 보기 */}
+      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)}>
+        {modalCandidate && (
+          <div className="w-full max-w-lg mx-auto">
+            <div className="flex flex-col items-center mb-4">
+              {/* 후보 프로필 사진 */}
+              {(() => {
+                const photoArr = toPhotoArray(modalCandidate?.profile?.photos);
+                return photoArr.length > 0 ? (
+                  <>
+                    <div className="w-full aspect-square rounded-xl overflow-hidden mb-2 flex flex-col items-center">
+                      <img src={photoArr[modalPhotoIdx]} alt="프로필 사진" className="w-full h-full object-cover" />
+                    </div>
+                    <div className="flex justify-center space-x-2 mb-1 mt-3">
+                      {photoArr.map((_, idx) => (
+                        <button
+                          key={idx}
+                          className={`w-2 h-2 rounded-full transition-all duration-200 ${modalPhotoIdx === idx ? 'bg-blue-500 scale-110' : 'bg-gray-300'}`}
+                          onClick={() => setModalPhotoIdx(idx)}
+                          aria-label={`사진 ${idx+1}번 보기`}
+                        />
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div className="w-full aspect-square rounded-xl bg-gray-200 flex items-center justify-center mb-2">사진 없음</div>
+                );
+              })()}
+              <div className="text-lg font-semibold">{modalCandidate?.profile?.name || modalCandidate?.email}</div>
+            </div>
+            {/* 탭 UI */}
+            <div className="border-b border-gray-200">
+              <nav className="-mb-px flex space-x-8 px-6">
+                <button onClick={() => setModalPhotoIdx(0)} className={`py-4 px-1 border-b-2 font-medium text-sm ${modalPhotoIdx===0 ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>점수</button>
+                <button onClick={() => setModalPhotoIdx(1)} className={`py-4 px-1 border-b-2 font-medium text-sm ${modalPhotoIdx===1 ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>프로필</button>
+                <button onClick={() => setModalPhotoIdx(2)} className={`py-4 px-1 border-b-2 font-medium text-sm ${modalPhotoIdx===2 ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>이상형</button>
+              </nav>
+            </div>
+            {/* 탭별 내용 */}
+            {modalPhotoIdx === 0 && (
+              <>
+                {renderScoreCards(modalCandidate?.scores || modalCandidate?.score || modalCandidate)}
+                <div>
+                  {getRadarChartData(modalCandidate) ? (
+                    <Radar data={getRadarChartData(modalCandidate)} options={{responsive:true,plugins:{legend:{display:false}},scales:{r:{min:0,max:100,ticks:{color:'#222',stepSize:20},pointLabels:{color:'#888',font:{size:16}},grid:{color:'#e5e7eb'}}}}} height={250} />
+                  ) : (
+                    <div className="text-gray-500 text-center py-8">점수 데이터가 없습니다.</div>
+                  )}
+                </div>
+              </>
+            )}
+            {modalPhotoIdx === 1 && renderProfileTab(modalCandidate)}
+            {modalPhotoIdx === 2 && renderIdealTab(modalCandidate)}
+          </div>
+        )}
+      </Modal>
     </Layout>
   );
 } 
