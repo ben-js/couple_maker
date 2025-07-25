@@ -182,6 +182,7 @@ export default function MatchingDetail() {
   // 추천 후보 fetch/표시
   const handleRecommend = async () => {
     try {
+      setLoadingRecommend(true);
       const res = await fetch('/api/match-pairs/recommend', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -189,9 +190,13 @@ export default function MatchingDetail() {
       });
       const data = await res.json();
       console.log('recommendations:', data.recommendations);
-      // TODO: 추천 결과를 상태에 저장하거나 화면에 표시
+      // 추천 결과를 상태에 저장하여 즉시 화면에 반영
+      setRecommendations(data.recommendations || []);
+      setShowRecommend(true); // 추천 후보 목록 표시
     } catch (e) {
       console.error('추천 에러:', e);
+    } finally {
+      setLoadingRecommend(false);
     }
   };
 

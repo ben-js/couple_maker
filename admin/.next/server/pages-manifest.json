@@ -4,9 +4,8 @@
   "/_document": "pages/_document.js",
   "/user-management": "pages/user-management.js",
   "/matching-detail/[requestId]": "pages/matching-detail/[requestId].js",
-  "/api/admin/managers/[managerId]": "pages/api/admin/managers/[managerId].js",
   "/user-detail/[userId]": "pages/user-detail/[userId].js",
-  "/api/users/[userId]": "pages/api/users/[userId].js",
   "/api/match-pairs/recommend": "pages/api/match-pairs/recommend.js",
-  "/api/matching-requests/[requestId]": "pages/api/matching-requests/[requestId].js"
+  "/api/matching-requests/[requestId]": "pages/api/matching-requests/[requestId].js",
+  "/api/users/[userId]": "pages/api/users/[userId].js"
 }
