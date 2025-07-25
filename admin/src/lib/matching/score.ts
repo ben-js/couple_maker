@@ -19,9 +19,11 @@ function getGradeByScore(score: number): string {
 
 export function scoreCandidates(applicant: any, candidates: any[]): any[] {
   const priorities = applicant.preferences.priority;
+  // priorities가 문자열이면 배열로 변환
+  const priorityArray = typeof priorities === 'string' ? priorities.split(',').map(p => p.trim()) : priorities;
   return candidates.map((c: any) => {
     let score = 0;
-    priorities.forEach((key: string, idx: number) => {
+    priorityArray.forEach((key: string, idx: number) => {
       // 후보의 해당 항목 점수 → 등급 변환
       let value = 0;
       switch (key) {

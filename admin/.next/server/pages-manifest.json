@@ -2,10 +2,15 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
-  "/matching-management": "pages/matching-management.js",
-  "/dashboard": "pages/dashboard.js",
-  "/api/dashboard/stats": "pages/api/dashboard/stats.js",
-  "/api/dashboard/chart-data": "pages/api/dashboard/chart-data.js",
+  "/user-management": "pages/user-management.js",
+  "/matching-detail/[requestId]": "pages/matching-detail/[requestId].js",
+  "/user-detail/[userId]": "pages/user-detail/[userId].js",
   "/api/admin/managers/[managerId]": "pages/api/admin/managers/[managerId].js",
-  "/api/dashboard/activities": "pages/api/dashboard/activities.js"
+  "/api/score-history": "pages/api/score-history.js",
+  "/api/users/[userId]": "pages/api/users/[userId].js",
+  "/api/users/[userId]/matching-history": "pages/api/users/[userId]/matching-history.js",
+  "/api/users/[userId]/point-history": "pages/api/users/[userId]/point-history.js",
+  "/api/users/[userId]/status-history": "pages/api/users/[userId]/status-history.js",
+  "/api/users/[userId]/review-history": "pages/api/users/[userId]/review-history.js",
+  "/api/users": "pages/api/users.js"
 }

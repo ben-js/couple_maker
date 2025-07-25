@@ -22,20 +22,20 @@
       "static/chunks/main.js",
       "static/chunks/pages/_error.js"
     ],
-    "/dashboard": [
+    "/matching-detail/[requestId]": [
       "static/chunks/webpack.js",
       "static/chunks/main.js",
-      "static/chunks/pages/dashboard.js"
-    ],
-    "/matching-management": [
-      "static/chunks/webpack.js",
-      "static/chunks/main.js",
-      "static/chunks/pages/matching-management.js"
+      "static/chunks/pages/matching-detail/[requestId].js"
     ],
     "/user-detail/[userId]": [
       "static/chunks/webpack.js",
       "static/chunks/main.js",
       "static/chunks/pages/user-detail/[userId].js"
+    ],
+    "/user-management": [
+      "static/chunks/webpack.js",
+      "static/chunks/main.js",
+      "static/chunks/pages/user-management.js"
     ]
   },
   "ampFirstPages": []

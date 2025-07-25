@@ -1,6 +1,6 @@
 // 테스트용 사용자 40명 생성 및 입력 스크립트
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, PutCommand } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBDocumentClient, PutCommand, GetCommand } = require('@aws-sdk/lib-dynamodb');
 const crypto = require('crypto');
 const OPTIONS = require('../../frontend/src/data/options.json');
 const REGIONS_DATA = require('../../frontend/src/data/regions.json');
@@ -43,20 +43,72 @@ function randomPickArray(arr, n = 1) {
   return shuffled.slice(0, n);
 }
 
+async function getApplicantPreferences() {
+  const params = {
+    TableName: 'Preferences',
+    Key: { user_id: '1bc37de4-ead1-4881-b8d3-2f6ac9637d63' }
+  };
+  const { Item } = await dynamodb.send(new GetCommand(params));
+  return Item;
+}
+
 async function main() {
-  for (let i = 3; i <= 42; i++) {
-    // 기본 정보
-    const genderKor = randomPick(OPTIONS.genders);
-    const gender = genderKor === '남' ? 'male' : 'female';
-    const name = gender === 'male' ? `홍길동${i}` : `김영희${i}`;
+  const applicantPref = await getApplicantPreferences();
+  if (!applicantPref) {
+    console.error('신청자 이상형 정보가 없습니다.');
+    return;
+  }
+  for (let i = 1; i <= 30; i++) {
+    // 성별은 신청자 이상형의 preferred_gender가 있으면 반대로, 없으면 랜덤
+    let gender = '남';
+    if (applicantPref.preferred_gender) {
+      gender = applicantPref.preferred_gender === '남' ? '여' : '남';
+    } else if (applicantPref.gender) {
+      gender = applicantPref.gender === '남' ? '여' : '남';
+    } else {
+      gender = randomPick(OPTIONS.genders);
+    }
+    const name = gender === '남' ? `홍길동${i}` : `김영희${i}`;
     const email = `user${i}@test.com`;
     const user_id = `user_${i}`;
-    const birth_date = randomBirthDate();
-    const height = randomHeight(gender);
+    // 나이: 이상형 age_range 내에서 랜덤
+    let birth_date = randomBirthDate();
+    if (applicantPref.age_range) {
+      const now = new Date();
+      const minYear = now.getFullYear() - applicantPref.age_range.max;
+      const maxYear = now.getFullYear() - applicantPref.age_range.min;
+      const year = randomInt(minYear, maxYear);
+      const month = randomInt(1, 12);
+      const day = randomInt(1, 28);
+      birth_date = { year, month, day };
+    }
+    // 키: 이상형 height_range 내에서 랜덤
+    let height = randomHeight(gender);
+    if (applicantPref.height_range) {
+      const min = parseInt(applicantPref.height_range.min);
+      const max = parseInt(applicantPref.height_range.max);
+      height = `${randomInt(min, max)}cm`;
+    }
+    // 지역: 이상형 regions 중 랜덤
+    let region = randomRegion();
+    if (applicantPref.regions && applicantPref.regions.length > 0) {
+      region = randomPick(applicantPref.regions);
+    }
+    // 직업, 학력, MBTI 등
+    let job = randomPick(OPTIONS.jobs);
+    if (applicantPref.job_types && applicantPref.job_types.length > 0) {
+      job = randomPick(applicantPref.job_types);
+    }
+    let education = randomPick(OPTIONS.educations);
+    if (applicantPref.education_levels && applicantPref.education_levels.length > 0) {
+      education = randomPick(applicantPref.education_levels);
+    }
+    let mbti = randomPick(OPTIONS.mbtis);
+    if (applicantPref.mbti_types && applicantPref.mbti_types.length > 0) {
+      mbti = randomPick(applicantPref.mbti_types);
+    }
+    // 나머지 속성은 기존 랜덤 방식
     const body_type = randomPick(OPTIONS.bodyTypes);
-    const job = randomPick(OPTIONS.jobs);
-    const education = randomPick(OPTIONS.educations);
-    const mbti = randomPick(OPTIONS.mbtis);
     const interests = randomPickArray(OPTIONS.interests, 3 + randomInt(0, 2));
     const favorite_foods = randomPickArray(OPTIONS.foods, randomInt(1, 3));
     const smoking = randomPick(OPTIONS.smoking);
@@ -66,7 +118,6 @@ async function main() {
     const marriage_plans = randomPick(OPTIONS.marriagePlans);
     const salary = randomPick(OPTIONS.salary);
     const asset = randomPick(OPTIONS.asset);
-    const region = randomRegion();
     const introduction = `${name}의 자기소개입니다. 다양한 경험과 취미를 가지고 있습니다.`;
     const created_at = new Date().toISOString();
     const updated_at = created_at;
@@ -95,7 +146,7 @@ async function main() {
         user_id,
         name,
         birth_date,
-        gender: genderKor,
+        gender,
         height,
         body_type,
         job,
@@ -112,12 +163,12 @@ async function main() {
         salary,
         asset,
         introduction,
-        photos: [`https://randomuser.me/api/portraits/${gender === 'male' ? 'men' : 'women'}/${i}.jpg`],
+        photos: [`https://randomuser.me/api/portraits/${gender === '남' ? 'men' : 'women'}/${i}.jpg`],
         created_at,
         updated_at,
       }
     }));
-    // Preferences
+    // Preferences (랜덤)
     const prefRegions = Array.from({length: randomInt(1, 3)}, randomRegion);
     await dynamodb.send(new PutCommand({
       TableName: 'Preferences',
@@ -169,7 +220,7 @@ async function main() {
         job: jobScore,
         education: educationScore,
         economics,
-        average_grade: getGrade(average), // grade → average_grade
+        average_grade: getGrade(average),
         created_at,
         updated_at,
       }
@@ -186,7 +237,7 @@ async function main() {
         education: educationScore,
         economics,
         average,
-        average_grade: getGrade(average), // grade → average_grade
+        average_grade: getGrade(average),
         scorer: 'manager_test',
         summary: `${name}의 점수 총평입니다.`,
         updated_at,
@@ -194,7 +245,7 @@ async function main() {
     }));
     console.log(`Inserted user: ${email}`);
   }
-  console.log('✅ 테스트 유저 40명 생성 완료!');
+  console.log('✅ 테스트 유저 30명 생성 완료!');
 }
 
 main().catch(console.error); 

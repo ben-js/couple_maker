@@ -49,6 +49,7 @@ function renderScoreCards(scoreObj: any) {
     { key: 'job', label: '직업', emoji: '💼', bg: 'bg-purple-50', value: scoreObj.job },
     { key: 'education', label: '학력', emoji: '🎓', bg: 'bg-yellow-50', value: scoreObj.education },
     { key: 'economics', label: '경제력', emoji: '💰', bg: 'bg-pink-50', value: scoreObj.economics },
+    { key: 'grade', label: '등급', emoji: '🏅', bg: 'bg-gray-50', value: scoreObj.grade || '-' },
   ];
   return (
     <div className="flex flex-wrap gap-4 justify-center mb-6">
@@ -62,17 +63,6 @@ function renderScoreCards(scoreObj: any) {
       ))}
     </div>
   );
-}
-
-// 점수 등급 계산 함수
-function getGradeByScore(score: any) {
-  if (score === null || score === undefined) return '-';
-  const totalScore = score.appearance + score.personality + score.job + score.education + score.economics;
-  if (totalScore >= 400) return 'S';
-  if (totalScore >= 300) return 'A';
-  if (totalScore >= 200) return 'B';
-  if (totalScore >= 100) return 'C';
-  return 'D';
 }
 
 // 레이더 차트 색상 동적 함수
@@ -323,7 +313,7 @@ export default function MatchingDetail() {
               <Button
                 onClick={handleRecommend}
                 disabled={loadingRecommend}
-                className="ml-4"
+                className="ml-4 inline-flex items-center justify-center font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500 px-3 py-1.5 text-sm cursor-pointer text-xs "
               >
                 {loadingRecommend ? '추천 중...' : '추천'}
               </Button>
