@@ -20,14 +20,26 @@ a {
   box-sizing: border-box;
 }
 
-/* 다크모드 지원 */
+/* 입력 필드 텍스트 색상 강제 설정 */
+input, textarea, select {
+  color: #333 !important;
+}
+
+/* 다크모드에서도 입력 필드 텍스트 색상 유지 */
+@media (prefers-color-scheme: dark) {
+  input, textarea, select {
+    color: #333 !important;
+  }
+}
+
+/* 다크모드 지원 - admin 패널은 항상 라이트모드 유지 */
 @media (prefers-color-scheme: dark) {
   html {
-    color-scheme: dark;
+    color-scheme: light;
   }
   body {
-    color: white;
-    background: black;
+    color: #333;
+    background: white;
   }
 }
 

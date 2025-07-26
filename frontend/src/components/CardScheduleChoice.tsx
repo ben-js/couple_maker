@@ -47,16 +47,6 @@ const CardScheduleChoice: React.FC<CardScheduleChoiceProps> = ({
   return (
     <Card enableShadow style={cardScheduleChoiceStyles.card}>
       <Text style={cardScheduleChoiceStyles.title}>일정/장소를 선택 하세요!</Text>
-      {otherChoices && (
-        <View style={{ backgroundColor: '#FFF3F3', borderRadius: 12, marginBottom: 12, padding: 12, alignItems: 'center' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 4 }}>
-            <Text style={{ fontSize: 12, lineHeight: 22, marginRight: 5 }}>💡</Text>
-            <Text style={{ fontWeight: 'bold', fontSize: 16, lineHeight: 22 }}>상대방이 선택한 일정/장소</Text>
-          </View>
-          <Text style={{ marginBottom: 2, textAlign: 'center' }}>날짜: {otherChoices.dates.join(', ')}</Text>
-          <Text style={{ textAlign: 'center' }}>장소: {otherChoices.locations.join(', ')}</Text>
-        </View>
-      )}
       <View style={cardScheduleChoiceStyles.spacer24} />
       <View style={containerStyle}>
         {[0,1,2].map(i => (
@@ -120,7 +110,17 @@ const CardScheduleChoice: React.FC<CardScheduleChoiceProps> = ({
         <TouchableOpacity
           style={confirmButtonStyle}
           disabled={!dateSelections.every(d => d) || !locationSelection?.length}
-          onPress={onConfirm}
+          onPress={() => {
+            console.log('🔍 CardScheduleChoice 확인 버튼 클릭');
+            console.log('🔍 버튼 상태:', {
+              allDatesSelected: dateSelections.every(d => d),
+              hasLocations: locationSelection?.length > 0,
+              dateSelections,
+              locationSelection,
+              isDisabled: !dateSelections.every(d => d) || !locationSelection?.length
+            });
+            onConfirm();
+          }}
         >
           <Text style={confirmButtonTextStyle}>확인</Text>
         </TouchableOpacity>

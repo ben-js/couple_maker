@@ -13,6 +13,7 @@ export interface MatchedUser {
 
 export interface UseMatchingStatusResult {
   status?: string;
+  requestId: string | null;
   matchedUser: MatchedUser | null;
   matchId: string | null;
   myChoices: MatchingChoices | null;
@@ -26,6 +27,7 @@ export interface UseMatchingStatusResult {
 
 export function useMatchingStatus(userId?: string): UseMatchingStatusResult {
   const [status, setStatus] = useState<string | undefined>(undefined);
+  const [requestId, setRequestId] = useState<string | null>(null);
   const [matchedUser, setMatchedUser] = useState<MatchedUser | null>(null);
   const [matchId, setMatchId] = useState<string | null>(null);
   const [myChoices, setMyChoices] = useState<MatchingChoices | null>(null);
@@ -40,7 +42,9 @@ export function useMatchingStatus(userId?: string): UseMatchingStatusResult {
     setLoading(true);
     apiGet('/matching-status', { userId })
       .then(res => {
+        console.log('🔍 useMatchingStatus 응답:', res);
         setStatus(res.status);
+        setRequestId(res.requestId || null);
         setMatchedUser(res.matchedUser || null);
         setMatchId(res.matchId || null);
         setMyChoices(res.myChoices || null);
@@ -59,6 +63,7 @@ export function useMatchingStatus(userId?: string): UseMatchingStatusResult {
 
   return {
     status,
+    requestId,
     matchedUser,
     matchId,
     myChoices,

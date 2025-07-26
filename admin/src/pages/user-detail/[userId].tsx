@@ -60,6 +60,26 @@ function getGradeName(grade: string) {
   return gradeNames[grade] || grade;
 }
 
+// DynamoDB AttributeValue를 문자열로 변환하는 함수
+function convertDynamoValue(value: any): string {
+  if (value && typeof value === 'object' && value.S) {
+    return value.S;
+  }
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (value && typeof value === 'object' && value.region) {
+    return `${value.region || ''} ${value.district || ''}`;
+  }
+  return '';
+}
+
+// 배열을 문자열로 변환하는 함수
+function convertArrayToString(arr: any[]): string {
+  if (!Array.isArray(arr)) return '-';
+  return arr.map(item => convertDynamoValue(item)).filter(s => s.trim()).join(', ') || '-';
+}
+
 function StarRating({ value, onChange, max = 5 }) {
   return (
     <div className="flex">
@@ -156,9 +176,11 @@ export default function UserDetail() {
     if (profile && preferences) {
       let faceScoreNum = Number(scoreForm.faceScore);
       if (isNaN(faceScoreNum)) faceScoreNum = 0;
+      // faceScore가 없어도 기본 점수 계산을 위해 50점(2.5점) 기본값 사용
+      const defaultFaceScore = faceScoreNum > 0 ? (faceScoreNum > 5 ? faceScoreNum : faceScoreNum * 20) : 50;
       const input: ScoreInput = {
         gender: profile.gender,
-        faceScore: faceScoreNum > 5 ? faceScoreNum : faceScoreNum * 20,
+        faceScore: defaultFaceScore,
         height: Number(profile.height),
         bodyType: profile.body_type,
         age: profile.birth_date ? (new Date().getFullYear() - profile.birth_date.year) : 30,
@@ -173,7 +195,6 @@ export default function UserDetail() {
         education: profile.education,
         asset: parseAsset(profile.asset),
       };
-      console.log('점수계산 input(useEffect):', input);
       const appearance = calculateAppearanceScore(input);
       const personality = calculatePersonalityScore(input);
       const job = calculateJobScore(input);
@@ -183,14 +204,36 @@ export default function UserDetail() {
     }
   }, [profile, preferences]);
 
-  // 점수 이력 조회
+  // 현재 점수 조회 (Scores 테이블)
+  useEffect(() => {
+    async function fetchCurrentScore() {
+      if (!userId) return;
+      console.log('🔍 현재 userId:', userId);
+      const res = await fetch(`/api/users/${userId}/current-score`);
+      console.log('🔍 API 응답 상태:', res.status);
+      if (res.ok) {
+        const data = await res.json();
+        console.log('🔍 API 응답 데이터:', data);
+        if (data.score) {
+          setScoreHistory([data.score]); // 현재 점수를 배열로 설정
+          console.log('🔍 점수 데이터 설정됨:', data.score);
+        } else {
+          setScoreHistory([]);
+          console.log('🔍 점수 데이터 없음');
+        }
+      }
+    }
+    fetchCurrentScore();
+  }, [userId]);
+
+  // 점수 이력 조회 (ScoreHistory 테이블)
   useEffect(() => {
     async function fetchScoreHistory() {
       if (!userId) return;
-      const res = await fetch(`/api/score-history?userId=${userId}`);
+      const res = await fetch(`/api/users/${userId}/scores`);
       if (res.ok) {
         const data = await res.json();
-        setScoreHistory(data.items || []);
+        setScoreHistory(data.scores || []); // 여러 건 저장
       }
     }
     fetchScoreHistoryRef.current = fetchScoreHistory;
@@ -263,19 +306,20 @@ export default function UserDetail() {
     }
   };
 
-  // scoreHistory에서 최신 점수 추출
+  // scoreHistory에서 최신 점수 추출 (저장된 점수가 없으면 autoScore 사용)
   const latestScoreData = scoreHistory && scoreHistory.length > 0 ? scoreHistory[0] : null;
-  const radarChartData = latestScoreData ? {
+  const scoreDataForChart = latestScoreData || autoScore;
+  const radarChartData = scoreDataForChart ? {
     labels: ['외모', '성격', '직업', '학력', '경제력'],
     datasets: [
       {
         label: '점수',
         data: [
-          latestScoreData.appearance ?? 0,
-          latestScoreData.personality ?? 0,
-          latestScoreData.job ?? 0,
-          latestScoreData.education ?? 0,
-          latestScoreData.economics ?? 0,
+          scoreDataForChart.appearance ?? 0,
+          scoreDataForChart.personality ?? 0,
+          scoreDataForChart.job ?? 0,
+          scoreDataForChart.education ?? 0,
+          scoreDataForChart.economics ?? 0,
         ],
         backgroundColor: 'rgba(37, 99, 235, 0.2)',
         borderColor: 'rgba(37, 99, 235, 1)',
@@ -321,6 +365,8 @@ export default function UserDetail() {
             education: calculateEducationScore(input),
             economics: calculateEconomicsScore(input),
           });
+        } else {
+          setAutoScore(null); // 숫자가 아니거나 0이면 autoScore도 null로
         }
       }
       return updated;
@@ -400,7 +446,6 @@ export default function UserDetail() {
       });
       setScoreForm({ faceScore: '', summary: '' });
       setAutoScore(null);
-      await loadUserDetail();
       if (fetchScoreHistoryRef.current) await fetchScoreHistoryRef.current(); // 점수 이력 즉시 갱신
       showToast('저장이 완료되었습니다.', 'success');
     } finally {
@@ -628,7 +673,42 @@ export default function UserDetail() {
               <div className="flex gap-2 mb-6 w-full items-center">
                 {/* 별점 + 점수 + 메모/사유 + 저장 */}
                 <div className="flex items-center flex-1 min-w-0 whitespace-nowrap">
-                  <StarRating value={scoreForm.faceScore} onChange={v => setScoreForm(f => ({ ...f, faceScore: v }))} />
+                  <StarRating
+                    value={scoreForm.faceScore}
+                    onChange={v => {
+                      setScoreForm(f => ({ ...f, faceScore: v }));
+                      // 별점이 바뀔 때마다 autoScore도 재계산
+                      let faceScoreNum = Number(v);
+                      if (!isNaN(faceScoreNum) && faceScoreNum > 0) {
+                        let input = {
+                          gender: profile?.gender || '남',
+                          faceScore: faceScoreNum > 5 ? faceScoreNum : faceScoreNum * 20,
+                          height: Number(profile?.height) || 0,
+                          bodyType: profile?.body_type || '',
+                          age: profile?.birth_date ? (new Date().getFullYear() - profile.birth_date.year) : 30,
+                          personalityPriority: preferences?.priority_personality || 1,
+                          valuePriority: preferences?.priority_value || 1,
+                          isSmoker: profile?.smoking === '흡연',
+                          hobby: profile?.interests?.[0] || '',
+                          wantChild: profile?.children_desire === '자녀 희망',
+                          mbti: profile?.mbti || '',
+                          job: normalizeJob(profile?.job || ''),
+                          salary: parseSalary(profile?.salary || 0),
+                          education: profile?.education || '',
+                          asset: parseAsset(profile?.asset || 0),
+                        };
+                        setAutoScore({
+                          appearance: calculateAppearanceScore(input),
+                          personality: calculatePersonalityScore(input),
+                          job: calculateJobScore(input),
+                          education: calculateEducationScore(input),
+                          economics: calculateEconomicsScore(input),
+                        });
+                      } else {
+                        setAutoScore(null);
+                      }
+                    }}
+                  />
                   <span className="ml-4 mr-2 text-gray-500">
                     {Number(scoreForm.faceScore) > 0 ? scoreForm.faceScore : <span className="invisible">0</span>} / 5점
                   </span>
@@ -703,23 +783,37 @@ export default function UserDetail() {
             {activeTab === 'ideal' && (
               <div className="p-8 pl-8">
                 <div className="grid grid-cols-3 gap-x-8 gap-y-4 text-left">
-                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">선호 지역</span><span className="text-gray-800">{preferences?.regions?.map(r => `${r.region} ${r.district}`).join(', ') ?? '-'}</span></div>
-                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">나이 범위</span><span className="text-gray-800">{preferences?.age_range ? `${preferences.age_range.min}~${preferences.age_range.max}` : '-'}</span></div>
-                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">키 범위</span><span className="text-gray-800">{preferences?.height_range ? `${preferences.height_range.min}~${preferences.height_range.max}` : '-'}</span></div>
-                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">직업군</span><span className="text-gray-800">{preferences?.job_types?.join(', ') ?? '-'}</span></div>
-                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">체형</span><span className="text-gray-800">{preferences?.body_types?.join(', ') ?? '-'}</span></div>
-                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">MBTI</span><span className="text-gray-800">{preferences?.mbti_types?.join(', ') ?? '-'}</span></div>
-                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">학력</span><span className="text-gray-800">{preferences?.education_levels?.join(', ') ?? '-'}</span></div>
-                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">결혼 계획</span><span className="text-gray-800">{preferences?.marriage_plan ?? '-'}</span></div>
-                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">선호 성별</span><span className="text-gray-800">{preferences?.preferred_gender ?? '-'}</span></div>
-                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">종교</span><span className="text-gray-800">{preferences?.religion ?? '-'}</span></div>
-                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">흡연</span><span className="text-gray-800">{preferences?.smoking ?? '-'}</span></div>
-                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">음주</span><span className="text-gray-800">{preferences?.drinking ?? '-'}</span></div>
-                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">관심사</span><span className="text-gray-800">{preferences?.interests?.join(', ') ?? '-'}</span></div>
-                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">우선순위</span><span className="text-gray-800">{Array.isArray(preferences?.priority)
-  ? preferences.priority.join(' > ')
-  : preferences?.priority?.split(',').join(' > ') ?? '-'}</span></div>
-                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">자녀 희망</span><span className="text-gray-800">{preferences?.children_desire ?? '-'}</span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">선호 지역</span><span className="text-gray-800">{convertArrayToString(preferences?.regions)}</span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">나이 범위</span><span className="text-gray-800">
+                    {preferences?.age_range && preferences.age_range.min && preferences.age_range.max 
+                      ? `${preferences.age_range.min}~${preferences.age_range.max}` 
+                      : '-'}
+                  </span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">키 범위</span><span className="text-gray-800">
+                    {preferences?.height_range && preferences.height_range.min && preferences.height_range.max 
+                      ? `${preferences.height_range.min}~${preferences.height_range.max}` 
+                      : '-'}
+                  </span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">직업군</span><span className="text-gray-800">{convertArrayToString(preferences?.job_types)}</span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">체형</span><span className="text-gray-800">{convertArrayToString(preferences?.body_types)}</span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">MBTI</span><span className="text-gray-800">{convertArrayToString(preferences?.mbti_types)}</span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">학력</span><span className="text-gray-800">{convertArrayToString(preferences?.education_levels)}</span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">결혼 계획</span><span className="text-gray-800">{preferences?.marriage_plan || '-'}</span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">선호 성별</span><span className="text-gray-800">{preferences?.preferred_gender || '-'}</span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">종교</span><span className="text-gray-800">{preferences?.religion || '-'}</span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">흡연</span><span className="text-gray-800">{preferences?.smoking || '-'}</span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">음주</span><span className="text-gray-800">{preferences?.drinking || '-'}</span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">관심사</span><span className="text-gray-800">{convertArrayToString(preferences?.interests)}</span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">우선순위</span><span className="text-gray-800">
+                    {preferences?.priority 
+                      ? (Array.isArray(preferences.priority) 
+                          ? preferences.priority.filter(Boolean).join(' > ')
+                          : typeof preferences.priority === 'string' 
+                            ? preferences.priority.split(',').filter(Boolean).join(' > ')
+                            : '-')
+                      : '-'}
+                  </span></div>
+                  <div className="flex flex-col"><span className="font-bold text-gray-600 mb-1">자녀 희망</span><span className="text-gray-800">{preferences?.children_desire || '-'}</span></div>
                 </div>
               </div>
             )}
@@ -753,7 +847,7 @@ export default function UserDetail() {
                         <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{s.education ?? '-'}</td>
                         <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{s.economics ?? '-'}</td>
                         <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{s.average ?? '-'}</td>
-                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{s.averageGrade ?? '-'}</td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{s.average_grade ?? '-'}</td>
                         <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{s.reason ?? '-'}</td>
                         <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{s.manager_id ?? '-'}</td>
                       </tr>

@@ -3,7 +3,9 @@
 ## 1. 추천 트리거 및 흐름
 
 - 매니저가 매칭 관리 페이지에서 `MatchingRequests.status = waiting`인 신청자를 선택 → 상세 페이지 진입 → "추천" 버튼 클릭 시 추천 알고리즘 실행
-- 추천 결과는 `MatchingRecommendations` 테이블에 저장
+- 추천 결과는 `MatchingRecommendations` 테이블에 **누적(append) 저장**
+- **추천 버튼을 여러 번 눌러도, 한 번이라도 추천된 유저는 다시 추천되지 않음**
+- 추천 결과는 누적 리스트로 관리되며, 화면에도 append(추가) 방식으로 표시됨
 
 ---
 
@@ -31,7 +33,7 @@
   - 또는 MatchingRequests에 없는 유저(아직 신청 안 한 유저)
 - **매칭 이력**
   - 신청자와 MatchPairs 이력이 없는 유저
-    - (match_a_id = 신청자 id, match_b_id ≠ 후보 id) AND (match_b_id = 신청자 id, match_a_id ≠ 후보 id)
+    - (match_a_user_id = 신청자 id, match_b_user_id ≠ 후보 id) AND (match_b_user_id = 신청자 id, match_a_user_id ≠ 후보 id)
 - **거절 이력**
   - Proposals 테이블에서 propose_user_id = 신청자 id, status ≠ refuse 인 유저만
 
@@ -82,14 +84,16 @@
 
 ### 5차: 추천 결과 저장
 
-- 추천된 후보군을 `MatchingRecommendations` 테이블에 저장
-  - request_id, recommended_user_id, recommendation_count, compatibility_score, personal_score, final_score, rank, created_at, updated_at
+- 추천된 후보군을 `MatchingRecommendations` 테이블에 **append(누적) 저장**
+  - request_id, recommended_user_id, recommendation_count, personal_score, compatibility_score rank, created_at, updated_at
+- **이미 추천된 유저는 다시 추천되지 않음**
+- 추천 버튼을 여러 번 눌러도, 누적 리스트에만 추가됨
 
 ---
 
 ### 6차: 재추천/조건 완화
 
-- 추천/재추천 시 이미 추천된 유저는 제외
+- 추천/재추천 시 **해당 매칭 요청(request_id)에 대해 한 번이라도 추천된 유저는 다시 추천되지 않음**
 - 추천 인원이 10명 미만이면 조건을 점진적으로 완화
   - 나이/키 범위 확대, 인접 지역 포함 등
 - 완화해도 부족하면 가능한 만큼만 추천
@@ -122,6 +126,8 @@
   request_id: 'req_123',              // 매칭 신청 ID
   recommended_user_id: 'user_456',     // 추천된 사용자 ID
   recommendation_count: 1,             // 재추천 횟수
+  personal_score: 98,                 // 점수
+  compatibility_score: 98,
   rank: 3,                             // 추천 순위 (1~10)
   created_at: '2024-12-01T00:00:00Z',
   updated_at: '2024-12-01T00:00:00Z'
@@ -142,7 +148,7 @@
 ## 5. 예외/특이사항
 
 - VIP/구독자는 상위 등급 범위를 두 단계까지 확장
-- 추천/재추천 시 이미 추천된 유저는 제외
+- 추천/재추천 시 **누적 추천(append) 방식**으로, 이미 추천된 유저는 다시 추천되지 않음
 - 동점자 처리 기준은 서비스 정책에 따라 추가 가능
 
 ---
@@ -154,5 +160,5 @@
 3. 2차 등급별 후보군 분류 (상위/동일/하위)
 4. 3차 우선순위 점수 계산
 5. 4차 등급별 후보군 내 정렬/동점자 처리
-6. 추천 결과 저장
+6. 추천 결과 **append(누적) 저장**
 7. 인원 부족 시 조건 완화 및 재추천

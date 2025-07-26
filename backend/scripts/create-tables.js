@@ -105,7 +105,45 @@ const tables = [
       { AttributeName: 'proposal_id', KeyType: 'HASH' }
     ],
     AttributeDefinitions: [
-      { AttributeName: 'proposal_id', AttributeType: 'S' }
+      { AttributeName: 'proposal_id', AttributeType: 'S' },
+      { AttributeName: 'propose_user_id', AttributeType: 'S' },
+      { AttributeName: 'target_id', AttributeType: 'S' },
+      { AttributeName: 'match_pair_id', AttributeType: 'S' }
+    ],
+    GlobalSecondaryIndexes: [
+      {
+        IndexName: 'propose-user-index',
+        KeySchema: [
+          { AttributeName: 'propose_user_id', KeyType: 'HASH' }
+        ],
+        Projection: { ProjectionType: 'ALL' },
+        ProvisionedThroughput: {
+          ReadCapacityUnits: 5,
+          WriteCapacityUnits: 5
+        }
+      },
+      {
+        IndexName: 'target-user-index',
+        KeySchema: [
+          { AttributeName: 'target_id', KeyType: 'HASH' }
+        ],
+        Projection: { ProjectionType: 'ALL' },
+        ProvisionedThroughput: {
+          ReadCapacityUnits: 5,
+          WriteCapacityUnits: 5
+        }
+      },
+      {
+        IndexName: 'match-pair-index',
+        KeySchema: [
+          { AttributeName: 'match_pair_id', KeyType: 'HASH' }
+        ],
+        Projection: { ProjectionType: 'ALL' },
+        ProvisionedThroughput: {
+          ReadCapacityUnits: 5,
+          WriteCapacityUnits: 5
+        }
+      }
     ],
     ProvisionedThroughput: {
       ReadCapacityUnits: 5,

@@ -1,0 +1,420 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Globals:
+  Function:
+    Runtime: nodejs18.x
+    Timeout: 30
+    MemorySize: 256
+    Environment:
+      Variables:
+        S3_BUCKET_NAME: date-sense
+        S3_REGION: ap-northeast-2
+        USERS_TABLE: date-sense-users
+        PROFILES_TABLE: date-sense-profiles
+        PREFERENCES_TABLE: date-sense-preferences
+        MATCHING_REQUESTS_TABLE: date-sense-matching-requests
+        MATCH_PAIRS_TABLE: date-sense-match-pairs
+        REVIEWS_TABLE: date-sense-reviews
+        POINTS_HISTORY_TABLE: date-sense-points-history
+    CodeUri: ./
+  Api:
+    Cors:
+      AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+      AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+      AllowOrigin: "'*'"
+      AllowCredentials: "'true'"
+
+Resources:
+  # 인증 관련 API
+  LoginFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: lambda/login.handler
+      Events:
+        LoginApi:
+          Type: Api
+          Properties:
+            Path: /auth/login
+            Method: post
+
+  SignupFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: lambda/signup.handler
+      Events:
+        SignupApi:
+          Type: Api
+          Properties:
+            Path: /auth/signup
+            Method: post
+
+  # 사용자 관련 API
+  GetUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: lambda/getUser.handler
+      Events:
+        GetUserApi:
+          Type: Api
+          Properties:
+            Path: /user/{userId}
+            Method: get
+
+  UpdateUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: lambda/updateUser.handler
+      Events:
+        UpdateUserApi:
+          Type: Api
+          Properties:
+            Path: /user/{userId}
+            Method: put
+
+  # 프로필 관련 API
+  GetProfileFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: lambda/getProfile.handler
+      Events:
+        GetProfileApi:
+          Type: Api
+          Properties:
+            Path: /profile/{userId}
+            Method: get
+
+  SaveProfileFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: lambda/saveProfile.handler
+      Events:
+        SaveProfileApi:
+          Type: Api
+          Properties:
+            Path: /profile
+            Method: post
+
+  # 선호도 관련 API
+  GetPreferencesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: lambda/getPreferences.handler
+      Events:
+        GetPreferencesApi:
+          Type: Api
+          Properties:
+            Path: /user-preferences/{userId}
+            Method: get
+
+  SavePreferencesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: lambda/savePreferences.handler
+      Events:
+        SavePreferencesApi:
+          Type: Api
+          Properties:
+            Path: /user-preferences
+            Method: post
+
+  # 매칭 관련 API
+  GetMatchingStatusFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: lambda/getMatchingStatus.handler
+      Events:
+        GetMatchingStatusApi:
+          Type: Api
+          Properties:
+            Path: /matching-status
+            Method: get
+
+  RequestMatchingFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: lambda/requestMatching.handler
+      Events:
+        RequestMatchingApi:
+          Type: Api
+          Properties:
+            Path: /matching-requests
+            Method: post
+
+  GetMatchingRequestsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: lambda/getMatchingRequests.handler
+      Events:
+        GetMatchingRequestsApi:
+          Type: Api
+          Properties:
+            Path: /matching-requests
+            Method: get
+
+  # 카드 관련 API
+  GetCardsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: lambda/getCards.handler
+      Events:
+        GetCardsApi:
+          Type: Api
+          Properties:
+            Path: /cards
+            Method: get
+
+  GetMainCardFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: lambda/getMainCard.handler
+      Events:
+        GetMainCardApi:
+          Type: Api
+          Properties:
+            Path: /main-card
+            Method: get
+
+  # 파일 관련 API
+  UploadImageFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: lambda/uploadImage.handler
+      Events:
+        UploadImageApi:
+          Type: Api
+          Properties:
+            Path: /upload-image
+            Method: post
+
+  GetUploadUrlFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: lambda/getUploadUrl.handler
+      Events:
+        GetUploadUrlApi:
+          Type: Api
+          Properties:
+            Path: /get-upload-url
+            Method: post
+
+  # 기타 API
+  GetTermsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: lambda/getTerms.handler
+      Events:
+        GetTermsApi:
+          Type: Api
+          Properties:
+            Path: /terms
+            Method: get
+
+  GetPrivacyFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: lambda/getPrivacy.handler
+      Events:
+        GetPrivacyApi:
+          Type: Api
+          Properties:
+            Path: /privacy
+            Method: get
+
+  GetCustomerServiceFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: lambda/getCustomerService.handler
+      Events:
+        GetCustomerServiceApi:
+          Type: Api
+          Properties:
+            Path: /customer-service
+            Method: get
+
+  # 헬스체크 API
+  HealthFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: lambda/health.handler
+      Events:
+        HealthApi:
+          Type: Api
+          Properties:
+            Path: /
+            Method: get
+
+  # DynamoDB 테이블들
+  UsersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: date-sense-users
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: email
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: email-index
+          KeySchema:
+            - AttributeName: email
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  ProfilesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: date-sense-profiles
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+
+  PreferencesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: date-sense-preferences
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+
+  MatchingRequestsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: date-sense-matching-requests
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: status
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: status-index
+          KeySchema:
+            - AttributeName: status
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  MatchPairsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: date-sense-match-pairs
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: userId1
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: user-index
+          KeySchema:
+            - AttributeName: userId1
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  ReviewsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: date-sense-reviews
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: user-index
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  PointsHistoryTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: date-sense-points-history
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: user-index
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  ScoreHistoryTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: ScoreHistory
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+        - AttributeName: created_at
+          AttributeType: S
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+        - AttributeName: created_at
+          KeyType: RANGE
+      BillingMode: PAY_PER_REQUEST
+
+  # S3 버킷
+  DateSenseBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: date-sense
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders: ['*']
+            AllowedMethods: [GET, POST, PUT, DELETE]
+            AllowedOrigins: ['*']
+            MaxAge: 3000
+
+Outputs:
+  ApiGatewayApi:
+    Description: "API Gateway endpoint URL"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
+  
+  UsersTableName:
+    Description: "Users table name"
+    Value: !Ref UsersTable
+  
+  ProfilesTableName:
+    Description: "Profiles table name"
+    Value: !Ref ProfilesTable
+  
+  DateSenseBucketName:
+    Description: "S3 bucket name"
+    Value: !Ref DateSenseBucket 

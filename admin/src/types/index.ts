@@ -42,7 +42,7 @@ export type ManagerActionType =
   | 'status_change'
   | 'grade_change'
   | 'matching_approve'
-  | 'matching_refuse'
+  | 'matching_refused'
   | 'review_delete'
   | 'point_adjust'
   | 'user_delete'
@@ -70,5 +70,6 @@ export interface User {
   reviews_history?: any[];
   point_history?: any[];
   has_score?: boolean; // 점수 작성 여부
+  scores?: any[]; // 점수 이력 필드 추가
   // 기타 필요한 필드
 } 

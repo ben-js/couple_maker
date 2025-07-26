@@ -51,9 +51,14 @@ export interface Proposal {
 
 export interface MatchPair {
   match_id: string;
-  user1_id: string;
-  user2_id: string;
-  status: string;
+  match_a_id: string;
+  match_a_user_id: string;
+  match_b_id: string | null;
+  match_b_user_id: string;
+  is_proposed: boolean;
+  confirm_proposed: boolean;
+  attempt_count: number;
+  both_interested: boolean | null;
   created_at: string;
   updated_at: string;
 }

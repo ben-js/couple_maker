@@ -164,9 +164,24 @@
 - 한쪽만 선택 완료 시 → matched 상태 유지
 - 7일 내 미응답 시 → 매칭 실패 처리 (포인트 반환)
 
+[데이터 접근 로직]
+- 내 request_id로 MatchPairs에서 match_a_id or match_b_id 확인
+- 상대방 request_id 획득 후 MatchingRequests에서 상대방 정보 조회/수정
+- MatchPairs: 단순히 "누가 누구와 매칭되었는지" 연결 정보만 담당
+- MatchingRequests: 실제 사용자별 상세 정보(상태, 일정, 선호도 등) 담당
+
+[일정/장소 저장 구조]
+- MatchingRequests 테이블에 date_choices 필드로 저장:
+  {
+    dates: ['2024-12-15', '2024-12-16', '2024-12-17'],
+    locations: ['강남역', '홍대역', '잠실역']
+  }
+- choices_submitted_at: 일정 제출 시간
+- updated_at: 최종 업데이트 시간
+
 [일정 매칭 API]
 - POST /submit-choices: 일정/장소 제출 및 매칭 검사
-- 요청 데이터: { match_id, user_id, dates, locations }
+- 요청 데이터: { request_id, dates, locations }
 - 응답: { ok: true, status: 'matched'|'confirmed'|'mismatched', message }
 - 로깅: 매칭 결과, 겹치는 일정, 최종 상태
 ```

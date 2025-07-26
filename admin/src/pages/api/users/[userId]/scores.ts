@@ -34,8 +34,7 @@ export default async function handler(
       const scoreInput = { faceScore, appearance, personality, job, education, economics };
       await saveUserScore(userId, scoreInput, managerName || 'unknown', summary);
       // 매니저 활동 로그에도 기록
-      const ds = new DataService();
-      await ds.logManagerAction(managerName || 'unknown', 'score_write', userId, `faceScoreInput(5점): ${faceScoreInput}, appearance: ${appearance}, summary: ${summary}`);
+      await DataService.logManagerAction(managerName || 'unknown', 'score_write', userId, `faceScoreInput(5점): ${faceScoreInput}, appearance: ${appearance}, summary: ${summary}`);
       // 저장 후 최신 점수 이력 반환
       const scores = await getUserScoreHistory(userId);
       return res.status(200).json({ scores });

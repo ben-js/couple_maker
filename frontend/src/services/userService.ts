@@ -98,18 +98,20 @@ export async function login(credentials: { email: string; password: string }): P
 export async function getProfile(userId: string): Promise<Profile | null> {
   try {
     console.log('프로필 조회 시작:', { userId });
-    const data = await apiGetWithAuth<Profile>(`/profile/${userId}`, userId);
-    console.log('프로필 조회 결과:', { 
-      hasData: !!data, 
-      photos: data?.photos, 
-      photosLength: data?.photos?.length 
-    });
-    
-    const dataAny = data as any;
-    if (data && !dataAny.id && (data.userId || dataAny.user_id)) {
-      dataAny.id = data.userId || dataAny.user_id;
+    const data = await apiGetWithAuth<any>(`/profile/${userId}`, userId);
+    // 백엔드에서 { profile: ... } 구조로 올 수 있으므로 profile을 꺼냄
+    const profile = data?.profile ? data.profile : data;
+    // photos가 string 배열이 아닐 경우 변환
+    if (profile && profile.photos && Array.isArray(profile.photos)) {
+      profile.photos = profile.photos.map((p: any) =>
+        typeof p === 'string' ? p : (p && p.S ? p.S : null)
+      ).filter(Boolean);
     }
-    return data;
+    const dataAny = profile as any;
+    if (profile && !dataAny.id && (profile.userId || dataAny.user_id)) {
+      dataAny.id = profile.userId || dataAny.user_id;
+    }
+    return profile;
   } catch (error) {
     console.error('프로필 조회 실패:', error);
     return null;
@@ -162,39 +164,32 @@ export async function saveProfile(profile: Profile): Promise<boolean> {
     // 로컬 파일을 S3에 업로드하고 S3 URL로 변환
     const uploadedPhotos = [];
     if (profile.photos && profile.photos.length > 0) {
-      // null이 아닌 사진만 필터링하여 업로드
-      const validPhotos = profile.photos.filter(photo => photo && photo.trim() !== '');
-      
-      console.log('프로필 저장 - 사진 업로드 시작:', {
-        totalPhotos: profile.photos.length,
-        validPhotos: validPhotos.length,
-        photoUris: validPhotos
-      });
-      
-      for (const photoUri of validPhotos) {
-        if (photoUri.startsWith('https://') && photoUri.includes('s3.amazonaws.com')) {
-          // 이미 S3 URL인 경우 그대로 사용
+      const validPhotos = profile.photos.filter(photo => typeof photo === 'string' && photo.trim() !== '');
+      for (const photoUriRaw of validPhotos) {
+        let photoUri = photoUriRaw;
+        if (typeof photoUri !== 'string' && photoUri && typeof photoUri === 'object' && (photoUri as any).S) {
+          photoUri = (photoUri as any).S;
+        }
+        if (typeof photoUri === 'string') {
+          photoUri = photoUri.trim();
+        }
+        // S3 URL이면 무조건 추가
+        if (typeof photoUri === 'string' && photoUri.startsWith('https://date-sense.s3.ap-northeast-2.amazonaws.com/')) {
           uploadedPhotos.push(photoUri);
-        } else if (photoUri.startsWith('file://')) {
-          // 로컬 파일인 경우 S3에 업로드
-          console.log(`로컬 파일을 S3에 업로드 중: ${photoUri}`);
+        } else if (typeof photoUri === 'string' && photoUri.startsWith('file://')) {
           const userIdToUse = (profile as any).id || profile.userId;
           const s3Url = await uploadToS3(photoUri, userIdToUse);
           uploadedPhotos.push(s3Url);
-          console.log(`S3 업로드 완료: ${s3Url}`);
         } else {
-          console.warn(`지원하지 않는 URL 형식입니다: ${photoUri}`);
           continue;
         }
       }
     }
-    
-    // 백엔드에서 user_id를 기대하므로 필드명 변환
+    // 업로드된 S3 URL로 프로필 업데이트
+    console.log('API POST photos:', uploadedPhotos);
     const { userId, ...profileData } = profile;
     const profileAny = profile as any;
     const userIdToSend = profileAny.id || userId || profileAny.user_id;
-    
-    // 업로드된 S3 URL로 프로필 업데이트
     const profileWithUploadedPhotos = {
       user_id: userIdToSend,
       ...profileData,

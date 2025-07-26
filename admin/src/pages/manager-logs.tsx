@@ -134,7 +134,7 @@ export default function ManagerLogs() {
       case 'grade_change': return 'text-cyan-600 bg-cyan-100';
       case 'user_grade_change': return 'text-cyan-600 bg-cyan-100';
       case 'matching_approve': return 'text-emerald-600 bg-emerald-100';
-      case 'matching_refuse': return 'text-rose-600 bg-rose-100';
+      case 'matching_refused': return 'text-rose-600 bg-rose-100';
       case 'review_delete': return 'text-red-600 bg-red-100';
       case 'point_adjust': return 'text-amber-600 bg-amber-100';
       case 'user_delete': return 'text-red-600 bg-red-100';
@@ -159,7 +159,7 @@ export default function ManagerLogs() {
       case 'grade_change': return '등급 변경';
       case 'user_grade_change': return '등급 변경';
       case 'matching_approve': return '매칭 승인';
-      case 'matching_refuse': return '매칭 거부';
+      case 'matching_refused': return '매칭 거부';
       case 'review_delete': return '리뷰 삭제';
       case 'point_adjust': return '포인트 조정';
       case 'user_delete': return '사용자 삭제';
@@ -277,7 +277,7 @@ export default function ManagerLogs() {
                   { value: 'grade_change', label: '등급 변경' },
                   { value: 'user_grade_change', label: '등급 변경' },
                   { value: 'matching_approve', label: '매칭 승인' },
-                  { value: 'matching_refuse', label: '매칭 거부' },
+                  { value: 'matching_refused', label: '매칭 거부' },
                   { value: 'point_adjust', label: '포인트 조정' },
                   { value: 'review_delete', label: '리뷰 삭제' },
                   { value: 'user_delete', label: '사용자 삭제' },

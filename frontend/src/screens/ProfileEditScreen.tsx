@@ -93,6 +93,8 @@ const BUTTON_HEIGHT = 64;
 const ProfileEditScreen = () => {
   // 사진 관련 상태만 유지 (UI 전용)
   const [photos, setPhotos] = useState<(string | null)[]>([null, null, null, null, null]);
+  // 원본 photos 상태 저장
+  const [originalPhotos, setOriginalPhotos] = useState<(string | null)[]>([null, null, null, null, null]);
   const [photoActionIndex, setPhotoActionIndex] = useState<number|null>(null);
   const [previewUri, setPreviewUri] = useState<string|null>(null);
   const [previewTargetIdx, setPreviewTargetIdx] = useState<number|null>(null);
@@ -165,12 +167,17 @@ const ProfileEditScreen = () => {
             
             // 사진 설정
             if (profile.photos && Array.isArray(profile.photos) && profile.photos.length > 0) {
-              const photoArray: (string | null)[] = [...profile.photos];
+              // photos가 string 배열이 아닐 경우({ S: ... } 객체 배열일 경우) string 배열로 변환
+              const photoArray: (string | null)[] = profile.photos.map((p: any) =>
+                typeof p === 'string' ? p : (p && p.S ? p.S : null)
+              );
               while (photoArray.length < 5) photoArray.push(null);
               setPhotos(photoArray.slice(0, 5));
+              setOriginalPhotos(photoArray.slice(0, 5)); // 원본도 저장
             } else {
               // photos가 없거나 undefined인 경우 기본 배열 설정
               setPhotos([null, null, null, null, null]);
+              setOriginalPhotos([null, null, null, null, null]);
             }
           }
         } catch (error) {
@@ -190,28 +197,29 @@ const ProfileEditScreen = () => {
     return arr.filter((p): p is string => !!p && typeof p === 'string');
   };
 
-  const handleCamera = async (idx: number|null) => {
-    if (idx === null) return;
+  const handleCamera = async () => {
     const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.8 });
     if (!result.canceled && result.assets && result.assets.length > 0) {
       const newPhotos = [...(photos || [null, null, null, null, null])];
-      newPhotos[idx] = result.assets[0].uri;
+      const firstNullIdx = newPhotos.findIndex(p => !p);
+      if (firstNullIdx !== -1) {
+        newPhotos[firstNullIdx] = result.assets[0].uri;
+      }
       setPhotos(newPhotos);
       setPhotoActionIndex(null);
     }
   };
 
-  const handleGallery = async (idx: number|null) => {
-    if (idx === null) return;
+  const handleGallery = async () => {
     setPhotoActionIndex(null);
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 });
     if (!result.canceled && result.assets && result.assets.length > 0) {
       const newPhotos = [...(photos || [null, null, null, null, null])];
-      newPhotos[idx] = result.assets[0].uri;
+      const firstNullIdx = newPhotos.findIndex(p => !p);
+      if (firstNullIdx !== -1) {
+        newPhotos[firstNullIdx] = result.assets[0].uri;
+      }
       setPhotos(newPhotos);
-      // setPreviewUri(result.assets[0].uri);
-      // setPreviewTargetIdx(idx);
-      // setShowPreview(true);
     }
   };
 
@@ -323,7 +331,12 @@ const ProfileEditScreen = () => {
     }
     
     // photos 배열이 undefined인 경우 안전하게 처리
-    const currentPhotos = photos || [null, null, null, null, null];
+    let currentPhotos = photos || [null, null, null, null, null];
+    // 만약 모든 사진이 null이거나 빈 string이면, originalPhotos를 사용
+    const hasValidPhoto = currentPhotos.some(p => !!p && typeof p === 'string' && p.trim() !== '');
+    if (!hasValidPhoto && originalPhotos.some(p => !!p && typeof p === 'string' && p.trim() !== '')) {
+      currentPhotos = originalPhotos;
+    }
     
     console.log('프로필 저장 시작 - 현재 photos 상태:', {
       photosLength: currentPhotos.length,
@@ -500,10 +513,10 @@ const ProfileEditScreen = () => {
           >
             <View style={styles.photoActionDialog}>
               <View style={styles.photoActionList}>
-                <TouchableOpacity style={styles.photoActionTouchable} onPress={() => handleCamera(photoActionIndex)}>
+                <TouchableOpacity style={styles.photoActionTouchable} onPress={handleCamera}>
                   <Text style={styles.photoActionText}>카메라</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.photoActionTouchable} onPress={() => handleGallery(photoActionIndex)}>
+                <TouchableOpacity style={styles.photoActionTouchable} onPress={handleGallery}>
                   <Text style={styles.photoActionText}>갤러리</Text>
                 </TouchableOpacity>
                 {photoActionIndex !== 0 && photos && photos[photoActionIndex ?? 0] && (
