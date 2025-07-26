@@ -1,6 +1,6 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, QueryCommand, GetCommand, ScanCommand, UpdateCommand, PutCommand, DeleteCommand, BatchGetCommand } from '@aws-sdk/lib-dynamodb';
-import { awsConfig as AWS_CONFIG } from '../config/aws';
+import AWS_CONFIG from '../config/aws';
 import {
   Manager,
   User,
@@ -216,6 +216,7 @@ class DataService {
       const result = await dynamodb.send(new ScanCommand(params));
       return result.Items as Proposal[] || [];
     } catch (error) {
+      console.error('❌ getProposals 에러:', error);
       throw error;
     }
   }
@@ -228,6 +229,23 @@ class DataService {
     try {
       const result = await dynamodb.send(new ScanCommand(params));
       return result.Items as MatchPair[] || [];
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getMatchPairByRequestId(requestId: string): Promise<MatchPair | null> {
+    const params = {
+      TableName: 'MatchPairs',
+      FilterExpression: 'match_a_id = :requestId OR match_b_id = :requestId',
+      ExpressionAttributeValues: {
+        ':requestId': requestId
+      }
+    };
+    
+    try {
+      const result = await dynamodb.send(new ScanCommand(params));
+      return result.Items?.[0] as MatchPair || null;
     } catch (error) {
       throw error;
     }
@@ -488,40 +506,55 @@ class DataService {
 
   // 여러 user_id로 Users + Profiles 정보 한 번에 조회
   async getUsersWithProfilesByIds(userIds: string[]): Promise<any[]> {
-    if (!userIds.length) return [];
-    // DynamoDB batchGet은 100개까지 지원
-    const batches = [];
-    for (let i = 0; i < userIds.length; i += 100) {
-      batches.push(userIds.slice(i, i + 100));
-    }
-    const results: any[] = [];
-    for (const batch of batches) {
-      const params = {
-        RequestItems: {
-          Users: {
-            Keys: batch.map(id => ({ user_id: id }))
-          },
-          Profiles: {
-            Keys: batch.map(id => ({ user_id: id }))
-          }
+    if (userIds.length === 0) return [];
+    
+    const params = {
+      RequestItems: {
+        'Users': {
+          Keys: userIds.map(id => ({ user_id: id }))
+        },
+        'Profiles': {
+          Keys: userIds.map(id => ({ user_id: id }))
         }
-      };
-      const res = await dynamodb.send(new BatchGetCommand(params));
-      const users = res.Responses?.Users || [];
-      const profiles = res.Responses?.Profiles || [];
-      const profileMap = Object.fromEntries(profiles.map((p: any) => [p.user_id, p]));
-      // 각 유저별로 preferences도 가져와서 병합
-      for (const u of users) {
-        let preferences = null;
-        try {
-          preferences = await this.getPreferences(u.user_id);
-        } catch (e) {
-          preferences = null;
-        }
-        results.push({ ...u, profile: profileMap[u.user_id], preferences });
       }
+    };
+    
+    try {
+      const result = await dynamodb.send(new BatchGetCommand(params));
+      const users = result.Responses?.['Users'] || [];
+      const profiles = result.Responses?.['Profiles'] || [];
+      
+      // 사용자와 프로필을 매칭
+      const userMap = new Map(users.map(user => [user.user_id, user]));
+      const profileMap = new Map(profiles.map(profile => [profile.user_id, profile]));
+      
+      return userIds.map(userId => ({
+        ...userMap.get(userId),
+        profile: profileMap.get(userId) || null
+      }));
+    } catch (error) {
+      throw error;
     }
-    return results;
+  }
+
+  async updateMatchingRequestDateAddress(requestId: string, dateAddress: string): Promise<void> {
+    const params = {
+      TableName: 'MatchingRequests',
+      Key: { request_id: requestId },
+      UpdateExpression: 'SET date_address = :dateAddress, updated_at = :updatedAt',
+      ExpressionAttributeValues: {
+        ':dateAddress': dateAddress,
+        ':updatedAt': new Date().toISOString()
+      }
+    };
+    
+    try {
+      await dynamodb.send(new UpdateCommand(params));
+      console.log(`✅ MatchingRequests date_address 업데이트 완료: ${requestId}`);
+    } catch (error) {
+      console.error(`❌ MatchingRequests date_address 업데이트 실패: ${requestId}`, error);
+      throw error;
+    }
   }
 }
 
@@ -566,7 +599,7 @@ export async function saveUserScore(userId: string, score: any, scorer: string, 
     scorer,
     ...score,
     average,
-    grade: averageGrade, // averageGrade를 grade 필드로 저장
+    average_grade: averageGrade, // averageGrade를 grade 필드로 저장
     updated_at: now,
   };
   await dynamodb.send(new PutCommand({ TableName: 'Scores', Item: item }));
@@ -591,7 +624,7 @@ export async function saveUserScore(userId: string, score: any, scorer: string, 
       education: score.education,
       economics: score.economics,
       average,
-      averageGrade,
+      average_grade: averageGrade,
       reason: summary,
       manager_id: scorer,
     }
@@ -602,14 +635,13 @@ export async function saveUserScore(userId: string, score: any, scorer: string, 
 
 export async function getUserScoreHistory(userId: string): Promise<any[]> {
   const params = {
-    TableName: 'UserStatusHistory',
+    TableName: 'ScoreHistory',
     KeyConditionExpression: 'user_id = :uid',
     ExpressionAttributeValues: { ':uid': userId },
     ScanIndexForward: false, // 최신순 정렬
   };
   const result = await dynamodb.send(new QueryCommand(params));
-  // type이 'score'인 이력만 반환
-  return (result.Items || []).filter(item => item.type === 'score');
+  return result.Items || [];
 } 
 
 export async function deleteAllScoreHistory(userId: string) {

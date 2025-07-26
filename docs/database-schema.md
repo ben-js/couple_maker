@@ -37,7 +37,7 @@
   password: 'hashed_password',
   is_verified: false,
   has_profile: false,
-  has_preferences: false,
+  : false,
   grade: 'general',                  // general | excellent | gold | vip | vvip
   status: 'green',                   // green | yellow | red | black
   is_deleted: false,                 // 탈퇴 여부
@@ -200,6 +200,8 @@
   match_id: 'match-123',             // Primary Key
   match_a_id: 'req-123',             // 매칭을 신청한 쪽 (MatchingRequests ID)
   match_b_id: 'req-456',             // 매칭된 상대방 (MatchingRequests ID)
+  match_a_user_id: 'user_1'         // 매칭 신청한 user_id
+  match_b_user_id: 'user_2'         // 매칭된 상대방 user_id
   is_proposed: true,                 // 매니저가 제안한 매칭 여부
   confirm_proposed: true,            // 제안 수락 여부
   attempt_count: 1,                  // 일정 조율 시도 횟수
@@ -217,7 +219,45 @@
     { AttributeName: 'proposal_id', KeyType: 'HASH' }  // Primary Key
   ],
   AttributeDefinitions: [
-    { AttributeName: 'proposal_id', AttributeType: 'S' }
+    { AttributeName: 'proposal_id', AttributeType: 'S' },
+    { AttributeName: 'propose_user_id', AttributeType: 'S' },
+    { AttributeName: 'target_id', AttributeType: 'S' },
+    { AttributeName: 'match_pair_id', AttributeType: 'S' } // (GSI용)
+  ],
+  GlobalSecondaryIndexes: [
+    {
+      IndexName: 'propose-user-index',
+      KeySchema: [
+        { AttributeName: 'propose_user_id', KeyType: 'HASH' }
+      ],
+      Projection: { ProjectionType: 'ALL' },
+      ProvisionedThroughput: {
+        ReadCapacityUnits: 5,
+        WriteCapacityUnits: 5
+      }
+    },
+    {
+      IndexName: 'target-user-index',
+      KeySchema: [
+        { AttributeName: 'target_id', KeyType: 'HASH' }
+      ],
+      Projection: { ProjectionType: 'ALL' },
+      ProvisionedThroughput: {
+        ReadCapacityUnits: 5,
+        WriteCapacityUnits: 5
+      }
+    },
+    {
+      IndexName: 'match-pair-index',
+      KeySchema: [
+        { AttributeName: 'match_pair_id', KeyType: 'HASH' }
+      ],
+      Projection: { ProjectionType: 'ALL' },
+      ProvisionedThroughput: {
+        ReadCapacityUnits: 5,
+        WriteCapacityUnits: 5
+      }
+    }
   ]
 }
 ```
@@ -229,7 +269,7 @@
   proposer_id: 'manager-1',          // 제안한 매니저 id
   target_id: 'user_456',             // 제안 받은 유저 id
   propose_user_id: 'user_123',       // 제안받은 유저에게 제안된 상대방 유저 id
-  match_pair_id: 'match-123',        // 연결된 match-pairs id
+  match_pair_id: 'match-123',        // 연결된 match-pairs id (GSI)
   is_manual: true,                   // 수동 제안 여부
   status: 'accept',                  // pending | accept | refuse
   responded_at: '2024-12-01T10:00:00Z', // 응답 시간
@@ -238,6 +278,11 @@
   updated_at: '2024-12-01T10:00:00Z'
 }
 ```
+
+**GSI(Global Secondary Index) 설명:**
+- **propose-user-index**: propose_user_id로 조회 (특정 유저가 제안한 모든 proposal 빠른 조회)
+- **target-user-index**: target_id로 조회 (특정 유저가 받은 proposal 빠른 조회)
+- **match-pair-index**: match_pair_id로 조회 (특정 매칭쌍에 대한 proposal 빠른 조회, 수락/거절 처리에 사용)
 
 ### **7. Reviews 테이블**
 ```javascript
@@ -570,7 +615,7 @@
   education: 95,                                    // 학력 점수
   economics: 88,                                    // 경제력 점수
   average: 87.6,                                    // 평균 점수
-  averageGrade: 'B',                           // 등급
+  average_grade: 'B',                           // 등급
   scorer: 'manager_123',                            // 점수 입력/수정자
   summary: '최초 입력'                              // 점수 메모/사유
   created_at: '2025-07-20T01:34:50.677Z',           // Sort Key (ISO8601)
@@ -605,7 +650,7 @@
   education: 95,
   economics: 88,
   average: 87.6,
-  averageGrade: 'silver'
+  average_grade: 'silver'
   reason: '리뷰 반영 점수 조정',                     // 변경 사유
   manager_id: 'A'                         // 변경 관리자 ID
 }
@@ -889,7 +934,7 @@ GlobalSecondaryIndexes: [
 - education (number): 학력 점수
 - economics (number): 경제력 점수
 - average (number): 평균 점수
-- averageGrade (string): 등급
+- average_grade (string): 등급
 - scorer (string): 점수 입력/수정자
 - summary (string): 점수 메모/사유
 

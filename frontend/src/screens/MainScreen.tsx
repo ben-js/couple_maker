@@ -26,15 +26,6 @@ const MainScreen = () => {
   
   // 로그인 시 받은 사용자 정보를 우선 사용 (API 호출 없이)
   const currentUser = user;
-  
-  console.log('MainScreen - 사용자 정보 확인:', {
-    user: user,
-    currentUser: currentUser,
-    hasUser: !!user,
-    hasCurrentUser: !!currentUser,
-    userId: user?.userId,
-    currentUserId: currentUser?.userId
-  });
   const [matchedUser, setMatchedUser] = useState<any>(null);
   const [matchId, setMatchId] = useState<string | null>(null);
   const [otherChoices, setOtherChoices] = useState<{ dates: string[]; locations: string[] } | null>(null);
@@ -88,8 +79,11 @@ const MainScreen = () => {
       if (!user?.userId) return;
       
       try {
-        // 로그인 시 이미 매칭 상태를 가져왔으므로, 초기에는 API 호출하지 않음
-        // 대신 30초 후에 첫 번째 업데이트를 수행
+        // 로그인 후 즉시 매칭 상태 확인 (pending proposal 포함)
+        console.log('로그인 후 매칭 상태 확인 시작:', { userId: user.userId });
+        await refetchStatus();
+        
+        // 30초 후에 첫 번째 업데이트를 수행
         const timer = setTimeout(async () => {
           console.log('첫 번째 매칭 상태 업데이트 시작:', { userId: user.userId });
           apiPost('/process-matching-status', undefined, user.userId).catch(console.error);
@@ -102,30 +96,63 @@ const MainScreen = () => {
     };
 
     checkProposalAndStatus();
-  }, [user?.userId]); // statusData 의존성 제거하여 무한 루프 방지
+  }, [user?.userId, refetchStatus]); // refetchStatus 의존성 추가
 
   // 매칭 제안 응답 처리
-  const handleProposalResponse = async (response: 'accept' | 'refuse') => {
-    if (!proposalMatchId) return;
+  const handleProposalResponse = async (response: 'accepted' | 'refused') => {
+    console.log('🔍 handleProposalResponse 시작:', { response, proposalMatchId, statusData });
+    
+    const matchIdToUse = proposalMatchId || statusData?.proposalMatchId;
+    console.log('🔍 matchIdToUse:', matchIdToUse);
+    
+    if (!matchIdToUse) {
+      console.error('❌ matchIdToUse가 없습니다.');
+      Alert.alert('오류', '매칭 ID를 찾을 수 없습니다.');
+      return;
+    }
 
     try {
-      const result = await apiPost(`/propose/${proposalMatchId}/respond`, {
+      console.log('📡 API 요청 시작:', { url: `/propose/${matchIdToUse}/respond`, response, userId: user?.userId });
+      
+      const result = await apiPost(`/propose/${matchIdToUse}/respond`, {
         response
       }, user?.userId);
+
+      console.log('✅ API 응답 성공:', result);
 
       setShowProposalModal(false);
       setProposalMatchId(null);
 
-      if (response === 'accept') {
+      if (response === 'accepted') {
         Alert.alert('수락 완료', '매칭 제안을 수락했습니다.');
         // 상태 새로고침
         await refetchStatus();
       } else {
         Alert.alert('거절 완료', '매칭 제안을 거절했습니다.');
+        // 상태 새로고침
+        await refetchStatus();
       }
-    } catch (error) {
-      console.error('매칭 제안 응답 실패:', error);
-      Alert.alert('오류', '처리 중 오류가 발생했습니다.');
+    } catch (error: any) {
+      console.error('❌ 매칭 제안 응답 실패:', error);
+      console.error('❌ 오류 상세:', { 
+        message: error?.message, 
+        stack: error?.stack,
+        matchIdToUse,
+        response,
+        userId: user?.userId
+      });
+      
+      // 더 구체적인 오류 메시지 제공
+      let errorMessage = '처리 중 오류가 발생했습니다.';
+      if (error?.message?.includes('404')) {
+        errorMessage = '매칭 제안을 찾을 수 없습니다.';
+      } else if (error?.message?.includes('500')) {
+        errorMessage = '서버 오류가 발생했습니다.';
+      } else if (error?.message?.includes('network')) {
+        errorMessage = '네트워크 연결을 확인해주세요.';
+      }
+      
+      Alert.alert('오류', errorMessage);
     }
   };
 
@@ -138,18 +165,60 @@ const MainScreen = () => {
     }
   }, [statusData]);
 
+  // pending 제안이 있을 때 모달 표시
+  useEffect(() => {
+    console.log('=== MainScreen - pending 제안 확인 시작 ===');
+    console.log('전체 statusData:', JSON.stringify(statusData, null, 2));
+    console.log('전체 user 정보:', JSON.stringify(user, null, 2));
+    console.log('MainScreen - pending 제안 확인:', {
+      hasPendingProposal: statusData?.hasPendingProposal,
+      proposalMatchId: statusData?.proposalMatchId,
+      proposalTargetId: statusData?.proposalTargetId,
+      userId: user?.userId,
+      statusData: statusData
+    }); 
+    
+    // 각 조건을 개별적으로 체크
+    const hasProposal = statusData?.hasPendingProposal;
+    const targetIdMatch = statusData?.proposalTargetId === user?.userId;
+    const hasMatchId = statusData?.proposalMatchId;
+    
+    console.log('조건 체크:', {
+      hasProposal,
+      targetIdMatch,
+      hasMatchId,
+      proposalTargetId: statusData?.proposalTargetId,
+      userId: user?.userId,
+      isEqual: statusData?.proposalTargetId === user?.userId,
+      proposalTargetIdType: typeof statusData?.proposalTargetId,
+      userIdType: typeof user?.userId
+    });
+    
+    // proposalTargetId가 있을 때만 내 userId와 일치하는지 체크
+    const isMyProposal = hasProposal && targetIdMatch;
+    if (isMyProposal && hasMatchId) {
+      console.log('✅ 모달 표시 조건 만족 - 모달 띄움');
+      setShowProposalModal(true);
+      setProposalMatchId(statusData.proposalMatchId);
+    } else {
+      console.log('❌ 모달 표시 조건 불만족 - 모달 숨김');
+      console.log('❌ 실패 이유:', {
+        hasProposal,
+        targetIdMatch,
+        hasMatchId,
+        isMyProposal
+      });
+      setShowProposalModal(false);
+      setProposalMatchId(null);
+    }
+    console.log('=== MainScreen - pending 제안 확인 끝 ===');
+  }, [statusData?.hasPendingProposal, statusData?.proposalMatchId, statusData?.proposalTargetId, user?.userId]);
+
   // 화면이 포커스될 때 사용자 상태 확인만 (불필요한 refetch 제거)
   useFocusEffect(
     useCallback(() => {
       // 사용자 상태 확인 및 분기 처리만 수행
-      if (currentUser) {
-        console.log('MainScreen - 사용자 상태 확인:', {
-          userId: currentUser.userId,
-          isVerified: currentUser.isVerified,
-          hasProfile: currentUser.hasProfile,
-          hasPreferences: currentUser.hasPreferences
-        });
-        
+      if (currentUser) {   
         if (!currentUser.isVerified && currentUser.email) {
           // 이메일 인증이 필요한 경우
           navigation.navigate(NAVIGATION_ROUTES.EMAIL_VERIFICATION, { email: currentUser.email });
@@ -167,9 +236,19 @@ const MainScreen = () => {
   // 로그인 후 매칭 상태를 강제로 즉시 fetch
   useEffect(() => {
     if (user?.userId) {
+      console.log('로그인 후 강제 매칭 상태 fetch:', user.userId);
       refetchStatus(); // 로그인 후 강제 fetch
     }
-  }, [user?.userId]);
+  }, [user?.userId, refetchStatus]);
+
+  // otherUserChoices가 변경될 때 otherChoices 상태 업데이트
+  useEffect(() => {
+    if (statusData?.otherUserChoices) {
+      setOtherChoices(statusData.otherUserChoices);
+    } else {
+      setOtherChoices(null);
+    }
+  }, [statusData?.otherUserChoices]);
 
 
   // 매칭 단계별 설명
@@ -223,20 +302,9 @@ const MainScreen = () => {
     return stepMapping[status] ?? -1;
   };
 
-  const showCtaCard = !statusData?.status || statusData?.status === '' || statusData?.status === 'none';
+  const showCtaCard = (!statusData?.status || statusData?.status === '' || statusData?.status === 'none') && !statusData?.hasPendingProposal;
   const showWaitingReviewMsg = statusData?.status === 'review' && !statusData?.bothReviewed;
   const currentStep = getCurrentStep(statusData?.status);
-
-  console.log('MainScreen - 상태 확인:', {
-    statusData: statusData,
-    status: statusData?.status,
-    showCtaCard: showCtaCard,
-    currentStep: currentStep
-  });
-
-  // console.log('statusData:', statusData);
-  // console.log('showWaitingReviewMsg:', showWaitingReviewMsg);
-  // console.log('currentStep:', currentStep);
 
   const renderMatchingProgress = () => (
     <View style={styles.matchingProgressContainer}>
@@ -271,25 +339,22 @@ const MainScreen = () => {
 
   // 일정/장소 바텀시트 확인
   const handleConfirmSchedule = async () => {
-    // console.log('[일정/장소 저장] 시도', { dateSelections, locationSelection, matchId, userId: user?.userId });
     if (!dateSelections.every(d => d) || !locationSelection?.length) {
-      // console.log('[일정/장소 저장] 날짜/장소 미입력');
+      Alert.alert('입력 확인', '날짜와 장소를 모두 선택해주세요.');
       return;
     }
-    if (!matchId) {
-      // console.log('[일정/장소 저장] matchId 없음');
+    if (!statusData?.requestId) {
+      Alert.alert('오류', '매칭 요청 ID를 찾을 수 없습니다.');
       return;
     }
     try {
       const res = await apiPost('/submit-choices', {
-        match_id: matchId,
-        user_id: user?.userId,
+        request_id: statusData.requestId,
         dates: dateSelections,
         locations: locationSelection,
       }, user?.userId);
-      // console.log('[일정/장소 저장] API 응답', res);
-      
-      // mismatched 상태인 경우 알림 표시
+    
+      // mismatched 상태인 경우 추가 알림 표시
       if (res.status === 'mismatched') {
         const otherDates = statusData?.otherUserChoices?.dates || [];
         const otherLocations = statusData?.otherUserChoices?.locations || [];
@@ -315,12 +380,37 @@ const MainScreen = () => {
         );
       } else if (res.status === 'confirmed') {
         Alert.alert('일정 확정!', '상대방과 일정이 맞아서 소개팅이 확정되었습니다.');
+      } else {
+        Alert.alert('완료', '일정/장소를 선택하였습니다.', [
+          {
+            text: '확인',
+            onPress: () => {
+              // 상태 업데이트 후 화면 갱신
+              refetchStatus();
+            }
+          }
+        ]);
+      }
+    } catch (e: any) {
+      console.error('❌ API 에러:', e);
+      console.error('❌ 에러 상세:', { 
+        message: e?.message, 
+        stack: e?.stack,
+        matchId,
+        userId: user?.userId
+      });
+      
+      // 더 구체적인 오류 메시지 제공
+      let errorMessage = '일정/장소 저장에 실패했습니다.';
+      if (e?.message?.includes('404')) {
+        errorMessage = '매칭 정보를 찾을 수 없습니다.';
+      } else if (e?.message?.includes('500')) {
+        errorMessage = '서버 오류가 발생했습니다.';
+      } else if (e?.message?.includes('network')) {
+        errorMessage = '네트워크 연결을 확인해주세요.';
       }
       
-      refetchStatus();
-    } catch (e) {
-      // console.log('[일정/장소 저장] API 에러', e);
-      Alert.alert('저장 실패', '일정/장소 저장에 실패했습니다.');
+      Alert.alert('저장 실패', errorMessage);
     }
   };
 
@@ -412,7 +502,7 @@ const MainScreen = () => {
       )}
 
       {/* 일정 선택 UI: status가 matched 또는 mismatched일 때 */}
-      {!showCtaCard && (statusData?.status === 'matched' || statusData?.status === 'mismatched') && statusData.otherUserChoices && (
+      {!showCtaCard && (statusData?.status === 'matched' || statusData?.status === 'mismatched') && (
         <View style={{ 
           backgroundColor: statusData?.status === 'mismatched' ? '#FFF0F0' : '#FFF3F3', 
           borderRadius: 12, 
@@ -423,29 +513,32 @@ const MainScreen = () => {
         }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 4 }}>
             <Text style={{ fontSize: 12, lineHeight: 22, marginRight: 5 }}>
-              {statusData?.status === 'mismatched' ? '⚠️' : '💡'}
+              {'💡'}
             </Text>
             <Text style={{ 
               fontWeight: 'bold', 
               fontSize: 16, 
               lineHeight: 22,
-              color: statusData?.status === 'mismatched' ? '#E53E3E' : '#222'
+              color: '#222'
             }}>
-              {statusData?.status === 'mismatched' ? '일정이 맞지 않습니다' : '상대방이 선택한 일정/장소'}
+              { '상대방이 선택한 일정/장소'}
             </Text>
           </View>
           {statusData?.status === 'mismatched' && (
             <Text style={{ marginBottom: 8, textAlign: 'center', color: '#E53E3E', fontSize: 14, fontWeight: '500' }}>
-              위 일정 중에서 선택하거나, 같은 지역의 장소를 선택해주세요
+              위 일정 중에서 선택하고, 같은 지역의 장소를 선택해주세요
             </Text>
           )}
-          <Text style={{ marginBottom: 2, textAlign: 'center' }}>날짜: {statusData.otherUserChoices.dates?.join(', ') || '-'}</Text>
-          <Text style={{ textAlign: 'center' }}>장소: {statusData.otherUserChoices.locations?.join(', ') || '-'}</Text>
+          <Text style={{ marginBottom: 2, textAlign: 'center' }}>날짜: {otherChoices?.dates?.join(', ') || '-'}</Text>
+          <Text style={{ textAlign: 'center' }}>장소: {otherChoices?.locations?.join(', ') || '-'}</Text>
         </View>
       )}
 
-      {/* 일정 선택 UI: matched, mismatched 모두에서 노출 */}
-      {!showCtaCard && (statusData?.status === 'matched' || statusData?.status === 'mismatched') && (
+      {/* 일정 선택 UI: matched 상태이고 아직 선택하지 않은 경우, 또는 mismatched 상태인 경우 (myChoices가 있어도 재선택 가능) */}
+      {!showCtaCard && (
+        (statusData?.status === 'matched' && !statusData?.myChoices) ||
+        statusData?.status === 'mismatched'
+      ) && (
         <CardScheduleChoice
           otherChoices={otherChoices}
           dateSelections={dateSelections}
@@ -458,6 +551,18 @@ const MainScreen = () => {
           showDateDuplicateModal={showDateDuplicateModal}
           setShowDateDuplicateModal={setShowDateDuplicateModal}
           onConfirm={handleConfirmSchedule}
+        />
+      )}
+
+      {/* 일정 선택 완료 후 메시지: matched 상태이고 선택을 완료한 경우에만 (mismatched 상태에서는 표시하지 않음) */}
+      {!showCtaCard && statusData?.status === 'matched' && statusData?.myChoices && (
+        <CardCTA
+          title="일정/장소 선택 완료"
+          subtitle={`선택한 날짜: ${statusData.myChoices.dates?.join(', ')}\n선택한 장소: ${statusData.myChoices.locations?.join(', ')}`}
+          buttonText="상대방 선택 대기 중..."
+          icon="clock"
+          disabled={true}
+          onPress={() => {}}
         />
       )}
 
@@ -504,19 +609,19 @@ const MainScreen = () => {
       >
         <View style={styles.proposalModalOverlay}>
           <View style={styles.proposalModalContainer}>
-            <Text style={styles.proposalModalTitle}>매니저에게로 부터 소개팅 제안이 왔습니다.</Text>
+            <Text style={styles.proposalModalTitle}>소개팅 제안이 도착했습니다.</Text>
             <Text style={styles.proposalModalSubtitle}>소개팅을 받으시겠습니까? (포인트 미차감)</Text>
             <View style={styles.proposalButtonContainer}>
               <TouchableOpacity
                 style={[styles.proposalButton, styles.proposalAcceptButton]}
-                onPress={() => handleProposalResponse('accept')}
+                onPress={() => handleProposalResponse('accepted')}
               >
                 <Text style={styles.proposalAcceptButtonText}>예</Text>
               </TouchableOpacity>
               
               <TouchableOpacity
                 style={[styles.proposalButton, styles.proposalRefuseButton]}
-                onPress={() => handleProposalResponse('refuse')}
+                onPress={() => handleProposalResponse('refused')}
               >
                 <Text style={styles.proposalRefuseButtonText}>아니오</Text>
               </TouchableOpacity>
@@ -871,7 +976,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 28,
     alignItems: 'center',
-    minWidth: 280,
+    width: '96%',
+    maxWidth: 400,
   },
   proposalModalTitle: {
     fontSize: 20,
